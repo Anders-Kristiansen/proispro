@@ -2,23 +2,60 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --clr-bg:        #0f172a;
-  --clr-surface:   #1e293b;
-  --clr-surface2:  #273549;
-  --clr-border:    #334155;
-  --clr-accent:    #22d3ee;
-  --clr-accent2:   #0891b2;
-  --clr-danger:    #ef4444;
-  --clr-text:      #f1f5f9;
-  --clr-muted:     #94a3b8;
+  /*
+   * COLOR SYSTEM — OKLCH
+   * ─────────────────────────────────────────────────────────────
+   * All colors are defined in OKLCH(L C H):
+   *   L = perceptual lightness  (0–1)
+   *   C = chroma / colorfulness (0–0.4 typical range)
+   *   H = hue angle in degrees  (0–360)
+   *
+   * Why OKLCH over hex/HSL?
+   *   • Perceptually uniform lightness — L=0.75 looks equally bright
+   *     across ALL hues (HSL's yellow is far lighter than its blue at L=50%)
+   *   • Predictable chroma — adjusting C doesn't shift perceived brightness
+   *   • Hue angles are roughly perceptually equidistant
+   *   • Native CSS support in all modern browsers (Chrome 111+, Firefox 113+, Safari 15.4+)
+   *
+   * Semantic token structure:
+   *   Background surfaces  → low L, low C, cool-blue H (~264°)
+   *   Text                 → high L, near-zero C
+   *   Accent               → mid-high L, moderate C, cyan H (~204°)
+   *   Type badges          → fixed L=0.75, C=0.18 — only hue varies
+   *                          This guarantees perceptually equal brightness badges.
+   *
+   * Hex originals kept in comments for reference.
+   * ─────────────────────────────────────────────────────────────
+   */
+
+  /* Surfaces — dark navy family */
+  --clr-bg:        oklch(0.16 0.03 264);   /* ≈ #0f172a */
+  --clr-surface:   oklch(0.22 0.03 264);   /* ≈ #1e293b */
+  --clr-surface2:  oklch(0.26 0.03 264);   /* ≈ #273549 */
+  --clr-border:    oklch(0.32 0.03 264);   /* ≈ #334155 */
+
+  /* Accent — cyan */
+  --clr-accent:    oklch(0.82 0.12 204);   /* ≈ #22d3ee */
+  --clr-accent2:   oklch(0.60 0.12 204);   /* ≈ #0891b2 */
+
+  /* Semantic */
+  --clr-danger:    oklch(0.63 0.22 25);    /* ≈ #ef4444 */
+  --clr-text:      oklch(0.96 0.005 264);  /* ≈ #f1f5f9 */
+  --clr-muted:     oklch(0.67 0.04 264);   /* ≈ #94a3b8 */
+
   --radius:        10px;
   --shadow:        0 4px 20px rgba(0,0,0,.4);
 
-  /* type badge colours */
-  --putter:   #a78bfa;
-  --midrange: #34d399;
-  --fairway:  #fbbf24;
-  --distance: #f87171;
+  /*
+   * Type badge colors — perceptually uniform
+   * All share L=0.75, C=0.18; only H varies.
+   * This is the key advantage of OKLCH: equal perceived brightness
+   * across all four disc types — impossible to guarantee in hex.
+   */
+  --putter:   oklch(0.75 0.18 295);  /* purple  ≈ #a78bfa */
+  --midrange: oklch(0.75 0.18 155);  /* green   ≈ #34d399 */
+  --fairway:  oklch(0.75 0.18 70);   /* amber   ≈ #fbbf24 */
+  --distance: oklch(0.75 0.18 25);   /* red     ≈ #f87171 */
 }
 
 html { font-size: 16px; scroll-behavior: smooth; }
@@ -277,6 +314,7 @@ label {
 input[type="text"],
 input[type="number"],
 input[type="search"],
+input[type="password"],
 select,
 textarea {
   background: var(--clr-bg);
@@ -335,6 +373,66 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ── Header Actions ──────────────────────────────────────── */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+/* ── Settings Modal ──────────────────────────────────────── */
+.settings-desc {
+  font-size: .83rem;
+  color: var(--clr-muted);
+  margin-bottom: 1rem;
+  line-height: 1.55;
+}
+.settings-desc a    { color: var(--clr-accent); }
+.settings-desc code {
+  background: var(--clr-surface2);
+  border: 1px solid var(--clr-border);
+  border-radius: 4px;
+  padding: .1em .35em;
+  font-size: .85em;
+}
+
+/* ── Test Connection Result ──────────────────────────────── */
+.gh-test-result {
+  font-size: .83rem;
+  padding: .5rem .8rem;
+  border-radius: var(--radius);
+  margin-bottom: .4rem;
+  border: 1px solid transparent;
+}
+.gh-test-result.ok      { color: #22c55e; border-color: rgba(34,197,94,.3);  background: rgba(34,197,94,.08); }
+.gh-test-result.err     { color: var(--clr-danger); border-color: rgba(239,68,68,.3); background: rgba(239,68,68,.08); }
+.gh-test-result.warn    { color: #fbbf24; border-color: rgba(251,191,36,.3); background: rgba(251,191,36,.08); }
+.gh-test-result.testing { color: var(--clr-muted); border-color: var(--clr-border); background: var(--clr-surface2); }
+
+/* ── Sync Status ─────────────────────────────────────────── */
+.sync-status {
+  position: fixed;
+  bottom: 1.2rem;
+  left: 1.4rem;
+  font-size: .75rem;
+  font-weight: 500;
+  padding: .28rem .65rem;
+  border-radius: 999px;
+  border: 1px solid var(--clr-border);
+  background: var(--clr-surface2);
+  color: var(--clr-muted);
+  z-index: 150;
+  cursor: default;
+  transition: color .2s, border-color .2s;
+  user-select: none;
+}
+.sync-status.synced { color: #22c55e; border-color: rgba(34,197,94,.35); }
+.sync-status.failed { color: var(--clr-danger); border-color: rgba(239,68,68,.35); cursor: pointer; }
+.sync-status.failed:hover { filter: brightness(1.15); }
+
+@keyframes spin-ccw { to { transform: rotate(-360deg); } }
+.sync-spin { display: inline-block; animation: spin-ccw .9s linear infinite; }
+
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 520px) {
   .form-row { grid-template-columns: 1fr; }
@@ -342,4 +440,5 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   .disc-grid { grid-template-columns: 1fr; padding: .8rem; }
   .toolbar { padding: .6rem .8rem; }
   .io-bar { bottom: .7rem; right: .8rem; }
+  .sync-status { bottom: .7rem; left: .8rem; }
 }
