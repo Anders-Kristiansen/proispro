@@ -47,6 +47,21 @@
   --shadow:        0 4px 20px rgba(0,0,0,.4);
 
   /*
+   * Disc color swatches — placeholder OKLCH values.
+   * Saul's CSS block will override these with final perceptually-tuned values.
+   */
+  --disc-crimson:   oklch(0.55 0.22 20);
+  --disc-tangerine: oklch(0.72 0.18 45);
+  --disc-lemon:     oklch(0.90 0.17 90);
+  --disc-lime:      oklch(0.82 0.20 135);
+  --disc-teal:      oklch(0.72 0.14 175);
+  --disc-sky:       oklch(0.80 0.12 220);
+  --disc-cobalt:    oklch(0.52 0.18 255);
+  --disc-violet:    oklch(0.65 0.20 295);
+  --disc-rose:      oklch(0.73 0.18 5);
+  --disc-white:     oklch(0.95 0.005 264);
+
+  /*
    * Type badge colors — perceptually uniform
    * All share L=0.75, C=0.18; only H varies.
    * This is the key advantage of OKLCH: equal perceived brightness
@@ -432,6 +447,75 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
 
 @keyframes spin-ccw { to { transform: rotate(-360deg); } }
 .sync-spin { display: inline-block; animation: spin-ccw .9s linear infinite; }
+
+/* ── Color Picker ─────────────────────────────────────────── */
+.color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  align-items: center;
+}
+
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  transition: transform .12s, border-color .12s, box-shadow .12s;
+  touch-action: manipulation;
+  flex-shrink: 0;
+}
+
+/* Expand touch target to ≥ 44px without affecting visual layout */
+.color-swatch::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+}
+
+.color-none {
+  background: var(--clr-surface2);
+  border-color: var(--clr-border);
+  color: var(--clr-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+
+.color-swatch:hover {
+  transform: scale(1.18);
+  border-color: var(--clr-text);
+}
+
+.color-swatch.selected {
+  border-color: var(--clr-accent);
+  box-shadow: 0 0 0 2px var(--clr-accent);
+}
+
+.color-label {
+  font-size: .78rem;
+  color: var(--clr-muted);
+  min-height: 1.1em;
+  margin-top: .2rem;
+}
+
+/* ── Disc Color Dot (card display) ───────────────────────── */
+.disc-color-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  vertical-align: middle;
+  border: 1px solid rgba(255,255,255,.2);
+}
 
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 520px) {

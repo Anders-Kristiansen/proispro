@@ -346,7 +346,7 @@ function render() {
     const details = [
       d.weight   ? `⚖️ ${escHtml(d.weight)}g` : '',
       d.plastic  ? `🧪 ${escHtml(d.plastic)}` : '',
-      d.color    ? `🎨 ${escHtml(d.color)}`   : '',
+      d.color    ? `🎨 <span class="disc-color-dot" style="background:var(--disc-${escHtml(d.color.toLowerCase())})"></span>${escHtml(d.color)}` : '',
       d.condition ? condDot + escHtml(COND_LABELS[safeCondition] || safeCondition) : '',
     ].filter(Boolean).map(s => `<span>${s}</span>`).join('');
 
@@ -374,6 +374,7 @@ function render() {
 function openAddModal() {
   discForm.reset();
   discIdField.value = '';
+  resetColorPicker();
   modalTitle.textContent = 'Add Disc';
   modalOverlay.classList.remove('hidden');
   document.getElementById('discName').focus();
@@ -388,7 +389,7 @@ function openEditModal(id) {
   document.getElementById('discType').value         = d.type || '';
   document.getElementById('discPlastic').value      = d.plastic || '';
   document.getElementById('discWeight').value       = d.weight || '';
-  document.getElementById('discColor').value        = d.color || '';
+  setColorPicker(d.color || '');
   document.getElementById('discCondition').value    = d.condition || 'good';
   document.getElementById('discFlight').value       = d.flight || '';
   document.getElementById('discNotes').value        = d.notes || '';
@@ -550,6 +551,34 @@ document.getElementById('importFile').addEventListener('change', e => {
   reader.readAsText(file);
   // reset so same file can be re-imported
   e.target.value = '';
+});
+
+// ── Color Picker ─────────────────────────────────────────────
+const colorPickerEl = document.getElementById('colorPicker');
+const colorHiddenEl = document.getElementById('discColor');
+const colorLabelEl  = document.getElementById('colorLabel');
+
+function resetColorPicker() {
+  colorPickerEl.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  colorPickerEl.querySelector('[data-color=""]').classList.add('selected');
+  colorHiddenEl.value    = '';
+  colorLabelEl.textContent = '';
+}
+
+function setColorPicker(colorName) {
+  colorPickerEl.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  const target = colorPickerEl.querySelector(
+    colorName ? `[data-color="${colorName}"]` : '[data-color=""]'
+  );
+  if (target) target.classList.add('selected');
+  colorHiddenEl.value      = colorName;
+  colorLabelEl.textContent = colorName || '';
+}
+
+colorPickerEl.addEventListener('click', e => {
+  const swatch = e.target.closest('.color-swatch');
+  if (!swatch) return;
+  setColorPicker(swatch.dataset.color);
 });
 
 // ── Boot ──────────────────────────────────────────────────────
