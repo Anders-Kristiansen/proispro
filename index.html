@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProIsPro – Disc Inventory</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header class="site-header">
+    <div class="header-inner">
+      <h1 class="logo">🥏 ProIsPro</h1>
+      <p class="tagline">Your personal disc golf bag tracker</p>
+    </div>
+    <button class="btn btn-primary" id="openAddModal">+ Add Disc</button>
+  </header>
+
+  <!-- ── Toolbar ── -->
+  <div class="toolbar">
+    <input
+      type="search"
+      id="searchInput"
+      class="search-input"
+      placeholder="Search discs…"
+      aria-label="Search discs"
+    />
+    <select id="filterType" class="select-input" aria-label="Filter by type">
+      <option value="">All types</option>
+      <option value="putter">Putter</option>
+      <option value="midrange">Midrange</option>
+      <option value="fairway">Fairway Driver</option>
+      <option value="distance">Distance Driver</option>
+    </select>
+    <select id="sortBy" class="select-input" aria-label="Sort by">
+      <option value="name">Sort: Name</option>
+      <option value="type">Sort: Type</option>
+      <option value="weight">Sort: Weight</option>
+      <option value="added">Sort: Date Added</option>
+    </select>
+    <span id="discCount" class="disc-count">0 discs</span>
+  </div>
+
+  <!-- ── Grid ── -->
+  <main class="disc-grid" id="discGrid">
+    <!-- disc cards injected here -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🥏</div>
+      <h2>No discs yet</h2>
+      <p>Click <strong>+ Add Disc</strong> to start building your bag!</p>
+    </div>
+  </main>
+
+  <!-- ── Add / Edit Modal ── -->
+  <div class="modal-overlay hidden" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">Add Disc</h2>
+        <button class="modal-close" id="closeModal" aria-label="Close">✕</button>
+      </div>
+      <form id="discForm" novalidate>
+        <input type="hidden" id="discId" />
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="discName">Disc Name *</label>
+            <input type="text" id="discName" placeholder="e.g. Destroyer" required />
+          </div>
+          <div class="form-group">
+            <label for="discManufacturer">Manufacturer</label>
+            <input type="text" id="discManufacturer" placeholder="e.g. Innova" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="discType">Type *</label>
+            <select id="discType" required>
+              <option value="">Select type…</option>
+              <option value="putter">Putter</option>
+              <option value="midrange">Midrange</option>
+              <option value="fairway">Fairway Driver</option>
+              <option value="distance">Distance Driver</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="discPlastic">Plastic</label>
+            <input type="text" id="discPlastic" placeholder="e.g. Star, Champion…" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="discWeight">Weight (g)</label>
+            <input type="number" id="discWeight" min="100" max="200" placeholder="175" />
+          </div>
+          <div class="form-group">
+            <label for="discColor">Color</label>
+            <input type="text" id="discColor" placeholder="e.g. Red, Blue…" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="discCondition">Condition</label>
+            <select id="discCondition">
+              <option value="new">New / Mint</option>
+              <option value="good" selected>Good</option>
+              <option value="used">Used</option>
+              <option value="beat">Beat-in</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="discFlight">Flight Numbers</label>
+            <input type="text" id="discFlight" placeholder="e.g. 12 / 5 / -1 / 3" />
+          </div>
+        </div>
+
+        <div class="form-group full-width">
+          <label for="discNotes">Notes</label>
+          <textarea id="discNotes" rows="2" placeholder="Favorite hyzer flip disc…"></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="cancelModal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveBtn">Save Disc</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Delete Confirm Modal ── -->
+  <div class="modal-overlay hidden" id="deleteOverlay" role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2 class="modal-title" id="deleteTitle">Remove Disc</h2>
+        <button class="modal-close" id="closeDelete" aria-label="Close">✕</button>
+      </div>
+      <p id="deleteMessage">Are you sure you want to remove this disc?</p>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" id="cancelDelete">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDelete">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Export / Import bar ── -->
+  <div class="io-bar">
+    <button class="btn btn-secondary btn-sm" id="exportBtn" title="Download your disc bag as JSON">⬇ Export</button>
+    <label class="btn btn-secondary btn-sm" title="Import a disc bag JSON file">
+      ⬆ Import
+      <input type="file" id="importFile" accept=".json" class="hidden-input" />
+    </label>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
