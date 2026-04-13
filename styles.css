@@ -50,16 +50,17 @@
    * Disc color swatches — placeholder OKLCH values.
    * Saul's CSS block will override these with final perceptually-tuned values.
    */
-  --disc-crimson:   oklch(0.55 0.22 20);
-  --disc-tangerine: oklch(0.72 0.18 45);
-  --disc-lemon:     oklch(0.90 0.17 90);
-  --disc-lime:      oklch(0.82 0.20 135);
-  --disc-teal:      oklch(0.72 0.14 175);
-  --disc-sky:       oklch(0.80 0.12 220);
-  --disc-cobalt:    oklch(0.52 0.18 255);
-  --disc-violet:    oklch(0.65 0.20 295);
-  --disc-rose:      oklch(0.73 0.18 5);
-  --disc-white:     oklch(0.95 0.005 264);
+  /* Saul's palette — perceptually uniform L=0.72–0.80, C=0.18–0.26, full hue spread */
+  --disc-crimson:       oklch(0.72 0.24  25);  /* ≈ #f04545 — Crimson       */
+  --disc-tangerine:     oklch(0.76 0.22  52);  /* ≈ #f98340 — Tangerine     */
+  --disc-solar-yellow:  oklch(0.80 0.20 108);  /* ≈ #c0e418 — Solar Yellow  */
+  --disc-lime:          oklch(0.76 0.22 140);  /* ≈ #52de4a — Lime          */
+  --disc-emerald:       oklch(0.74 0.22 162);  /* ≈ #28d47a — Emerald       */
+  --disc-seafoam:       oklch(0.78 0.20 196);  /* ≈ #20d4ba — Seafoam       */
+  --disc-electric-blue: oklch(0.72 0.18 235);  /* ≈ #7cb4f8 — Electric Blue */
+  --disc-iris:          oklch(0.74 0.22 278);  /* ≈ #9578ff — Iris          */
+  --disc-hot-plum:      oklch(0.72 0.26 308);  /* ≈ #cc44cc — Hot Plum      */
+  --disc-hot-pink:      oklch(0.76 0.24 340);  /* ≈ #f462a4 — Hot Pink      */
 
   /*
    * Type badge colors — perceptually uniform

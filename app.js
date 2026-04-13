@@ -346,7 +346,7 @@ function render() {
     const details = [
       d.weight   ? `⚖️ ${escHtml(d.weight)}g` : '',
       d.plastic  ? `🧪 ${escHtml(d.plastic)}` : '',
-      d.color    ? `🎨 <span class="disc-color-dot" style="background:var(--disc-${escHtml(d.color.toLowerCase())})"></span>${escHtml(d.color)}` : '',
+      d.color    ? `🎨 <span class="disc-color-dot" style="background:var(--disc-${escHtml(d.color.toLowerCase().replace(/\s+/g, '-'))})"></span>${escHtml(d.color)}` : '',
       d.condition ? condDot + escHtml(COND_LABELS[safeCondition] || safeCondition) : '',
     ].filter(Boolean).map(s => `<span>${s}</span>`).join('');
 
