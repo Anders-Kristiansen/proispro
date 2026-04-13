@@ -176,6 +176,67 @@ All `:root` color tokens use OKLCH instead of hex/HSL. Hex originals retained as
 
 ---
 
+### Disc Color Palette — 10 Vivid OKLCH Swatches
+**By:** Saul (Color Expert) | **Date:** 2026-04-14 | **Status:** Approved
+
+10 vivid OKLCH disc colors for the color picker UI in the Add/Edit Disc modal. Designed to evoke bold, sporty disc plastic on dark navy background.
+
+**Palette (10 colors, hue-spread ~30–40° apart):**
+
+| Name | OKLCH | Hex | H° |
+|------|-------|-----|-----|
+| Crimson | `oklch(0.72 0.24 25)` | #f04545 | 25 |
+| Tangerine | `oklch(0.76 0.22 52)` | #f98340 | 52 |
+| Solar Yellow | `oklch(0.80 0.20 108)` | #c0e418 | 108 |
+| Lime | `oklch(0.76 0.22 140)` | #52de4a | 140 |
+| Emerald | `oklch(0.74 0.22 162)` | #28d47a | 162 |
+| Seafoam | `oklch(0.78 0.20 196)` | #20d4ba | 196 |
+| Electric Blue | `oklch(0.72 0.18 235)` | #7cb4f8 | 235 |
+| Iris | `oklch(0.74 0.22 278)` | #9578ff | 278 |
+| Hot Plum | `oklch(0.72 0.26 308)` | #cc44cc | 308 |
+| Hot Pink | `oklch(0.76 0.24 340)` | #f462a4 | 340 |
+
+**Design Rationale:**
+
+- **Lightness band L=0.72–0.80:** Perceptually uniform across hues (OKLCH's key advantage). Yellow at L=0.80 (upper limit) because yellow hue has limited sRGB chroma at lower lightness.
+- **Chroma band C=0.18–0.26:** High saturation evokes bold disc plastic. Blues capped at C=0.18 (sRGB gamut narrower in blue region). Reds/magentas/purples push to C=0.24–0.26.
+- **Full spectrum coverage:** Red → orange → yellow → lime → green → teal → blue → violet → plum → pink. Each disc distinctly identifiable by color alone.
+- **Text: Always dark navy.** At L≥0.72, swatch luminance Y≈0.38–0.51. Dark text achieves ~8–10:1 contrast (WCAG AAA). White text fails at <2.5:1.
+- **Semantic separation from type badges:** Badges (L=0.75, C=0.18) communicate disc *type*. Disc colors (C=0.18–0.26) communicate physical *appearance*. Different roles, different chroma authority.
+
+**Implementation:**
+- CSS variables: `--disc-{slug}` in `:root` (e.g., `--disc-crimson`, `--disc-solar-yellow`).
+- JSON: Array of color objects (slug, name, oklch, hex, textColor).
+- HTML: 11 swatch buttons (× + 10 colors), backgrounds via `style="background:var(--disc-{slug})"`.
+- Touch targets: 44×44px minimum via `::after` pseudo-element, visual 32px.
+
+---
+
+### Disc Color Picker — Swatch Selection Pattern
+**By:** Rusty (Frontend Dev) | **Date:** 2026-04-14 | **Status:** Active
+
+Replaced free-text `<input type="text" id="discColor">` with visual swatch picker: 11 circular buttons (× + 10 named colors) backed by hidden `<input type="hidden" id="discColor">`.
+
+**Key Decisions:**
+
+1. **Human color names stored** — Data stores human-readable name (e.g., "Crimson"), not slug or OKLCH. Slug derived at render time via `.toLowerCase()`. Keeps data human-readable and decoupled from CSS internals.
+
+2. **CSS variables wired via inline style** — Swatch backgrounds use `style="background:var(--disc-{slug})"` in HTML. When Saul defines `--disc-{slug}` in `:root`, picker colors update automatically—no JS change required.
+
+3. **Touch target via `::after` pseudo-element** — Visual swatch 32px; touch target expanded to ≥44px by `::after { inset: -6px }`. Keeps layout compact while meeting WCAG 2.5.5 (44×44px minimum).
+
+4. **Fixed 10-color palette** — Curated (10 slugs): crimson, tangerine, solar-yellow, lime, emerald, seafoam, electric-blue, iris, hot-plum, hot-pink. No free-text fallback. Existing disc data with non-palette color strings render without color dot (graceful degradation—no crash, just no dot).
+
+5. **× (none) button is part of swatch group** — Deselection uses same `.color-swatch` mechanism as selection. No special state needed—`data-color=""` on none button; `setColorPicker('')` selects it.
+
+6. **Unified picker state management** — `setColorPicker(name)` and `resetColorPicker()` are the single source of truth. They update hidden input value + visual selection + label text simultaneously.
+
+7. **Card display** — Colored 10px dot via `style="background:var(--disc-{slug})"` prepended to 🎨 label. Border on dot handles white swatch legibility on dark backgrounds.
+
+8. **Accessibility** — `aria-live="polite"` on `.color-label` announces selection changes to screen readers.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
