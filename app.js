@@ -7,7 +7,7 @@ const GH_REPO_KEY     = 'proispro_github_repo';
 const GH_PATH_KEY     = 'proispro_github_path';
 
 // ── State ───────────────────────────────────────────────────
-let discs = load();
+let discs = [];
 let pendingDeleteId = null;
 let ghSha           = null;   // cached file SHA (required for GitHub PUT updates)
 let lastSyncTime    = null;
@@ -32,19 +32,6 @@ const confirmDeleteBtn = document.getElementById('confirmDelete');
 const settingsOverlay  = document.getElementById('settingsOverlay');
 
 // ── Helpers ─────────────────────────────────────────────────
-function load() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(discs));
-  triggerGitHubSync();
-}
-
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
@@ -53,6 +40,49 @@ function escHtml(str) {
   const d = document.createElement('div');
   d.textContent = str || '';
   return d.innerHTML;
+}
+
+// ── DAB API ──────────────────────────────────────────────────
+const API_BASE = '/api/Disc';
+
+async function apiFetch(path, options = {}) {
+  const res = await fetch(API_BASE + path, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`API ${res.status}: ${text}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+function toApiDisc(disc) {
+  const { added, ...rest } = disc;
+  return { ...rest, addedAt: new Date(added || Date.now()).toISOString() };
+}
+
+function fromApiDisc(d) {
+  const { addedAt, ...rest } = d;
+  return { ...rest, added: addedAt ? Date.parse(addedAt) : Date.now() };
+}
+
+async function apiLoadDiscs() {
+  const data = await apiFetch('');
+  return (data.value || []).map(fromApiDisc);
+}
+
+async function apiAddDisc(disc) {
+  const data = await apiFetch('', { method: 'POST', body: JSON.stringify(toApiDisc(disc)) });
+  return fromApiDisc(data);
+}
+
+async function apiUpdateDisc(disc) {
+  await apiFetch(`/id/${disc.id}`, { method: 'PUT', body: JSON.stringify(toApiDisc(disc)) });
+}
+
+async function apiDeleteDisc(id) {
+  await apiFetch(`/id/${id}`, { method: 'DELETE' });
 }
 
 // ── Toast ───────────────────────────────────────────────────
@@ -419,7 +449,7 @@ function validate() {
 }
 
 // ── Form submit ──────────────────────────────────────────────
-discForm.addEventListener('submit', e => {
+discForm.addEventListener('submit', async e => {
   e.preventDefault();
   if (!validate()) return;
 
@@ -438,17 +468,22 @@ discForm.addEventListener('submit', e => {
     added:        id ? (discs.find(x => x.id === id) || {}).added || Date.now() : Date.now(),
   };
 
-  if (id) {
-    const idx = discs.findIndex(x => x.id === id);
-    if (idx !== -1) discs[idx] = disc;
-  } else {
-    discs.push(disc);
+  try {
+    if (id) {
+      await apiUpdateDisc(disc);
+      const idx = discs.findIndex(x => x.id === id);
+      if (idx !== -1) discs[idx] = disc;
+    } else {
+      const created = await apiAddDisc(disc);
+      discs.push(created);
+    }
+    triggerGitHubSync();
+    render();
+    closeModal();
+    toast(id ? '✏️ Disc updated!' : '✅ Disc added!');
+  } catch (err) {
+    toast('❌ Save failed: ' + err.message);
   }
-
-  save();
-  render();
-  closeModal();
-  toast(id ? '✏️ Disc updated!' : '✅ Disc added!');
 });
 
 // ── Delete ────────────────────────────────────────────────────
@@ -460,14 +495,20 @@ function openDeleteModal(id) {
   deleteOverlay.classList.remove('hidden');
 }
 
-confirmDeleteBtn.addEventListener('click', () => {
+confirmDeleteBtn.addEventListener('click', async () => {
   if (!pendingDeleteId) return;
-  discs = discs.filter(d => d.id !== pendingDeleteId);
+  const id = pendingDeleteId;
   pendingDeleteId = null;
-  save();
-  render();
   deleteOverlay.classList.add('hidden');
-  toast('🗑 Disc removed');
+  try {
+    await apiDeleteDisc(id);
+    discs = discs.filter(d => d.id !== id);
+    triggerGitHubSync();
+    render();
+    toast('🗑 Disc removed');
+  } catch (err) {
+    toast('❌ Delete failed: ' + err.message);
+  }
 });
 
 document.getElementById('closeDelete').addEventListener('click', () => {
@@ -528,29 +569,47 @@ document.getElementById('exportBtn').addEventListener('click', () => {
 });
 
 // ── Import ────────────────────────────────────────────────────
-document.getElementById('importFile').addEventListener('change', e => {
+document.getElementById('importFile').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const imported = JSON.parse(ev.target.result);
-      if (!Array.isArray(imported)) throw new Error('Not an array');
-      // merge by id (imported discs take priority)
-      const map = {};
-      discs.forEach(d => { map[d.id] = d; });
-      imported.forEach(d => { if (d.id && d.name) map[d.id] = d; });
-      discs = Object.values(map);
-      save();
-      render();
-      toast(`⬆ Imported ${imported.length} disc(s)!`);
-    } catch {
-      toast('❌ Invalid file');
-    }
-  };
-  reader.readAsText(file);
-  // reset so same file can be re-imported
   e.target.value = '';
+
+  let imported;
+  try {
+    const text = await file.text();
+    imported = JSON.parse(text);
+    if (!Array.isArray(imported)) throw new Error('Not an array');
+  } catch {
+    toast('❌ Invalid file');
+    return;
+  }
+
+  const valid = imported.filter(d => d.id && d.name);
+  if (!valid.length) { toast('❌ No valid discs found'); return; }
+
+  const existingIds = new Set(discs.map(d => d.id));
+  let count = 0;
+  for (const raw of valid) {
+    const disc = { ...raw, added: raw.added || Date.now() };
+    try {
+      if (existingIds.has(disc.id)) {
+        await apiUpdateDisc(disc);
+        const idx = discs.findIndex(x => x.id === disc.id);
+        if (idx !== -1) discs[idx] = disc;
+      } else {
+        const created = await apiAddDisc(disc);
+        discs.push(created);
+        existingIds.add(disc.id);
+      }
+      count++;
+    } catch {
+      // skip discs that fail
+    }
+  }
+
+  triggerGitHubSync();
+  render();
+  toast(`⬆ Imported ${count} disc(s)!`);
 });
 
 // ── Color Picker ─────────────────────────────────────────────
@@ -583,22 +642,18 @@ colorPickerEl.addEventListener('click', e => {
 
 // ── Boot ──────────────────────────────────────────────────────
 async function boot() {
-  const cfg = getGitHubConfig();
-  if (cfg) {
-    setSyncStatus('syncing');
+  try {
+    discs = await apiLoadDiscs();
+  } catch (err) {
+    console.warn('DAB API unavailable, falling back to localStorage:', err);
     try {
-      const ghDiscs = await githubLoad();
-      // Merge: GitHub takes priority; preserve any local discs not in GitHub
-      const map = {};
-      discs.forEach(d => { map[d.id] = d; });
-      ghDiscs.forEach(d => { if (d.id && d.name) map[d.id] = d; });
-      discs = Object.values(map);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(discs));
-      setSyncStatus('synced');
-    } catch (err) {
-      setSyncStatus('failed', err.message);
+      discs = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    } catch {
+      discs = [];
     }
   }
+
+  if (getGitHubConfig()) setSyncStatus('synced');
   render();
 }
 boot();
