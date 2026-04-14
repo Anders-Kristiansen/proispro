@@ -29,3 +29,43 @@ app.js is ~250 lines of business logic + UI state. At this volume, manual DOM up
 ### Single-tenant UX simplifies everything downstream
 
 No multi-user auth, no permissions model, no data isolation. The app assumes "one person, one device (or multiple tabs on same device)." This single-tenant assumption collapses the entire feature set. A multi-user version would need account model, role-based access, conflict resolution per user, and probably a real backend. The architecture is not "scalable to multiple users"—it's "deliberately constrained to one user." That constraint is a feature, not a limitation.
+
+---
+
+## Migration to CosmosDB + DAB (2026-04)
+
+### Architecture pivot from GitHub Pages to Azure SWA + managed backend
+
+The project migrated from pure-static (GitHub Pages + localStorage) to **Azure Static Web Apps + CosmosDB + Data API Builder**. This was a conscious trade-off:
+
+**Before:** Truly static (no backend). GitHub Pages host. User's GitHub repo as data store. localStorage as client cache.
+**After:** Serverless backend (DAB layer). SWA hosts frontend + DAB API. CosmosDB as source of truth. localStorage as fallback only.
+
+### Why the migration made sense
+
+1. **Data durability:** GitHub file sync is async/eventual. CosmosDB is immediate + durable. Eliminated "clear localStorage and lose data" risk.
+2. **Multi-device:** CosmosDB is shareable (though auth still single-user). Easier path to multi-device support later.
+3. **Operational simplicity:** No longer maintaining GitHub REST API retry logic, SHA tracking, 409 conflict handling. DAB abstracts that.
+4. **Azure ecosystem alignment:** SWA + CosmosDB are free tier, tightly integrated. Single deployment target (vs. GitHub Pages + user's repo).
+
+### The trade-off: We lost simplicity
+
+- **Before:** Fork + enable Pages + done. No backend to manage.
+- **After:** Azure account, resource group, CosmosDB provisioning, DAB config, SWA deployment. Higher operational bar.
+
+But we gained:
+- **Reliability:** Real database backend (not files).
+- **Scalability path:** Ready for multi-user if we add auth.
+- **Data consistency:** No more sync races between localStorage → GitHub.
+
+### Remaining complexity: GitHub sync as optional backup
+
+GitHub sync logic remains in app.js (async, post-DAB). This dual-source design adds complexity. Future: either promote it (explicit "backup" button) or deprecate it entirely.
+
+### Known gaps that warrant roadmap items
+
+1. **Offline mutations:** If DAB is down, user edits are queued but lost on reload. IndexedDB pending queue needed.
+2. **GitHub sync reliability:** Fails silently if GitHub is unreachable. User doesn't notice until they explicitly check.
+3. **Multi-user variant:** DAB auth is currently `anonymous` + wide-open. SWA auth rules needed before production sharing.
+
+The migration validated the original single-tenant design—most of the complexity is in *supporting* GitHub as a secondary source, not in the core app.
