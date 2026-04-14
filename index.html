@@ -15,7 +15,6 @@
       <p class="tagline">Your personal disc golf bag tracker</p>
     </div>
     <div class="header-actions">
-      <button class="btn btn-secondary btn-sm" id="openSettings" title="GitHub Sync Settings">⚙ Settings</button>
       <button class="btn btn-primary" id="openAddModal">+ Add Disc</button>
     </div>
   </header>
@@ -169,48 +168,6 @@
       ⬆ Import
       <input type="file" id="importFile" accept=".json" class="hidden-input" />
     </label>
-  </div>
-
-  <!-- ── Sync Status ── -->
-  <div id="syncStatus" class="sync-status hidden"></div>
-
-  <!-- ── Settings Modal ── -->
-  <div class="modal-overlay hidden" id="settingsOverlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-    <div class="modal">
-      <div class="modal-header">
-        <h2 class="modal-title" id="settingsTitle">⚙ GitHub Sync</h2>
-        <button class="modal-close" id="closeSettings" aria-label="Close">✕</button>
-      </div>
-      <p class="settings-desc">Sync your bag to a GitHub repo. Requires a <a href="https://github.com/settings/tokens/new?scopes=repo" target="_blank" rel="noopener">Personal Access Token</a> with <code>repo</code> scope.</p>
-      <div class="form-row">
-        <div class="form-group full-width">
-          <label for="ghToken">Personal Access Token</label>
-          <input type="password" id="ghToken" placeholder="ghp_…" autocomplete="off" spellcheck="false" />
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label for="ghOwner">Username / Org</label>
-          <input type="text" id="ghOwner" placeholder="octocat" />
-        </div>
-        <div class="form-group">
-          <label for="ghRepo">Repository</label>
-          <input type="text" id="ghRepo" placeholder="my-discs" />
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group full-width">
-          <label for="ghPath">File Path</label>
-          <input type="text" id="ghPath" placeholder="discs.json" />
-        </div>
-      </div>
-      <div id="ghTestResult" class="gh-test-result hidden"></div>
-      <div class="form-actions">
-        <button type="button" class="btn btn-secondary" id="ghTestBtn">🔌 Test</button>
-        <button type="button" class="btn btn-secondary" id="cancelSettings">Cancel</button>
-        <button type="button" class="btn btn-primary" id="saveSettings">Save</button>
-      </div>
-    </div>
   </div>
 
   <script src="app.js"></script>
