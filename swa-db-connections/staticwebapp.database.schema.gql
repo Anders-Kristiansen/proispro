@@ -1,0 +1,13 @@
+type Disc @model {
+  id: ID
+  name: String
+  manufacturer: String
+  type: String
+  plastic: String
+  weight: String
+  color: String
+  condition: String
+  flight: String
+  notes: String
+  addedAt: String
+}
