@@ -10,6 +10,22 @@
 
 <!-- Append learnings below -->
 
+### 2026-04-15: Auth Lockdown — Require Authentication for All Routes and DAB Access
+
+**Security directive from AK:** "we cant have anything wide open."
+
+**DAB Config changes (`staticwebapp.database.config.json`):**
+- Changed `Disc` entity permission `role` from `"anonymous"` to `"authenticated"` — prevents unauthenticated reads or writes to Cosmos DB via `/data-api/graphql`
+- Tightened CORS `origins` from `["*"]` to `["https://proispro.com"]` — DAB will only accept requests from the known production domain
+
+**SWA Route Config created (`staticwebapp.config.json`):**
+- `/.auth/*` remains open (anonymous) — required for the login flow itself to work
+- `/api/*` requires `authenticated` role — locks down any Azure Functions endpoints
+- `/*` catch-all requires `authenticated` role — entire site gated behind login
+- 401 response overridden to HTTP 302 redirect to `/.auth/login/github` — unauthenticated visitors are sent to GitHub OAuth automatically, never see an error page
+
+**Auth model:** GitHub OAuth via Azure SWA built-in auth. SWA issues a session cookie post-login. DAB validates session via `StaticWebApps` provider and enforces `authenticated` role on all Disc entity operations.
+
 ### 2026-04-14: Disc Golf Catalog Schema & Data API Builder Configuration
 
 **Disc Schema Design:**

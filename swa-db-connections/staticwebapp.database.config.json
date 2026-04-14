@@ -17,7 +17,7 @@
     "host": {
       "mode": "production",
       "cors": {
-        "origins": ["*"],
+        "origins": ["https://proispro.com"],
         "allow-credentials": false
       },
       "authentication": {
@@ -31,7 +31,7 @@
       "permissions": [
         {
           "actions": ["*"],
-          "role": "anonymous"
+          "role": "authenticated"
         }
       ]
     }
