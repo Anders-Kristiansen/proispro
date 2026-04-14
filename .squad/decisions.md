@@ -5,81 +5,74 @@
 ### Static Vanilla Stack — No Build Pipeline
 **By:** Danny (Lead) | **Date:** 2026-04-13 | **Status:** Active
 
-Ship vanilla HTML, CSS, and JavaScript directly to GitHub Pages with no bundler, build step, or compilation.
+Ship vanilla HTML, CSS, and JavaScript directly to hosting with no bundler, build step, or compilation.
 
-**Rationale:** Simplicity justified for single-user inventory tool. Vanilla JS sufficient for CRUD + filtering. No tree-shaking, minification, or module system needed for <50KB assets. Instant deployment: commit → live in ~60 seconds.
+**Rationale:** Simplicity justified for single-user inventory tool. Vanilla JS sufficient for CRUD + filtering. No tree-shaking, minification, or module system needed for <50KB assets. Instant deployment.
 
 **Implementation:** `index.html` (DOM + modals), `styles.css` (400L responsive grid), `app.js` (all business logic).
 
 ---
 
-### Browser-First Storage with localStorage Primary
-**By:** Danny (Lead) | **Status:** Active
+### Primary Storage: CosmosDB via Data API Builder
+**By:** Danny (Lead) | **Date:** 2026-04 | **Status:** Active (Migrated)
 
-Source of truth is localStorage. All edits happen client-side first; sync to GitHub is async/eventual.
+CosmosDB container `discs` is the source of truth. All CRUD operations route through DAB REST endpoints (`/api/Disc`).
 
-**Rationale:** Offline-first (works when GitHub is down). Instant add/edit/delete (no server round-trip). Single-user eliminates multi-device conflicts. Trade-off: cache clear loses data unless synced to GitHub first.
+**Rationale:** Durable, multi-region capable backend. Eliminates localStorage-clear data loss risk. Real-time consistency across tabs/devices. Fallback to localStorage if DAB unavailable (offline resilience).
 
-**Implementation:** Load on mount from `localStorage.getItem('proispro_discs')`. Save on every mutation. Async sync trigger after local save.
+**Trade-off:** Requires backend deployment + CosmosDB instance (breaks GitHub Pages simplicity). Stateful — single-tenant assumption still holds.
 
----
-
-### GitHub File Backend — User-Configured Repo
-**By:** Danny (Lead) | **Status:** Active
-
-User points app to their own GitHub repo + PAT. App syncs `discs.json` via REST API `PUT /repos/{owner}/{repo}/contents/{path}`.
-
-**Rationale:** Data ownership (user data stays in user account). No central server/database. Transparent data location. One-time friction: user creates PAT + repo, then automated sync.
-
-**Implementation:** Settings modal captures PAT, owner/org, repo, file path (stored in localStorage). After each local save, `githubSave()` fires async. GitHub REST API writes encoded JSON + commit. SHA tracking prevents 409 conflicts.
+**Migration:** From localStorage-first + GitHub file backend to CosmosDB as primary.
 
 ---
 
-### GitHub Pages Hosting + CNAME Domain
-**By:** Linus (DevOps) | **Date:** 2026-04-13 | **Status:** Active
+### GitHub Sync Feature: Removed (Deprecated)
+**By:** Rusty (Frontend Dev) | **Date:** 2026-04-15 | **Status:** Deprecated
 
-Host static HTML at proispro.com via GitHub Pages + CNAME record.
+GitHub sync feature removed from frontend entirely. No longer supported.
 
-**Rationale:** Free, CDN-backed, automatic deployments (push → live in 60s), automatic SSL. No custom nameservers needed.
+**Context:** GitHub sync was a workaround from pre-database era. CosmosDB/DAB is now authoritative backend. GitHub sync code added ~250 lines of complexity (PAT management, settings modal, SHA conflict handling, retry logic).
 
-**Setup:**
-- CNAME file: `proispro.com`
-- DNS: Either A records to GitHub Pages IPs (185.199.108–111.153) or CNAME to `{username}.github.io`
-- GitHub repo Settings → Pages: Source = "GitHub Actions"
-- GitHub auto-provisions HTTPS via Let's Encrypt once DNS propagates
+**Removal:** All GitHub integration code eliminated from `app.js` and `index.html`:
+- Constants: `GH_TOKEN_KEY`, `GH_OWNER_KEY`, `GH_REPO_KEY`, `GH_PATH_KEY`
+- Functions: `toBase64`, `fromBase64`, `getGitHubConfig`, `githubLoad`, `githubSave`, `triggerGitHubSync`, `timeSince`, `setSyncStatus`, `openSettingsModal`, `closeSettingsModal`, `saveSettingsHandler`, `testConnectionHandler`
+- UI: Settings button, `#syncStatus` div, entire settings modal overlay
+- Retained: `STORAGE_KEY` + localStorage fallback for local dev without SWA CLI
 
-**Workflow:** `.github/workflows/deploy.yml` triggers on push to main. Uploads repo root as artifact (no build step). Deploys via GitHub Pages action.
-
----
-
-### No Backend Server — Stateless Architecture
-**By:** Danny (Lead) | **Status:** Active
-
-No Node.js server, database, or authentication layer beyond GitHub PAT.
-
-**Rationale:** Cost (free tier). Operational simplicity (no server monitoring/scaling/patching). Single-tenant tool doesn't need multi-user API orchestration. Trade-off: user manages their own GitHub repo; no admin dashboard.
+**Verification:** Grep confirmed zero dangling GitHub symbol references.
 
 ---
 
-### Security: PAT in localStorage
-**By:** Danny (Lead) | **Status:** Active
+### Browser-First Storage with localStorage Fallback
+**By:** Danny (Lead) | **Date:** 2026-04-13 | **Status:** Active (Updated)
 
-Store GitHub Personal Access Token in localStorage. No server-side proxy.
+localStorage serves as fallback cache. Primary source of truth is now CosmosDB via DAB.
 
-**Rationale:** Single-user scope (personal tool). No higher-value target (stores discs.json, not secrets). Operational simplicity. Trade-off: token exposure risk if device compromised.
+**Rationale:** Offline-first resilience (app uses stale localStorage if DAB unavailable). DAB is immediate + durable. Trade-off: localStorage may lag behind CosmosDB for multi-device scenarios (single-user app, acceptable).
 
-**Mitigation:** 
-- Link to PAT creation with `repo` scope only (no `admin:*`)
-- Recommend short expiration (30–90 days) + periodic rotation
-- User can immediately revoke PAT at github.com/settings/tokens
-- Clear localStorage before sharing device/public computer
+**Implementation:** Load on boot from DAB. Fall back to localStorage if DAB unavailable. Cache writes to localStorage on every mutation for offline resilience.
 
 ---
 
-### Data Schema — Flat Array + Immutable IDs
-**By:** Danny (Lead) | **Status:** Active
+### Hosting: Azure Static Web Apps + CDN
+**By:** Linus (DevOps) | **Date:** 2026-04-14 | **Status:** Active (Migrated)
 
-Single array of disc objects. Each disc: id + 10 standard fields + timestamps on add.
+Host static frontend + DAB backend on Azure SWA (free tier).
+
+**Rationale:** Single deployment target. DAB runtime integrated with SWA (no separate Functions needed). Automatic HTTPS, CDN-backed. Free tier sufficient for single-user app.
+
+**Trade-off:** Vendor lock-in to Azure (was GitHub-portable before). More opaque infrastructure (SWA + DAB + CosmosDB).
+
+**Implications:** CNAME still points to proispro.com (now Azure SWA hostname). SSL auto-managed by Azure. No GitHub Actions deploy workflow needed.
+
+**Migration:** From GitHub Pages to Azure SWA.
+
+---
+
+### Data Schema — Flat Array + Immutable IDs (User Inventory)
+**By:** Danny (Lead) | **Date:** 2026-04-13 | **Status:** Active
+
+Single array of disc objects in user inventory. Each disc: id + 10 standard fields + timestamps.
 
 **Schema:**
 ```json
@@ -98,36 +91,105 @@ Single array of disc objects. Each disc: id + 10 standard fields + timestamps on
 }
 ```
 
-**Rationale:** Flat array (no joins, easy GitHub JSON serialization). Immutable IDs (`Date.now().toString(36) + Math.random().toString(36)`) collision-resistant for single user. `addedAt` enables sorting + audit trail. Trade-off: no relational constraints; app validates schema client-side.
+**Rationale:** Flat array (no joins, easy JSON serialization). Immutable IDs collision-resistant. `addedAt` enables sorting + audit trail. Trade-off: no relational constraints; app validates schema.
+
+---
+
+### Disc Catalog Schema — CosmosDB NoSQL
+**By:** Basher (Data Wrangler) | **Date:** 2026-04-14 | **Status:** Active
+
+Separate public disc catalog in Cosmos DB (read-only reference data). Partition key: `/manufacturer`.
+
+**Core Fields:**
+- `id` — kebab-case identifier: `{manufacturer}-{name}-{plastic}` (e.g., `innova-destroyer-champion`)
+- `manufacturer` (partition key) — e.g., "Innova", "Discraft"
+- `name` — disc model name
+- `type` — one of: "Distance Driver", "Fairway Driver", "Midrange", "Putter"
+- `plastic` (array) — all plastics available (e.g., `["Champion", "Star", "DX"]`)
+- `speed`, `glide`, `turn`, `fade` — flight ratings (numeric for range queries + sorting)
+- `weightMin`, `weightMax` — available weight range in grams
+- `description`, `imageUrl`, `approved`, `pdgaClass`, `discontinued`, `updatedAt` (ISO 8601)
+
+**Design Rationale:**
+- **Partition key:** `/manufacturer` provides ~10-20 logical partitions (major brands). Enables queries like "all Innova discs" (single partition) + "all Putters" (acceptable cross-partition).
+- **Flight numbers as separate fields:** Enables OData queries (`speed ge 12 and fade ge 3`) + sorting (`orderby=speed desc`). Cannot do with composite string.
+- **`plastic` as array:** Same mold in different plastics shares all specs. Array allows "all Champion plastic" queries without data duplication.
+- **`weightMin`/`weightMax`:** Catalog describes what's manufactured, not specific disc in bag. Enables "lightweight distance drivers" queries.
+
+**Access Control:** Read-only via DAB (anonymous reads, no writes).
 
 ---
 
 ### Conflict Resolution: Last-Write-Wins
-**By:** Danny (Lead) | **Status:** Active
+**By:** Danny (Lead) | **Date:** 2026-04-13 | **Status:** Active
 
-No conflict detection. Latest local edit always wins on sync.
+No conflict detection. Latest write always wins.
 
-**Rationale:** Single device/single user, no concurrent edits. Complex resolution (LWW clocks, CRDTs) overkill. Trade-off: multiple tabs open editing same disc — last commit to GitHub wins (acceptable for personal tool).
+**Rationale:** Single user/device, no concurrent edits. Complex resolution overkill. Trade-off: multiple tabs editing same disc — last DAB write wins (acceptable).
 
 ---
 
 ### UI Framework: Vanilla — Semantic HTML + CSS Grid
-**By:** Danny (Lead) | **Status:** Active
+**By:** Danny (Lead) | **Date:** 2026-04-13 | **Status:** Active
 
-No React, Vue, or framework. Semantic HTML + CSS Grid + vanilla DOM manipulation.
+Vanilla HTML + CSS Grid + DOM manipulation. No React, Vue, or framework.
 
-**Rationale:** Bundle size <50KB (framework overhead >100KB would double it). Anyone can read/modify HTML/CSS/JS (frameworks raise barrier). Instant iteration (no build step). Trade-off: more manual DOM updates, more state tracking. Fine for <1000 lines of app logic.
+**Rationale:** Bundle <50KB (framework overhead >100KB would double it). Transparent code (frameworks raise barrier). Instant iteration (no build step). Trade-off: manual DOM updates, more state tracking. Fine for <1000 lines.
 
 ---
 
 ### Error Handling: Graceful Degradation
-**By:** Danny (Lead) | **Status:** Active
+**By:** Danny (Lead) | **Date:** 2026-04-13 | **Status:** Active
 
-If GitHub sync fails, app continues offline. Toast notifies user. Manual retry button available.
+If DAB fails, app continues with stale localStorage. Toast notifies user.
 
-**Rationale:** Offline-first (user doesn't lose data). Transparency (real-time sync status). Trade-off: user may not notice until explicitly checking status indicator.
+**Rationale:** Offline-first (user doesn't lose data). Transparency. Trade-off: stale data may not reflect latest server state.
 
-**States:** `syncing` (spinner), `synced` (checkmark + time), `failed` (warning + clickable retry).
+---
+
+### Authentication: GitHub OAuth via Azure SWA
+**By:** Basher (Data Wrangler) | **Date:** 2026-04-15 | **Status:** Active
+
+All access gated behind GitHub OAuth authentication via Azure Static Web Apps.
+
+**Implementation:**
+- Route config (`staticwebapp.config.json`) requires `authenticated` role for all routes except `/.auth/*`
+- Unauthenticated requests to any route → 302 redirect to `/.auth/login/github`
+- GitHub OAuth → SWA issues encrypted session cookie
+- Subsequent requests carry session cookie → SWA validates → user has `authenticated` role
+- DAB validates session → `authenticated` role required for Disc entity operations
+
+**Auth Model:** Single user (GitHub account = single user identity). No multi-user isolation.
+
+**Rationale:** Personal inventory tool, no business case for public access. GitHub OAuth is zero-config on SWA. Single-user assumption baked into UI.
+
+**Trade-off:** App inaccessible to users without GitHub account (acceptable: personal tool). First-time experience shows GitHub OAuth screen (expected for this auth model).
+
+---
+
+### Data API Builder Access Control
+**By:** Basher (Data Wrangler) | **Date:** 2026-04-15 | **Status:** Active
+
+DAB Disc entity requires `authenticated` role. CORS restricted to `https://proispro.com`.
+
+**Configuration:**
+- `permission.role`: `"authenticated"` (no anonymous access)
+- `CORS.origins`: `["https://proispro.com"]` (known production domain only)
+
+**Rationale:** Data is private (authenticated users only). CORS tightening needed for write operations (no wildcard). Reads/writes both require authentication.
+
+---
+
+### No Backend Server — Serverless DAB
+**By:** Danny (Lead) | **Date:** 2026-04 | **Status:** Active (Updated)
+
+Data API Builder provides serverless REST layer. No custom Node.js functions or databases to manage.
+
+**Rationale:** DAB auto-generates REST endpoints from Cosmos DB schema. Zero custom code. Role-based access control out-of-the-box. Cost-effective (free tier).
+
+**Trade-off:** Vendor lock-in to Azure (not portable to other clouds). More opaque infrastructure compared to GitHub Pages simplicity.
+
+**Migration:** From no backend (GitHub Pages) to serverless DAB + CosmosDB.
 
 ---
 
