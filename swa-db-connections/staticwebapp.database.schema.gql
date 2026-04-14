@@ -1,19 +1,13 @@
 type Disc @model(name: "Disc") {
   id: ID!
-  manufacturer: String!
   name: String!
+  manufacturer: String!
   type: String!
-  plastic: [String]
-  speed: Float!
-  glide: Float!
-  turn: Float!
-  fade: Float!
-  weightMin: Float
-  weightMax: Float
-  description: String
-  imageUrl: String
-  approved: Boolean
-  pdgaClass: String
-  discontinued: Boolean
-  updatedAt: String
+  plastic: String
+  weight: String
+  color: String
+  condition: String
+  flight: String
+  notes: String
+  addedAt: String
 }

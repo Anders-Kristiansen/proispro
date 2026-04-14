@@ -12,12 +12,10 @@
   "runtime": {
     "rest": {
       "enabled": true,
-      "path": "/rest"
+      "path": "/api"
     },
     "graphql": {
-      "enabled": true,
-      "path": "/graphql",
-      "allow-introspection": false
+      "enabled": false
     },
     "host": {
       "cors": {
@@ -36,7 +34,7 @@
       "permissions": [
         {
           "role": "anonymous",
-          "actions": ["read"]
+          "actions": ["create", "read", "update", "delete"]
         }
       ]
     }
