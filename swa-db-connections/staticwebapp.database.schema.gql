@@ -1,4 +1,4 @@
-type Disc @model(name: "Disc") {
+type Disc @model {
   id: ID!
   name: String!
   manufacturer: String!
