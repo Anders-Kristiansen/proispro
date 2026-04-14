@@ -1,0 +1,68 @@
+{
+  "$schema": "https://github.com/Azure/data-api-builder/releases/latest/download/dab.draft.schema.json",
+  "data-source": {
+    "database-type": "cosmosdb_nosql",
+    "connection-string": "@env('COSMOS_CONNECTION_STRING')",
+    "options": {
+      "database": "discdb",
+      "container": "discs"
+    }
+  },
+  "runtime": {
+    "rest": {
+      "enabled": true,
+      "path": "/api",
+      "request-body-strict": false
+    },
+    "graphql": {
+      "enabled": false
+    },
+    "host": {
+      "mode": "production",
+      "cors": {
+        "origins": ["*"],
+        "allow-credentials": false
+      },
+      "authentication": {
+        "provider": "StaticWebApps"
+      }
+    }
+  },
+  "entities": {
+    "Disc": {
+      "source": "discs",
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            {
+              "action": "read"
+            },
+            {
+              "action": "create"
+            },
+            {
+              "action": "update"
+            },
+            {
+              "action": "delete"
+            }
+          ]
+        }
+      ],
+      "mappings": {
+        "id": "id",
+        "name": "name",
+        "manufacturer": "manufacturer",
+        "type": "type",
+        "plastic": "plastic",
+        "weight": "weight",
+        "color": "color",
+        "condition": "condition",
+        "flight": "flight",
+        "notes": "notes",
+        "addedAt": "addedAt"
+      }
+    }
+  }
+}
