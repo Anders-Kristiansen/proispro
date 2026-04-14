@@ -15,7 +15,9 @@
       "path": "/api"
     },
     "graphql": {
-      "enabled": false
+      "enabled": true,
+      "path": "/graphql",
+      "allow-introspection": false
     },
     "host": {
       "cors": {
