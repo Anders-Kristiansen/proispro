@@ -48,4 +48,5 @@ How to decide who handles what.
 | JSON data, GitHub API | Basher | — |
 | GitHub Pages, deployment | Linus | — |
 | Color palettes, color spaces, accessibility contrast, color tokens | Saul | Rusty (CSS impl) |
+| CosmosDB schema, partition keys, DAB config, GraphQL queries | Danny | Rusty (app.js impl) |
 
