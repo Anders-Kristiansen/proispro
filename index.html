@@ -8,168 +8,277 @@
 </head>
 <body>
 
-  <!-- ── Header ── -->
-  <header class="site-header">
-    <div class="header-inner">
-      <h1 class="logo">🥏 ProIsPro</h1>
-      <p class="tagline">Your personal disc golf bag tracker</p>
-    </div>
-    <div class="header-actions">
-      <button class="btn btn-primary" id="openAddModal">+ Add Disc</button>
-    </div>
-  </header>
+<div x-data="discApp()" x-cloak>
 
-  <!-- ── Toolbar ── -->
-  <div class="toolbar">
-    <input
-      type="search"
-      id="searchInput"
-      class="search-input"
-      placeholder="Search discs…"
-      aria-label="Search discs"
-    />
-    <select id="filterType" class="select-input" aria-label="Filter by type">
-      <option value="">All types</option>
-      <option value="putter">Putter</option>
-      <option value="midrange">Midrange</option>
-      <option value="fairway">Fairway Driver</option>
-      <option value="distance">Distance Driver</option>
-    </select>
-    <select id="sortBy" class="select-input" aria-label="Sort by">
-      <option value="name">Sort: Name</option>
-      <option value="type">Sort: Type</option>
-      <option value="weight">Sort: Weight</option>
-      <option value="added">Sort: Date Added</option>
-    </select>
-    <span id="discCount" class="disc-count">0 discs</span>
+  <!-- ── Loading Screen ── -->
+  <div x-show="loading" class="empty-state" style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;">
+    <div class="empty-icon">🥏</div>
+    <h2>Loading…</h2>
   </div>
 
-  <!-- ── Grid ── -->
-  <main class="disc-grid" id="discGrid">
-    <!-- disc cards injected here -->
-    <div class="empty-state" id="emptyState">
+  <!-- ── Login Screen ── -->
+  <template x-if="!loading && !user">
+    <div class="empty-state" style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;">
       <div class="empty-icon">🥏</div>
-      <h2>No discs yet</h2>
-      <p>Click <strong>+ Add Disc</strong> to start building your bag!</p>
+      <h1 class="logo" style="margin-bottom:.5rem;">ProIsPro</h1>
+      <p class="tagline" style="margin-bottom:1.5rem;">Your personal disc golf bag tracker</p>
+      <button class="btn btn-primary" @click="signIn()">🔑 Sign in with GitHub</button>
     </div>
-  </main>
+  </template>
 
-  <!-- ── Add / Edit Modal ── -->
-  <div class="modal-overlay hidden" id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal">
-      <div class="modal-header">
-        <h2 class="modal-title" id="modalTitle">Add Disc</h2>
-        <button class="modal-close" id="closeModal" aria-label="Close">✕</button>
+  <!-- ── Main App (authenticated) ── -->
+  <template x-if="!loading && user">
+    <div>
+
+      <!-- ── Header ── -->
+      <header class="site-header">
+        <div class="header-inner">
+          <h1 class="logo">🥏 ProIsPro</h1>
+          <p class="tagline">Your personal disc golf bag tracker</p>
+        </div>
+        <div class="header-actions">
+          <span class="disc-count" x-text="user.email || 'Local mode'" style="font-size:.78rem;"></span>
+          <button class="btn btn-secondary btn-sm" @click="signOut()" title="Sign out">↪ Logout</button>
+          <button class="btn btn-primary" @click="openAddModal()">+ Add Disc</button>
+        </div>
+      </header>
+
+      <!-- ── Toolbar ── -->
+      <div class="toolbar">
+        <input
+          type="search"
+          class="search-input"
+          placeholder="Search discs…"
+          aria-label="Search discs"
+          x-model="search"
+        />
+        <select class="select-input" aria-label="Filter by type" x-model="filterType">
+          <option value="">All types</option>
+          <option value="putter">Putter</option>
+          <option value="midrange">Midrange</option>
+          <option value="fairway">Fairway Driver</option>
+          <option value="distance">Distance Driver</option>
+        </select>
+        <select class="select-input" aria-label="Sort by" x-model="sortBy">
+          <option value="name">Sort: Name</option>
+          <option value="type">Sort: Type</option>
+          <option value="weight">Sort: Weight</option>
+          <option value="added">Sort: Date Added</option>
+        </select>
+        <span class="disc-count" x-text="discCount"></span>
       </div>
-      <form id="discForm" novalidate>
-        <input type="hidden" id="discId" />
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="discName">Disc Name *</label>
-            <input type="text" id="discName" placeholder="e.g. Destroyer" required />
-          </div>
-          <div class="form-group">
-            <label for="discManufacturer">Manufacturer</label>
-            <input type="text" id="discManufacturer" placeholder="e.g. Innova" />
-          </div>
+      <!-- ── Grid ── -->
+      <main class="disc-grid">
+        <!-- Empty state -->
+        <div class="empty-state" x-show="filteredSorted.length === 0">
+          <div class="empty-icon">🥏</div>
+          <h2>No discs yet</h2>
+          <p>Click <strong>+ Add Disc</strong> to start building your bag!</p>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="discType">Type *</label>
-            <select id="discType" required>
-              <option value="">Select type…</option>
-              <option value="putter">Putter</option>
-              <option value="midrange">Midrange</option>
-              <option value="fairway">Fairway Driver</option>
-              <option value="distance">Distance Driver</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="discPlastic">Plastic</label>
-            <input type="text" id="discPlastic" placeholder="e.g. Star, Champion…" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="discWeight">Weight (g)</label>
-            <input type="number" id="discWeight" min="100" max="200" placeholder="175" />
-          </div>
-          <div class="form-group">
-            <label>Color</label>
-            <div class="color-picker" id="colorPicker" role="group" aria-label="Choose disc color">
-              <button type="button" class="color-swatch color-none" data-color="" aria-label="No color" title="No color">×</button>
-              <button type="button" class="color-swatch" data-color="Crimson"       data-slug="crimson"       style="background:var(--disc-crimson)"       aria-label="Crimson"       title="Crimson"></button>
-              <button type="button" class="color-swatch" data-color="Tangerine"     data-slug="tangerine"     style="background:var(--disc-tangerine)"     aria-label="Tangerine"     title="Tangerine"></button>
-              <button type="button" class="color-swatch" data-color="Solar Yellow"  data-slug="solar-yellow"  style="background:var(--disc-solar-yellow)"  aria-label="Solar Yellow"  title="Solar Yellow"></button>
-              <button type="button" class="color-swatch" data-color="Lime"          data-slug="lime"          style="background:var(--disc-lime)"          aria-label="Lime"          title="Lime"></button>
-              <button type="button" class="color-swatch" data-color="Emerald"       data-slug="emerald"       style="background:var(--disc-emerald)"       aria-label="Emerald"       title="Emerald"></button>
-              <button type="button" class="color-swatch" data-color="Seafoam"       data-slug="seafoam"       style="background:var(--disc-seafoam)"       aria-label="Seafoam"       title="Seafoam"></button>
-              <button type="button" class="color-swatch" data-color="Electric Blue" data-slug="electric-blue" style="background:var(--disc-electric-blue)" aria-label="Electric Blue" title="Electric Blue"></button>
-              <button type="button" class="color-swatch" data-color="Iris"          data-slug="iris"          style="background:var(--disc-iris)"          aria-label="Iris"          title="Iris"></button>
-              <button type="button" class="color-swatch" data-color="Hot Plum"      data-slug="hot-plum"      style="background:var(--disc-hot-plum)"      aria-label="Hot Plum"      title="Hot Plum"></button>
-              <button type="button" class="color-swatch" data-color="Hot Pink"      data-slug="hot-pink"      style="background:var(--disc-hot-pink)"      aria-label="Hot Pink"      title="Hot Pink"></button>
+        <!-- Disc cards -->
+        <template x-for="disc in filteredSorted" :key="disc.id">
+          <div class="disc-card">
+            <div class="card-header">
+              <div>
+                <div class="card-name" x-text="disc.name"></div>
+                <div class="card-manufacturer" x-show="disc.manufacturer" x-text="disc.manufacturer"></div>
+              </div>
+              <span class="type-badge"
+                    :class="'type-' + safeType(disc.type)"
+                    x-text="typeLabel(safeType(disc.type))"></span>
             </div>
-            <div class="color-label" id="colorLabel" aria-live="polite"></div>
-            <input type="hidden" id="discColor" />
+
+            <div class="card-details" x-show="disc.weight || disc.plastic || disc.color || disc.condition">
+              <span x-show="disc.weight">⚖️ <span x-text="disc.weight + 'g'"></span></span>
+              <span x-show="disc.plastic">🧪 <span x-text="disc.plastic"></span></span>
+              <span x-show="disc.color">🎨 <span class="disc-color-dot" :style="'background:var(--disc-' + colorSlug(disc.color) + ')'"></span><span x-text="disc.color"></span></span>
+              <span x-show="disc.condition"><span class="condition-dot" :class="'cond-' + safeCond(disc.condition)" :title="condLabel(safeCond(disc.condition))"></span><span x-text="condLabel(safeCond(disc.condition))"></span></span>
+            </div>
+
+            <div class="card-flight" x-show="disc.flight">✈️ <span x-text="disc.flight"></span></div>
+            <div class="card-notes" x-show="disc.notes" x-text="disc.notes"></div>
+
+            <div class="card-actions">
+              <button class="btn btn-secondary edit-btn" @click="openEditModal(disc)">✏️ Edit</button>
+              <button class="btn btn-danger delete-btn" @click="openDeleteModal(disc)">🗑 Remove</button>
+            </div>
           </div>
-        </div>
+        </template>
+      </main>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="discCondition">Condition</label>
-            <select id="discCondition">
-              <option value="new">New / Mint</option>
-              <option value="good" selected>Good</option>
-              <option value="used">Used</option>
-              <option value="beat">Beat-in</option>
-            </select>
+      <!-- ── Add / Edit Modal ── -->
+      <div class="modal-overlay"
+           x-show="showAddModal"
+           x-transition.opacity
+           @click.self="closeModals()"
+           role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal">
+          <div class="modal-header">
+            <h2 class="modal-title" id="modalTitle" x-text="formId ? 'Edit Disc' : 'Add Disc'"></h2>
+            <button class="modal-close" @click="closeModals()" aria-label="Close">✕</button>
           </div>
-          <div class="form-group">
-            <label for="discFlight">Flight Numbers</label>
-            <input type="text" id="discFlight" placeholder="e.g. 12 / 5 / -1 / 3" />
-          </div>
-        </div>
+          <form @submit.prevent="saveDisc()" novalidate>
 
-        <div class="form-group full-width">
-          <label for="discNotes">Notes</label>
-          <textarea id="discNotes" rows="2" placeholder="Favorite hyzer flip disc…"></textarea>
-        </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="discName">Disc Name *</label>
+                <input type="text" id="discName" placeholder="e.g. Destroyer" required
+                       x-model="form.name"
+                       :class="{ 'invalid': formInvalid.name }" />
+              </div>
+              <div class="form-group">
+                <label for="discManufacturer">Manufacturer</label>
+                <input type="text" id="discManufacturer" placeholder="e.g. Innova"
+                       x-model="form.manufacturer" />
+              </div>
+            </div>
 
-        <div class="form-actions">
-          <button type="button" class="btn btn-secondary" id="cancelModal">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="saveBtn">Save Disc</button>
-        </div>
-      </form>
-    </div>
-  </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="discType">Type *</label>
+                <select id="discType" required
+                        x-model="form.type"
+                        :class="{ 'invalid': formInvalid.type }">
+                  <option value="">Select type…</option>
+                  <option value="putter">Putter</option>
+                  <option value="midrange">Midrange</option>
+                  <option value="fairway">Fairway Driver</option>
+                  <option value="distance">Distance Driver</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="discPlastic">Plastic</label>
+                <input type="text" id="discPlastic" placeholder="e.g. Star, Champion…"
+                       x-model="form.plastic" />
+              </div>
+            </div>
 
-  <!-- ── Delete Confirm Modal ── -->
-  <div class="modal-overlay hidden" id="deleteOverlay" role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
-    <div class="modal modal-sm">
-      <div class="modal-header">
-        <h2 class="modal-title" id="deleteTitle">Remove Disc</h2>
-        <button class="modal-close" id="closeDelete" aria-label="Close">✕</button>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="discWeight">Weight (g)</label>
+                <input type="text" id="discWeight" placeholder="175"
+                       x-model="form.weight" />
+              </div>
+              <div class="form-group">
+                <label>Color</label>
+                <div class="color-picker" role="group" aria-label="Choose disc color">
+                  <button type="button" class="color-swatch color-none"
+                          :class="{ 'selected': form.color === '' }"
+                          @click="selectColor('')"
+                          aria-label="No color" title="No color">×</button>
+                  <button type="button" class="color-swatch"
+                          :class="{ 'selected': form.color === 'Crimson' }"
+                          @click="selectColor('Crimson')"
+                          style="background:var(--disc-crimson)" aria-label="Crimson" title="Crimson"></button>
+                  <button type="button" class="color-swatch"
+                          :class="{ 'selected': form.color === 'Tangerine' }"
+                          @click="selectColor('Tangerine')"
+                          style="background:var(--disc-tangerine)" aria-label="Tangerine" title="Tangerine"></button>
+                  <button type="button" class="color-swatch"
+                          :class="{ 'selected': form.color === 'Solar Yellow' }"
+                          @click="selectColor('Solar Yellow')"
+                          style="background:var(--disc-solar-yellow)" aria-label="Solar Yellow" title="Solar Yellow"></button>
+                  <button type="button" class="color-swatch"
+                          :class="{ 'selected': form.color === 'Lime' }"
+                          @click="selectColor('Lime')"
+                          style="background:var(--disc-lime)" aria-label="Lime" title="Lime"></button>
+                  <button type="button" class="color-swatch"
+                          :class="{ 'selected': form.color === 'Emerald' }"
+                          @click="selectColor('Emerald')"
+                          style="background:var(--disc-emerald)" aria-label="Emerald" title="Emerald"></button>
+                  <button type="button" class="color-swatch"
+                          :class="{ 'selected': form.color === 'Seafoam' }"
+                          @click="selectColor('Seafoam')"
+                          style="background:var(--disc-seafoam)" aria-label="Seafoam" title="Seafoam"></button>
+                  <button type="button" class="color-swatch"
+                          :class="{ 'selected': form.color === 'Electric Blue' }"
+                          @click="selectColor('Electric Blue')"
+                          style="background:var(--disc-electric-blue)" aria-label="Electric Blue" title="Electric Blue"></button>
+                  <button type="button" class="color-swatch"
+                          :class="{ 'selected': form.color === 'Iris' }"
+                          @click="selectColor('Iris')"
+                          style="background:var(--disc-iris)" aria-label="Iris" title="Iris"></button>
+                  <button type="button" class="color-swatch"
+                          :class="{ 'selected': form.color === 'Hot Plum' }"
+                          @click="selectColor('Hot Plum')"
+                          style="background:var(--disc-hot-plum)" aria-label="Hot Plum" title="Hot Plum"></button>
+                  <button type="button" class="color-swatch"
+                          :class="{ 'selected': form.color === 'Hot Pink' }"
+                          @click="selectColor('Hot Pink')"
+                          style="background:var(--disc-hot-pink)" aria-label="Hot Pink" title="Hot Pink"></button>
+                </div>
+                <div class="color-label" aria-live="polite" x-text="form.color"></div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="discCondition">Condition</label>
+                <select id="discCondition" x-model="form.condition">
+                  <option value="new">New / Mint</option>
+                  <option value="good">Good</option>
+                  <option value="used">Used</option>
+                  <option value="beat">Beat-in</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="discFlight">Flight Numbers</label>
+                <input type="text" id="discFlight" placeholder="e.g. 12 / 5 / -1 / 3"
+                       x-model="form.flight" />
+              </div>
+            </div>
+
+            <div class="form-group full-width">
+              <label for="discNotes">Notes</label>
+              <textarea id="discNotes" rows="2" placeholder="Favorite hyzer flip disc…"
+                        x-model="form.notes"></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" @click="closeModals()">Cancel</button>
+              <button type="submit" class="btn btn-primary" x-text="formId ? 'Update Disc' : 'Save Disc'"></button>
+            </div>
+          </form>
+        </div>
       </div>
-      <p id="deleteMessage">Are you sure you want to remove this disc?</p>
-      <div class="form-actions">
-        <button type="button" class="btn btn-secondary" id="cancelDelete">Cancel</button>
-        <button type="button" class="btn btn-danger" id="confirmDelete">Remove</button>
+
+      <!-- ── Delete Confirm Modal ── -->
+      <div class="modal-overlay"
+           x-show="showDeleteModal"
+           x-transition.opacity
+           @click.self="closeModals()"
+           role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
+        <div class="modal modal-sm">
+          <div class="modal-header">
+            <h2 class="modal-title" id="deleteTitle">Remove Disc</h2>
+            <button class="modal-close" @click="closeModals()" aria-label="Close">✕</button>
+          </div>
+          <p x-text="pendingDeleteDisc ? 'Remove &quot;' + pendingDeleteDisc.name + '&quot; from your bag?' : ''"></p>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @click="closeModals()">Cancel</button>
+            <button type="button" class="btn btn-danger" @click="confirmDelete()">Remove</button>
+          </div>
+        </div>
       </div>
+
+      <!-- ── Export / Import bar ── -->
+      <div class="io-bar">
+        <button class="btn btn-secondary btn-sm" @click="exportBag()" title="Download your disc bag as JSON">⬇ Export</button>
+        <label class="btn btn-secondary btn-sm" title="Import a disc bag JSON file">
+          ⬆ Import
+          <input type="file" accept=".json" class="hidden-input" @change="importBag($event)" />
+        </label>
+      </div>
+
     </div>
-  </div>
+  </template>
 
-  <!-- ── Export / Import bar ── -->
-  <div class="io-bar">
-    <button class="btn btn-secondary btn-sm" id="exportBtn" title="Download your disc bag as JSON">⬇ Export</button>
-    <label class="btn btn-secondary btn-sm" title="Import a disc bag JSON file">
-      ⬆ Import
-      <input type="file" id="importFile" accept=".json" class="hidden-input" />
-    </label>
-  </div>
+</div>
 
-  <script src="app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
