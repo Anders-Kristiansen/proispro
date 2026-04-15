@@ -55,3 +55,36 @@
 - App.js already uses correct `/data-api/rest/Disc` path (not `/api/`). `/api/` is Azure Functions only; DAB runs at `/data-api/`.
 - Entity source fixed (string → object), type names aligned (singular/plural), ID field made non-null, mutations updated with partition key.
 - All DAB operations now functional. Frontend integration unaffected by schema fixes—just needed correct endpoint path.
+
+### 2025-06-13 — GraphQL to REST Migration Planning
+
+- DAB GraphQL endpoint (`/data-api/graphql`) is RETIRED. Migrating to Managed Azure Functions at `/api/discs`.
+- Analyzed current API layer (lines 37-94): `gqlFetch`, field mapping helpers, CRUD operations.
+- Key insight: `toApiDisc`/`fromApiDisc` field mapping stays identical (`type`↔`discType`, `added`↔`addedAt`).
+- Migration is surgical: replace `gqlFetch` → `apiFetch` (REST wrapper), update CRUD functions to use HTTP methods (GET/POST/PUT/DELETE).
+- Call sites unchanged — all 4 API functions keep same signatures (`apiLoadDiscs`, `apiAddDisc`, `apiUpdateDisc`, `apiDeleteDisc`).
+- Edge cases identified: 204 No Content for DELETE, response shape differences (flat vs nested), error format changes.
+- Wrote detailed migration plan to `.squad/decisions/inbox/rusty-frontend-api-migration.md` for Danny's review.
+- Migration is low-risk (~40 lines modified, ~200 untouched) with clear rollback path. Ready to implement once Danny's REST API is live.
+
+### 2026-04-16 — Complete Supabase + Alpine.js Rewrite
+
+- **Full frontend rewrite** from DAB/GraphQL + vanilla DOM manipulation to Supabase JS client + Alpine.js.
+- Replaced all manual DOM manipulation (`document.getElementById`, `addEventListener`, `classList`, `appendChild`, `innerHTML`) with Alpine.js directives (`x-data`, `x-model`, `x-show`, `x-for`, `x-text`, `@click`, `:class`).
+- Converted entire app into a single Alpine.js component function `discApp()` returning reactive state and methods.
+- Replaced `gqlFetch`, `apiLoadDiscs`, `apiAddDisc`, `apiUpdateDisc`, `apiDeleteDisc` with Supabase equivalents using `supabase.from('discs')` CRUD pattern.
+- Renamed `toApiDisc`/`fromApiDisc` → `toDbDisc`/`fromDbDisc`. Field mapping: `type` ↔ `disc_type`, `added` (ms) ↔ `added_at` (ISO timestamptz). Weight kept as string for flexibility.
+- Added GitHub OAuth via Supabase: `signIn()` triggers `signInWithOAuth({ provider: 'github' })`, `signOut()` clears session.
+- Login screen shown when not authenticated; main app behind `<template x-if="!loading && user">`.
+- Auth state managed via `supabase.auth.onAuthStateChange()` — auto-loads discs after login.
+- localStorage fallback retained: if Supabase URL is placeholder or unreachable, app runs in local-only mode with a synthetic `user.id = 'local'`.
+- All existing CSS classes preserved: disc-card, type-badge, condition-dot, color-swatch, modal-overlay, io-bar, toast — zero visual changes.
+- Color picker converted from DOM event delegation to Alpine `@click="selectColor('ColorName')"` + `:class="{ selected: form.color === 'ColorName' }"`.
+- Modals use `x-show` + `x-transition.opacity` instead of manual `.hidden` class toggling.
+- Form validation uses `formInvalid` reactive object + `:class="{ invalid: formInvalid.name }"`.
+- Added `[x-cloak]` CSS rule to prevent Alpine FOUC.
+- Supabase JS and Alpine.js loaded via CDN script tags — zero build step.
+- Placeholder values `'YOUR_SUPABASE_URL'` and `'YOUR_SUPABASE_ANON_KEY'` for user to fill in.
+- Created `docs/supabase-setup.md` (setup guide) and `docs/migration-sql.sql` (PostgreSQL schema + RLS policies).
+- Weight input changed from `type="number"` to `type="text"` to match string storage model.
+- Export/import functionality preserved with Supabase and localStorage dual-path support.
