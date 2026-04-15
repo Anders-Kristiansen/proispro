@@ -30,7 +30,7 @@
   },
   "entities": {
     "Disc": {
-      "source": { "object": "discs", "type": "collection" },
+      "source": { "object": "discs", "type": "table" },
       "rest": { "enabled": false },
       "graphql": { "enabled": true, "type": { "singular": "Disc", "plural": "discs" } },
       "permissions": [
