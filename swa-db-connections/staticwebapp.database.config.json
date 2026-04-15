@@ -10,13 +10,14 @@
   },
   "runtime": {
     "graphql": {
+      "allow-introspection": true,
       "enabled": true,
       "path": "/graphql"
     },
     "host": {
       "mode": "production",
       "cors": {
-        "origins": ["https://proispro.com", "https://delightful-hill-077ff8203.7.azurestaticapps.net"],
+        "origins": ["http://localhost:4280", "https://proispro.com", "https://delightful-hill-077ff8203.7.azurestaticapps.net"],
         "allow-credentials": false
       },
       "authentication": {
@@ -26,16 +27,11 @@
   },
   "entities": {
     "Disc": {
-      "source": { "object": "discs" },
-      "graphql": {
-        "enabled": true,
-        "type": { "singular": "Disc", "plural": "discs" }
-      },
-      "rest": { "enabled": false },
+      "source": "discs",
       "permissions": [
         {
           "actions": ["*"],
-          "role": "authenticated"
+          "role": "anonymous"
         }
       ]
     }
