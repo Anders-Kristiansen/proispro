@@ -34,6 +34,9 @@
       "rest": {
         "enabled": true
       },
+      "graphql": {
+        "enabled": true
+      },
       "permissions": [
         {
           "actions": ["*"],

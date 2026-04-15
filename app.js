@@ -34,19 +34,26 @@ function escHtml(str) {
   return d.innerHTML;
 }
 
-// ── DAB API ──────────────────────────────────────────────────
-const API_BASE = '/data-api/rest/Disc';
+// ── DAB GraphQL API ──────────────────────────────────────────
+const GRAPHQL_ENDPOINT = '/data-api/graphql';
 
-async function apiFetch(path, options = {}) {
-  const res = await fetch(API_BASE + path, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+const DISC_FIELDS = 'id name manufacturer type plastic weight color condition flight notes addedAt';
+
+async function gqlFetch(query, variables = {}) {
+  const res = await fetch(GRAPHQL_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`API ${res.status}: ${text}`);
   }
-  return res.status === 204 ? null : res.json();
+  const json = await res.json();
+  if (json.errors) {
+    throw new Error(`API GraphQL: ${json.errors.map(e => e.message).join(', ')}`);
+  }
+  return json.data;
 }
 
 function toApiDisc(disc) {
@@ -60,21 +67,30 @@ function fromApiDisc(d) {
 }
 
 async function apiLoadDiscs() {
-  const data = await apiFetch('');
-  return (data.value || []).map(fromApiDisc);
+  const data = await gqlFetch(`query { discs { items { ${DISC_FIELDS} } } }`);
+  return (data.discs.items || []).map(fromApiDisc);
 }
 
 async function apiAddDisc(disc) {
-  const data = await apiFetch('', { method: 'POST', body: JSON.stringify(toApiDisc(disc)) });
-  return fromApiDisc(data);
+  const data = await gqlFetch(
+    `mutation CreateDisc($item: CreateDiscInput!) { createDisc(item: $item) { ${DISC_FIELDS} } }`,
+    { item: toApiDisc(disc) }
+  );
+  return fromApiDisc(data.createDisc);
 }
 
 async function apiUpdateDisc(disc) {
-  await apiFetch(`/id/${disc.id}`, { method: 'PUT', body: JSON.stringify(toApiDisc(disc)) });
+  await gqlFetch(
+    `mutation UpdateDisc($id: ID!, $item: UpdateDiscInput!) { updateDisc(id: $id, item: $item) { id } }`,
+    { id: disc.id, item: toApiDisc(disc) }
+  );
 }
 
 async function apiDeleteDisc(id) {
-  await apiFetch(`/id/${id}`, { method: 'DELETE' });
+  await gqlFetch(
+    `mutation DeleteDisc($id: ID!) { deleteDisc(id: $id) { id } }`,
+    { id }
+  );
 }
 
 // ── Toast ───────────────────────────────────────────────────
