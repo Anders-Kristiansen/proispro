@@ -1,6 +1,3 @@
-# Infrastructure docs & setup scripts (local reference only)
-docs/infra/
-
 # Squad: ignore runtime state (logs, inbox, sessions)
 .squad/orchestration-log/
 .squad/log/
