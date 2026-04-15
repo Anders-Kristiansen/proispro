@@ -2,7 +2,7 @@ type Disc @model {
   id: ID
   name: String
   manufacturer: String
-  type: String
+  discType: String
   plastic: String
   weight: String
   color: String

@@ -37,7 +37,7 @@ function escHtml(str) {
 // ── DAB GraphQL API ──────────────────────────────────────────
 const GRAPHQL_ENDPOINT = '/data-api/graphql';
 
-const DISC_FIELDS = 'id name manufacturer type plastic weight color condition flight notes addedAt';
+const DISC_FIELDS = 'id name manufacturer discType plastic weight color condition flight notes addedAt';
 
 async function gqlFetch(query, variables = {}) {
   const res = await fetch(GRAPHQL_ENDPOINT, {
@@ -57,13 +57,13 @@ async function gqlFetch(query, variables = {}) {
 }
 
 function toApiDisc(disc) {
-  const { added, ...rest } = disc;
-  return { ...rest, addedAt: new Date(added || Date.now()).toISOString() };
+  const { added, type, ...rest } = disc;
+  return { ...rest, discType: type, addedAt: new Date(added || Date.now()).toISOString() };
 }
 
 function fromApiDisc(d) {
-  const { addedAt, ...rest } = d;
-  return { ...rest, added: addedAt ? Date.parse(addedAt) : Date.now() };
+  const { addedAt, discType, ...rest } = d;
+  return { ...rest, type: discType, added: addedAt ? Date.parse(addedAt) : Date.now() };
 }
 
 async function apiLoadDiscs() {
