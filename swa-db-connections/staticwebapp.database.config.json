@@ -9,10 +9,6 @@
     "connection-string": "@env('DATABASE_CONNECTION_STRING')"
   },
   "runtime": {
-    "rest": {
-      "enabled": true,
-      "path": "/rest"
-    },
     "graphql": {
       "enabled": true,
       "path": "/graphql"
@@ -30,9 +26,11 @@
   },
   "entities": {
     "Disc": {
-      "source": { "object": "discs", "type": "table" },
-      "rest": { "enabled": false },
-      "graphql": { "enabled": true, "type": { "singular": "Disc", "plural": "discs" } },
+      "source": "discs",
+      "graphql": {
+        "enabled": true,
+        "type": { "singular": "Disc", "plural": "discs" }
+      },
       "permissions": [
         {
           "actions": ["*"],
