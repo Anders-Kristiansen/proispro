@@ -339,6 +339,92 @@ Replaced free-text `<input type="text" id="discColor">` with visual swatch picke
 
 ---
 
+### Frontend Rewrite: Alpine.js + Supabase Client
+**By:** Rusty (Frontend Dev) | **Date:** 2026-04-16 | **Status:** Implemented
+
+Complete rewrite of frontend from vanilla DOM + DAB GraphQL to Alpine.js + Supabase JS client (both via CDN). No build step.
+
+**What Changed:**
+- Replaced DAB GraphQL queries → Supabase JS client CRUD operations
+- Replaced vanilla DOM manipulation → Alpine.js reactive components
+- Replaced Azure SWA auth → Supabase GitHub OAuth
+- Weight input changed from `type="number"` → `type="text"` (matches PostgreSQL string column, allows flexible entries like "170-175")
+
+**Key Design:**
+- **Single Alpine component:** Entire app is one `discApp()` function (~300 lines, no splitting needed)
+- **Graceful Supabase detection:** If `SUPABASE_URL` is placeholder, app runs in localStorage-only mode (local dev without Supabase project)
+- **Auth gate:** Login screen shown when not authenticated (single-page app, no route-level auth needed)
+- **`x-cloak` CSS rule:** Prevents flash of unstyled Alpine template syntax before hydration
+
+**Files Modified:**
+- `app.js` — Complete rewrite (Alpine + Supabase)
+- `index.html` — Alpine directives + CDN script tags
+- `styles.css` — Added `[x-cloak]` rule
+
+**Files Created:**
+- `docs/supabase-setup.md` — User setup guide
+- `docs/migration-sql.sql` — PostgreSQL schema + RLS policies
+
+**Preserved:**
+- All CSS classes, visual design (zero styling changes)
+- OKLCH color system, disc color swatches, condition dots, type badges
+- localStorage fallback (offline/unconfigured mode)
+- Export/import JSON functionality
+- Toast notifications
+
+---
+
+### Azure Fully Decommissioned — Supabase is Sole Backend
+**By:** Linus (DevOps) | **Date:** 2026-04-20 | **Status:** Complete
+
+All Azure resources deleted from portal by AK. Repository cleaned of all Azure/CosmosDB/DAB configuration files and documentation.
+
+**What Was Removed from Repo:**
+- `docs/infra/` — Entire directory (Azure/DAB setup docs + PowerShell scripts)
+- `.squad/skills/cosmosdb-best-practices/SKILL.md` — Obsolete CosmosDB skill
+- `.squad/decisions/inbox/danny-dab-fix.md` — DAB troubleshooting notes (not durable)
+- `.squad/decisions/inbox/danny-dab-retirement-migration.md` — Superseded by decisions.md
+- `.gitignore` — Removed stale `docs/infra/` ignore rule
+
+**Verification (grep confirmed zero references):**
+- `app.js` — zero Azure/CosmosDB/DAB references
+- `index.html` — zero Azure/CosmosDB/DAB references
+
+**Current Stack (Sole Production):**
+| Layer | Technology |
+|-------|-----------|
+| Hosting | GitHub Pages (proispro.com) |
+| Database | Supabase PostgreSQL |
+| Auth | Supabase GitHub OAuth |
+| Deploy | GitHub Actions (`.github/workflows/deploy.yml`) |
+
+**Portal Cleanup (Separate Action by AK):**
+- Deleted `proispro` resource group (was empty — setup script never ran)
+- Left DNS zones (likely shared test infrastructure)
+- Zero active charges (CosmosDB + SWA were never provisioned)
+
+**Status:** ✅ Azure fully decommissioned. Supabase is sole backend. Repo is clean.
+
+---
+
+### Cloud Services: Verify Deprecation & Documentation First
+**By:** AK (User Directive via Copilot) | **Date:** 2026-04-15 | **Status:** Policy
+
+Before making any architecture decisions involving cloud services (Azure, AWS, GCP, Supabase, etc.):
+1. **First:** Check relevant vendor's official documentation for service status & best practices
+2. **Never assume** patterns, pricing, or behavior — verify from source
+3. **Applies to all agents**, especially Lead and DevOps roles
+
+**Why:** Learned from CosmosDB/DAB experiment where assumptions about service behavior and fit led to wasted debugging and full migration. DAB was silently deprecated (November 30, 2025); production showed 500s with no helpful error message. Local SWA CLI bundled its own DAB runtime, creating illusion of working code.
+
+**Red Flags for Deprecation Checks:**
+- Instant 500 responses (not timeout) = runtime not starting
+- Zero service logs in platform dashboards = feature not present
+- Official docs redirect to overview pages = deprecation notice
+- "Works locally but fails in production" with managed platform tooling
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
