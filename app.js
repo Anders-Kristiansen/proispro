@@ -81,14 +81,14 @@ async function apiAddDisc(disc) {
 
 async function apiUpdateDisc(disc) {
   await gqlFetch(
-    `mutation UpdateDisc($id: ID!, $item: UpdateDiscInput!) { updateDisc(id: $id, item: $item) { id } }`,
+    `mutation UpdateDisc($id: ID!, $item: UpdateDiscInput!) { updateDisc(id: $id, _partitionKeyValue: $id, item: $item) { id } }`,
     { id: disc.id, item: toApiDisc(disc) }
   );
 }
 
 async function apiDeleteDisc(id) {
   await gqlFetch(
-    `mutation DeleteDisc($id: ID!) { deleteDisc(id: $id) { id } }`,
+    `mutation DeleteDisc($id: ID!) { deleteDisc(id: $id, _partitionKeyValue: $id) { id } }`,
     { id }
   );
 }
