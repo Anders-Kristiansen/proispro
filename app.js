@@ -35,7 +35,7 @@ function escHtml(str) {
 }
 
 // ── DAB API ──────────────────────────────────────────────────
-const API_BASE = '/api/Disc';
+const API_BASE = '/data-api/rest/Disc';
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(API_BASE + path, {
