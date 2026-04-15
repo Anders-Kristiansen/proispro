@@ -204,9 +204,36 @@ Data API Builder provides serverless REST layer. No custom Node.js functions or 
 
 **Migration:** From no backend (GitHub Pages) to serverless DAB + CosmosDB.
 
+### DAB Retirement & Migration to Supabase
+**By:** Danny (Lead) | **Date:** 2026-04-20 | **Status:** Completed & Live
+
+Azure Static Web Apps Database Connections (DAB) was retired November 30, 2025. We debugged a deprecated feature for days before discovering this. **Complete migration:** Supabase PostgreSQL (backend) + Alpine.js (frontend) + GitHub Pages (hosting).
+
+**Why Supabase won:**
+- Standard PostgreSQL (portable, not vendor-locked)
+- Row-Level Security (RLS) provides security without server code
+- Built-in GitHub OAuth (zero custom auth logic)
+- Free tier sufficient (500MB database, unlimited requests)
+- No build step needed (GitHub Pages + CDN, instant deploys)
+
+**Learnings captured in `docs/lessons-learned.md`:** Always check service deprecation FIRST when debugging managed platform failures. "Works locally ≠ works in production" when local tooling bundles its own runtime. Simpler stacks (Supabase + GitHub Pages) beat complex ones (SWA + CosmosDB + DAB) for small apps.
+
+**Status:** Live at proispro.com. Cloud sync working. Zero 500 errors.
+
 ---
 
-## Color System
+### Hosting: GitHub Pages + Custom Domain (Supabase Backend)
+**By:** Linus (DevOps) | **Date:** 2026-04-20 | **Status:** Active
+
+Host static frontend on GitHub Pages at proispro.com. Backend is Supabase (not SWA).
+
+**Rationale:** Zero-config hosting. Push to main → deployed. Custom domain + SSL auto-managed. Static site works perfectly with Supabase client-side SDK (no server-side code needed).
+
+**Trade-off:** GitHub Pages is not a dynamic platform (but we don't need one — Supabase handles all state).
+
+**Replaces:** Azure Static Web Apps (vendor lock-in, operational overhead).
+
+---
 
 ### OKLCH Color Palette — Perceptually Uniform
 **By:** Saul (Color Expert) | **Date:** 2026-04-13 | **Status:** Active

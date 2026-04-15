@@ -6,13 +6,13 @@ How to decide who handles what.
 
 | Work Type | Route To | Examples |
 |-----------|----------|----------|
-| {domain 1} | {Name} | {example tasks} |
-| {domain 2} | {Name} | {example tasks} |
-| {domain 3} | {Name} | {example tasks} |
+| Alpine.js components, reactive UI | Rusty | {example: build form modals, refactor DOM to x-data directives} |
+| Supabase schema, RLS policies, migrations | Danny | {example: set up Row-Level Security, design PostgreSQL schema} |
+| GitHub Pages deployment, DNS, CI/CD | Linus | {example: enable Pages, CNAME setup, GitHub Actions workflows} |
 | Color palettes, accessibility, color systems | Saul | {example: "generate an accessible color palette", "check this color for WCAG contrast"} |
-| Code review | {Name} | Review PRs, check quality, suggest improvements |
-| Testing | {Name} | Write tests, find edge cases, verify fixes |
-| Scope & priorities | {Name} | What to build next, trade-offs, decisions |
+| Code review | Danny | Review PRs, check quality, suggest improvements |
+| Testing | Rusty | Write tests, find edge cases, verify fixes |
+| Scope & priorities | Danny | What to build next, trade-offs, decisions |
 | Session logging | Scribe | Automatic — never needs routing |
 
 ## Issue Routing
@@ -44,9 +44,8 @@ How to decide who handles what.
 | Work Type | Primary | Secondary |
 |-----------|---------|----------|
 | Architecture, decisions, review | Danny | — |
-| HTML, CSS, JavaScript | Rusty | Saul (color impl) |
-| JSON data, GitHub API | Basher | — |
+| HTML, CSS, JavaScript, Alpine.js | Rusty | Saul (color impl) |
+| Supabase database, RLS policies | Danny | Basher (secondary) |
 | GitHub Pages, deployment | Linus | — |
 | Color palettes, color spaces, accessibility contrast, color tokens | Saul | Rusty (CSS impl) |
-| CosmosDB schema, partition keys, DAB config, GraphQL queries | Danny | Rusty (app.js impl) |
 
