@@ -26,11 +26,12 @@
   },
   "entities": {
     "Disc": {
-      "source": "discs",
+      "source": { "object": "discs" },
       "graphql": {
         "enabled": true,
         "type": { "singular": "Disc", "plural": "discs" }
       },
+      "rest": { "enabled": false },
       "permissions": [
         {
           "actions": ["*"],
