@@ -47,3 +47,11 @@
 - All GitHub-specific code removed; codebase is cleaner (~250 lines eliminated).
 - Tested zero dangling references to GitHub-related symbols.
 - Next: Monitor DAB reliability in production; consider offline queue (IndexedDB) for write resilience during DAB downtime.
+
+### 2026-04-15 — DAB CosmosDB Schema Bugs Fixed (commit 65da48f)
+
+- Danny diagnosed 4 critical bugs in DAB GraphQL/REST schema that broke all queries.
+- Key issue: Partition key handling. DAB mutations require explicit `_partitionKeyValue` in payload—not self-derived from entity definition.
+- App.js already uses correct `/data-api/rest/Disc` path (not `/api/`). `/api/` is Azure Functions only; DAB runs at `/data-api/`.
+- Entity source fixed (string → object), type names aligned (singular/plural), ID field made non-null, mutations updated with partition key.
+- All DAB operations now functional. Frontend integration unaffected by schema fixes—just needed correct endpoint path.

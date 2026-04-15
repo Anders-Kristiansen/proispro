@@ -95,3 +95,18 @@ GitHub sync logic was a workaround. As of 2026-04-15, Rusty removed all GitHub s
 3. **Multi-user variant:** DAB auth is now `authenticated` role via GitHub OAuth. SWA auth rules hardened by Basher (2026-04-15). Production-ready for single-user; path clear for multi-user if needed.
 
 The migration validated the original single-tenant design—the codebase is now cleaner and more maintainable after removing the GitHub sync layer.
+
+---
+
+## 2026-04-15 Session: DAB CosmosDB Bugs Fixed (commit 65da48f)
+
+Diagnosed and fixed 4 critical DAB CosmosDB NoSQL bugs that caused 500 errors on all GraphQL requests:
+
+1. **Entity source format:** Schema used bare string `source: "discs"` instead of object `source: { type: "collection", name: "discs" }`
+2. **GraphQL type pluralization:** DAB auto-generated plurals but schema enforced singular; misalignment on Disc/Discs types
+3. **ID field non-null:** Changed `id: ID` → `id: ID!` to match CosmosDB item guarantee
+4. **Partition key in mutations:** Added `_partitionKeyValue` as required parameter in updateDisc and deleteDisc mutations
+
+**Impact:** All REST and GraphQL endpoints now functional. Mutations properly route to correct CosmosDB partition. App.js confirmed using correct `/data-api/rest/Disc` path (not `/api/Disc`).
+
+Key learning: DAB partition key handling is non-obvious—mutations require explicit partition value in payload. This is DAB-specific and not documented in early tutorials. Captured in decisions.md for future reference.

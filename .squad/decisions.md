@@ -180,6 +180,19 @@ DAB Disc entity requires `authenticated` role. CORS restricted to `https://prois
 
 ---
 
+### DAB REST Endpoint Path in SWA
+**By:** Danny (Lead) | **Date:** 2026-04-15 | **Status:** Decided & Implemented
+
+In Azure Static Web Apps, DAB REST API is served at `/data-api/rest/{entity}`, NOT `/api/{entity}`. The `/api/` path is reserved for Azure Functions.
+
+**Implementation:** `API_BASE` in app.js uses `/data-api/rest/Disc` (not `/api/Disc`). SWA config routes `/data-api/*` for DAB, not `/api/*` for DAB. Auth lockdown (authenticated) applies to `/data-api/` routes.
+
+**Rationale:** Confirmed by live 404 error when calling `/api/Disc`; corrected to `/data-api/rest/Disc`. This is the correct DAB endpoint structure in SWA.
+
+**Impact:** Never debug by opening DAB endpoints to 'anonymous' — always lock to 'authenticated'.
+
+---
+
 ### No Backend Server — Serverless DAB
 **By:** Danny (Lead) | **Date:** 2026-04 | **Status:** Active (Updated)
 
