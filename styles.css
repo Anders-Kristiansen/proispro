@@ -87,6 +87,7 @@ body {
 a { color: var(--clr-accent); }
 
 /* ── Utility ──────────────────────────────────────────────── */
+[x-cloak]      { display: none !important; }
 .hidden        { display: none !important; }
 .hidden-input  { position: absolute; width: 0; height: 0; opacity: 0; }
 

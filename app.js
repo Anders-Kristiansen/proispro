@@ -2,8 +2,8 @@
 /* Supabase + Alpine.js rewrite                                 */
 
 // ── Supabase Config ─────────────────────────────────────────
-const SUPABASE_URL  = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL  = 'https://odqhusmmqgipvazusrxs.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_p0KpjMepMloZb6SI-y6ang_2uzbdQ9U';
 
 const STORAGE_KEY = 'proispro_discs';
 
