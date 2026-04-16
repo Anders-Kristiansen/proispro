@@ -225,10 +225,72 @@ a { color: var(--clr-accent); }
 .card-details span { display: flex; align-items: center; gap: .25rem; }
 
 .card-flight {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .25rem;
+  font-size: .8rem;
+}
+
+.fn-icon { font-size: .85rem; }
+.fn-sep  { color: var(--clr-border); font-weight: 700; }
+
+.fn-pill {
+  padding: .1rem .4rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: .75rem;
   font-family: monospace;
-  font-size: .85rem;
+  background: var(--clr-surface2);
+  color: var(--clr-text);
+  border: 1px solid var(--clr-border);
+}
+.fp-speed   { background: rgba(251,191,36,.15);  color: var(--fairway);  border-color: rgba(251,191,36,.3);  }
+.fp-glide   { background: rgba(52,211,153,.15);  color: var(--midrange); border-color: rgba(52,211,153,.3);  }
+.fp-under   { background: rgba(34,211,238,.15);  color: oklch(0.78 0.14 204); border-color: rgba(34,211,238,.3); }
+.fp-neutral { background: rgba(167,139,250,.15); color: var(--putter);   border-color: rgba(167,139,250,.3); }
+.fp-fade    { background: rgba(248,113,113,.15); color: var(--distance); border-color: rgba(248,113,113,.3); }
+
+.fn-stability {
+  font-size: .7rem;
+  color: var(--clr-muted);
+  margin-left: .1rem;
+}
+
+/* ── Form — Flight Number Inputs ─────────────────────────────── */
+.flight-inputs {
+  display: flex;
+  gap: .35rem;
+  align-items: flex-end;
+}
+.flight-input-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .15rem;
+  flex: 1;
+}
+.flight-input-group input {
+  padding: .4rem .3rem;
+  text-align: center;
+  width: 100%;
+  font-weight: 700;
+  font-family: monospace;
+  font-size: .9rem;
+}
+.flight-input-label {
+  font-size: .65rem;
+  font-weight: 700;
+  color: var(--clr-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.stability-preview {
+  margin-top: .35rem;
+  font-size: .75rem;
+  font-weight: 600;
   color: var(--clr-accent);
-  letter-spacing: .03em;
+  text-align: center;
 }
 
 .card-notes {

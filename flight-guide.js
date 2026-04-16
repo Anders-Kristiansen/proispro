@@ -1,0 +1,171 @@
+/* ── ProIsPro – Flight Guide ─────────────────────────────────────────────── */
+/* Standalone Alpine.js component for the disc flight guide page              */
+
+const SUPABASE_URL_FG  = 'https://odqhusmmqgipvazusrxs.supabase.co';
+const SUPABASE_ANON_FG = 'sb_publishable_p0KpjMepMloZb6SI-y6ang_2uzbdQ9U';
+
+function getSupabaseFG() {
+  try { return window.supabase.createClient(SUPABASE_URL_FG, SUPABASE_ANON_FG); } catch { return null; }
+}
+
+/* ── Constants ───────────────────────────────────────────────────────────── */
+const STABILITY_ORDER = [
+  'very-overstable',
+  'overstable',
+  'stable',
+  'understable',
+  'very-understable',
+];
+
+const STABILITY_LABELS = {
+  'very-overstable':  'Very Overstable',
+  'overstable':       'Overstable',
+  'stable':           'Stable',
+  'understable':      'Understable',
+  'very-understable': 'Very Understable',
+};
+
+const TYPE_LABELS_FG = {
+  distance: 'Distance Driver',
+  fairway:  'Fairway / Hybrid',
+  midrange: 'Midrange',
+  putter:   'Putter',
+};
+
+/* ── Alpine Component ────────────────────────────────────────────────────── */
+function flightGuide() {
+  return {
+    /* State */
+    loading:         true,
+    error:           null,
+    allDiscs:        [],
+    search:          '',
+    filterBrand:     '',
+    filterType:      '',
+    filterStability: '',
+    showDetail:      false,
+    selectedDisc:    null,
+    userBagDiscs:    [],
+    stabilityOrder:  STABILITY_ORDER,
+    stabilityLabels: STABILITY_LABELS,
+    typeLabels:      TYPE_LABELS_FG,
+
+    /* ── Computed ─────────────────────────────────────────────────────────── */
+    get filteredDiscs() {
+      let list = this.allDiscs;
+      const q = this.search.toLowerCase().trim();
+      if (q) {
+        list = list.filter(d =>
+          d.name.toLowerCase().includes(q) ||
+          d.brand.toLowerCase().includes(q)
+        );
+      }
+      if (this.filterBrand)     list = list.filter(d => d.brandSlug     === this.filterBrand);
+      if (this.filterType)      list = list.filter(d => d.type          === this.filterType);
+      if (this.filterStability) list = list.filter(d => d.stabilitySlug === this.filterStability);
+      return list;
+    },
+
+    get brands() {
+      return getBrands(this.allDiscs);
+    },
+
+    get discCount() {
+      return this.filteredDiscs.length;
+    },
+
+    get gridRows() {
+      const discs = this.filteredDiscs;
+      const rows = [];
+      // Always show all speed rows 1–15 so the grid is a stable coordinate system.
+      // Rows with no matching discs are rendered empty (grey stripe) rather than removed.
+      for (let speed = 15; speed >= 1; speed--) {
+        const rowDiscs = discs.filter(d => d.speed === speed);
+        const cells = {};
+        for (const s of STABILITY_ORDER) {
+          cells[s] = rowDiscs.filter(d => d.stabilitySlug === s);
+        }
+        // Skip entirely empty rows only when the full catalog is loaded and truly has no discs at that speed
+        const hasAnyAtSpeed = this.allDiscs.some(d => d.speed === speed);
+        if (!hasAnyAtSpeed) continue;
+        rows.push({ speed, cells, count: rowDiscs.length });
+      }
+      return rows;
+    },
+
+    /* ── Methods ──────────────────────────────────────────────────────────── */
+    async init() {
+      try {
+        this.allDiscs = await loadCatalog();
+      } catch (err) {
+        this.error = 'Could not load disc catalog. Check your connection and try again.';
+        console.error(err);
+      }
+      this.loading = false;
+
+      /* Try to load user's bag for highlighting */
+      try {
+        const sb = getSupabaseFG();
+        if (sb) {
+          const { data: { user } } = await sb.auth.getUser();
+          if (user) {
+            const { data } = await sb.from('discs').select('name, manufacturer');
+            this.userBagDiscs = data || [];
+          }
+        }
+      } catch { /* guest mode — no bag highlighting */ }
+
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') this.showDetail = false;
+      });
+    },
+
+    selectDisc(disc) {
+      this.selectedDisc = disc;
+      this.showDetail   = true;
+    },
+
+    isInBag(disc) {
+      return this.userBagDiscs.some(b =>
+        b.name.toLowerCase() === disc.name.toLowerCase() &&
+        (!b.manufacturer || b.manufacturer.toLowerCase() === disc.brand.toLowerCase())
+      );
+    },
+
+    addToBag(disc) {
+      const p = new URLSearchParams({
+        name:         disc.name,
+        manufacturer: disc.brand,
+        type:         disc.type,
+        speed:        disc.speed,
+        glide:        disc.glide,
+        turn:         disc.turn,
+        fade:         disc.fade,
+      });
+      window.location.href = 'index.html?' + p.toString();
+    },
+
+    resetFilters() {
+      this.search          = '';
+      this.filterBrand     = '';
+      this.filterType      = '';
+      this.filterStability = '';
+    },
+
+    /* ── Display helpers ──────────────────────────────────────────────────── */
+    formatTurn(n) { return n > 0 ? '+' + n : String(n); },
+
+    turnClass(n) {
+      if (n < -2) return 'fn-very-under';
+      if (n < 0)  return 'fn-under';
+      if (n === 0) return 'fn-neutral';
+      return 'fn-over';
+    },
+
+    /* Bar width % for flight number visualisations */
+    speedBar(v)  { return Math.max(2, (Number(v) / 15)  * 100) + '%'; },
+    glideBar(v)  { return Math.max(2, (Number(v) / 7)   * 100) + '%'; },
+    turnBar(v)   { return Math.max(2, (Math.abs(Number(v)) / 5) * 100) + '%'; },
+    fadeBar(v)   { return Math.max(2, (Number(v) / 5)   * 100) + '%'; },
+  };
+}

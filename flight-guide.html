@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProIsPro – Flight Guide</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="flight-guide.css" />
+</head>
+<body>
+
+<div class="fg-page" x-data="flightGuide()" x-cloak>
+
+  <!-- ── Header ── -->
+  <header class="fg-header">
+    <a href="index.html" class="fg-back-btn">← My Bag</a>
+    <a href="index.html" class="fg-logo-link">
+      <span style="font-size:1.4rem">🥏</span>
+      <span style="font-size:.95rem;font-weight:700;color:var(--clr-muted)">ProIsPro</span>
+    </a>
+    <h1 class="fg-title">🗺 Flight Guide</h1>
+    <p style="font-size:.8rem;color:var(--clr-muted);margin-left:auto;display:none" id="fg-tagline">
+      Browse thousands of discs — sorted by speed &amp; stability
+    </p>
+  </header>
+
+  <!-- ── Loading State ── -->
+  <template x-if="loading">
+    <div class="fg-state">
+      <div class="fg-state-icon">🥏</div>
+      <h2>Loading disc catalog…</h2>
+      <p>Fetching data from the DiscIt API. This may take a few seconds on first load.</p>
+    </div>
+  </template>
+
+  <!-- ── Error State ── -->
+  <template x-if="!loading && error">
+    <div class="fg-state">
+      <div class="fg-state-icon">⚠️</div>
+      <h2>Could not load catalog</h2>
+      <p x-text="error"></p>
+      <button class="btn btn-primary" @click="window.location.reload()">Retry</button>
+    </div>
+  </template>
+
+  <!-- ── Main Content ── -->
+  <template x-if="!loading && !error">
+    <div style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+
+      <!-- ── Toolbar ── -->
+      <div class="fg-toolbar">
+        <input
+          class="fg-search"
+          type="search"
+          placeholder="Search discs or brands…"
+          aria-label="Search discs"
+          x-model="search"
+        />
+
+        <select class="fg-select" aria-label="Filter by brand" x-model="filterBrand">
+          <option value="">All brands</option>
+          <template x-for="b in brands" :key="b.slug">
+            <option :value="b.slug" x-text="b.name"></option>
+          </template>
+        </select>
+
+        <select class="fg-select" aria-label="Filter by type" x-model="filterType">
+          <option value="">All types</option>
+          <option value="distance">Distance Driver</option>
+          <option value="fairway">Fairway / Hybrid</option>
+          <option value="midrange">Midrange</option>
+          <option value="putter">Putter</option>
+        </select>
+
+        <select class="fg-select" aria-label="Filter by stability" x-model="filterStability">
+          <option value="">All stability</option>
+          <template x-for="s in stabilityOrder" :key="s">
+            <option :value="s" x-text="stabilityLabels[s]"></option>
+          </template>
+        </select>
+
+        <button class="fg-reset-btn" @click="resetFilters()" title="Clear all filters">✕ Reset</button>
+
+        <span class="fg-count" x-text="discCount.toLocaleString() + ' discs'"></span>
+      </div>
+
+      <!-- ── Legend ── -->
+      <div class="fg-legend">
+        <span class="fg-legend-label">Type:</span>
+        <span class="fg-legend-item"><span class="fg-legend-dot fg-dot-putter"></span>Putter</span>
+        <span class="fg-legend-item"><span class="fg-legend-dot fg-dot-midrange"></span>Midrange</span>
+        <span class="fg-legend-item"><span class="fg-legend-dot fg-dot-fairway"></span>Fairway / Hybrid</span>
+        <span class="fg-legend-item"><span class="fg-legend-dot fg-dot-distance"></span>Distance Driver</span>
+        <span class="fg-legend-item"><span class="fg-legend-dot fg-dot-bag"></span>In my bag</span>
+      </div>
+
+      <!-- ── Body ── -->
+      <div class="fg-body">
+
+        <!-- ── Grid ── -->
+        <div class="fg-grid-wrapper" role="main">
+
+          <!-- Empty filtered state -->
+          <div class="fg-state" x-show="gridRows.length === 0 && !loading">
+            <div class="fg-state-icon">🔍</div>
+            <h2>No discs match your filters</h2>
+            <p>Try a different search or <button class="btn btn-secondary btn-sm" @click="resetFilters()">reset filters</button></p>
+          </div>
+
+          <!-- Grid header row (stability axis) -->
+          <div class="fg-axis-header" x-show="gridRows.length > 0">
+            <div class="fg-axis-corner">Spd</div>
+            <div class="fg-stab-header stab-color-vos">Very<br>Overstable</div>
+            <div class="fg-stab-header stab-color-os">Overstable</div>
+            <div class="fg-stab-header stab-color-s">Stable</div>
+            <div class="fg-stab-header stab-color-us">Understable</div>
+            <div class="fg-stab-header stab-color-vus">Very<br>Understable</div>
+          </div>
+
+          <!-- Stability arrow -->
+          <div class="fg-stability-arrow" x-show="gridRows.length > 0">
+            <div></div>
+            <div class="fg-arrow-track">
+              <span style="text-align:left;color:oklch(0.72 0.22 25);font-weight:700">← Overstable</span>
+              <div class="arrow-line"></div>
+              <span style="text-align:right;color:oklch(0.74 0.20 265);font-weight:700">Understable →</span>
+            </div>
+          </div>
+
+          <!-- Speed rows -->
+          <template x-for="row in gridRows" :key="row.speed">
+            <div class="fg-speed-row">
+
+              <!-- Speed label -->
+              <div class="fg-speed-label" x-text="row.speed" :title="'Speed ' + row.speed"></div>
+
+              <!-- Stability cells -->
+              <template x-for="stab in stabilityOrder" :key="stab">
+                <div class="fg-stab-cell">
+                  <template x-for="disc in (row.cells[stab] || [])" :key="disc.id">
+                    <div
+                      class="disc-tile"
+                      :class="'type-' + disc.type + (isInBag(disc) ? ' in-bag' : '')"
+                      @click="selectDisc(disc)"
+                      :title="disc.name + ' (' + disc.brand + ') — ' + disc.speed + '/' + disc.glide + '/' + formatTurn(disc.turn) + '/' + disc.fade"
+                    >
+                      <span x-text="disc.name"></span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
+            </div>
+          </template>
+
+        </div><!-- /fg-grid-wrapper -->
+
+        <!-- ── Detail Panel ── -->
+        <aside class="fg-detail" x-show="showDetail" x-transition.opacity>
+          <div class="fg-detail-inner">
+
+            <button class="fg-detail-close" @click="showDetail = false" aria-label="Close">✕</button>
+
+            <template x-if="selectedDisc">
+              <div>
+                <!-- Name + brand -->
+                <div class="fg-detail-name" x-text="selectedDisc.name"></div>
+                <div class="fg-detail-brand" x-text="selectedDisc.brand + ' · ' + (typeLabels[selectedDisc.type] || selectedDisc.category)"></div>
+
+                <!-- Badges -->
+                <div class="fg-detail-badges">
+                  <span class="type-badge" :class="'type-' + selectedDisc.type" x-text="typeLabels[selectedDisc.type] || selectedDisc.category"></span>
+                  <span class="fn-stability" x-text="stabilityLabels[selectedDisc.stabilitySlug]" style="font-size:.82rem;color:var(--clr-muted);display:flex;align-items:center;"></span>
+                </div>
+
+                <!-- Flight path image -->
+                <template x-if="selectedDisc.pic">
+                  <img class="fg-detail-pic" :src="selectedDisc.pic" :alt="selectedDisc.name + ' flight path'" loading="lazy" />
+                </template>
+                <template x-if="!selectedDisc.pic">
+                  <div class="fg-detail-pic-placeholder">✈️</div>
+                </template>
+
+                <!-- Flight numbers with bars -->
+                <div class="fg-fn-section">
+                  <div class="fg-fn-title">Flight Numbers</div>
+
+                  <div class="fg-fn-row">
+                    <span class="fg-fn-row-label" style="color:var(--fairway)">Speed</span>
+                    <div class="fg-fn-bar-wrap">
+                      <div class="fg-fn-bar bar-speed" :style="'width:' + speedBar(selectedDisc.speed)"></div>
+                    </div>
+                    <span class="fg-fn-val" x-text="selectedDisc.speed"></span>
+                  </div>
+
+                  <div class="fg-fn-row">
+                    <span class="fg-fn-row-label" style="color:var(--midrange)">Glide</span>
+                    <div class="fg-fn-bar-wrap">
+                      <div class="fg-fn-bar bar-glide" :style="'width:' + glideBar(selectedDisc.glide)"></div>
+                    </div>
+                    <span class="fg-fn-val" x-text="selectedDisc.glide"></span>
+                  </div>
+
+                  <div class="fg-fn-row">
+                    <span class="fg-fn-row-label" :style="selectedDisc.turn < 0 ? 'color:oklch(0.74 0.18 204)' : 'color:oklch(0.72 0.22 25)'">Turn</span>
+                    <div class="fg-fn-bar-wrap">
+                      <div class="fg-fn-bar" :class="selectedDisc.turn < 0 ? 'bar-turn-under' : 'bar-turn-over'"
+                           :style="'width:' + turnBar(selectedDisc.turn)"></div>
+                    </div>
+                    <span class="fg-fn-val" x-text="formatTurn(selectedDisc.turn)"></span>
+                  </div>
+
+                  <div class="fg-fn-row">
+                    <span class="fg-fn-row-label" style="color:var(--distance)">Fade</span>
+                    <div class="fg-fn-bar-wrap">
+                      <div class="fg-fn-bar bar-fade" :style="'width:' + fadeBar(selectedDisc.fade)"></div>
+                    </div>
+                    <span class="fg-fn-val" x-text="selectedDisc.fade"></span>
+                  </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="fg-detail-actions">
+                  <button class="fg-add-btn" @click="addToBag(selectedDisc)">
+                    + Add to My Bag
+                  </button>
+                  <a class="fg-store-link" :href="selectedDisc.link || '#'" target="_blank" rel="noopener"
+                     x-show="selectedDisc.link">
+                    🛒 View on Marshall Street
+                  </a>
+                </div>
+
+              </div>
+            </template>
+
+          </div><!-- /fg-detail-inner -->
+        </aside>
+
+      </div><!-- /fg-body -->
+
+    </div>
+  </template>
+
+</div><!-- /fg-page -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+<script src="disc-catalog.js"></script>
+<script src="flight-guide.js"></script>
+</body>
+</html>
