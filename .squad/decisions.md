@@ -305,6 +305,343 @@ All `:root` color tokens use OKLCH instead of hex/HSL. Hex originals retained as
 ### Disc Color Palette — 10 Vivid OKLCH Swatches
 **By:** Saul (Color Expert) | **Date:** 2026-04-14 | **Status:** Approved
 
+---
+
+## Decision: Disc Catalog Schema — Supabase PostgreSQL
+**By:** Basher (Data Wrangler) | **Date:** 2025-04 | **Status:** Proposed (Pending review)
+
+ProIsPro currently fetches disc catalog data from DiscIt API (Marshall Street), caches in localStorage with 24-hour TTL. This decision captures the plan to own the disc catalog in Supabase, support production run variants (same disc name, different plastic/year → different flight numbers), and support wear adjustments (user tweaks turn/fade/glide as their disc beats in).
+
+### Schema Decisions
+
+**A) `disc_catalog` Table:**
+- **Primary Key:** UUID (`gen_random_uuid()`) — enables external ID mapping flexibility, federation-ready
+- **Production Variants:** `plastic_type` (TEXT, nullable), `run_year` (INTEGER, nullable) — same mold can have different flight characteristics in different plastics/runs
+- **Denormalized Stability:** `stability` (TEXT) and `stability_slug` (TEXT) — avoids recalculating in every query; requires consistency with flight numbers on INSERT/UPDATE
+- **Indexes:** Individual indexes on `brand_slug`, `type`, `stability_slug`, `speed DESC` + compound index on `(brand_slug, type, speed DESC)` + GIN trigram indexes on `name` and `brand`
+- **RLS:** Public SELECT (flight guide is public), service_role-only write
+
+**B) `disc_wear_adjustments` Table:**
+- **Offset Storage:** Storing offsets (deltas from catalog value), not absolute values — keeps catalog value visible and ensures correct application if catalog specs are later corrected
+- **Offset Bounds:** `-3` to `+3` — prevents nonsense values, bounded CHECK constraint enforces sanity
+- **Link Strategy:** `user_disc_id` UUID NOT NULL (links to user's `discs` entry), `catalog_disc_id` UUID NULLABLE (links to `disc_catalog` if matched), `user_id` UUID NOT NULL
+- **RLS:** User can only SELECT/INSERT/UPDATE/DELETE their own adjustments
+
+**C) Query Pattern:**
+- Flight Guide: Direct SELECT from `disc_catalog` with optional filters
+- User Bag with Wear: LEFT JOIN `discs` → `disc_catalog` → `disc_wear_adjustments`; effective flight numbers = `COALESCE(d.speed, c.speed + COALESCE(w.speed_offset, 0))`
+
+### Migration Plan
+1. Run SQL migration (creates tables, indexes, RLS policies)
+2. Enable `pg_trgm` extension (for fuzzy search)
+3. Write seed script to fetch DiscIt API → INSERT into `disc_catalog`
+4. Update `disc-catalog.js`: replace DiscIt fetch with Supabase query
+5. Update `flight-guide.js`: adapt `loadCatalog()` to Supabase client
+6. Add wear adjustment UI to bag view (new feature, can be phased)
+
+### Open Questions
+1. Admin UI: Manual SQL, custom admin page, or Data API Builder endpoint?
+2. Seed automation: One-time manual seed or periodic refresh job?
+3. DiscIt fallback: If our catalog stale/incomplete, should we fall back to DiscIt API or commit to 100% ownership?
+
+---
+
+## Decision: Flight Guide Data Source
+**By:** AK (via Copilot) | **Date:** 2026-04-16 | **Scope:** Flight Guide feature data source selection
+
+Use **DiscIt API** (discit-api.fly.dev/disc) as the primary disc catalog data source.
+
+**Rationale:**
+- Only source with flight numbers at scale (no other public API provides flight characteristics for 1000+ discs)
+- Free and open with no licensing restrictions
+- Reliable, stable API serving disc golf community with industry-standard flight number format (4 integers)
+- Alternative sources (PDGA CSV, Marshall Street direct, manual entry) are impractical
+
+**Implementation:**
+- Parse legacy flight strings (e.g., "12 / 5 / -1 / 3") into discrete integer columns
+- Implement 24h localStorage caching to minimize API calls
+- Caching layer provides graceful degradation if API temporarily unavailable
+
+**Note:** This decision assumes eventual migration to self-owned Supabase catalog (see ADR: Flight Numbers Data Ownership).
+
+---
+
+## ADR: Flight Numbers Data Ownership & Production Run Model
+**Decision Lead:** Danny (Lead / Architect) | **Date:** 2026-04-21 | **Status:** Proposed | **Stakeholders:** Anders (User), Rusty (Frontend), Basher (Data)
+
+This ADR lays out the architecture for three layers of flight number management:
+1. Canonical catalog (remove Marshall Street dependency)
+2. Production run variants (plastic/run variation)
+3. Per-user adjustments (wear-based customization)
+
+### A. Data Ownership Strategy: Recommendation = Import Once, Self-Managed
+
+**Option A1 (Recommended ✓):**
+- **Approach:** Seed Supabase `discs` table from DiscIt API once, then own all updates
+- **Pros:** Clean break from dependency, full control, familiar structure, low migration friction
+- **Cons:** One-time operational step, no auto-correction if Marshall Street discovers errors, manual process for new discs
+- **Trade-off:** Operational simplicity vs. data freshness (acceptable for ~20–50 disc releases/year)
+
+**Rejected Options:**
+- **A2 (Build catalog from scratch):** Rejected — 10,000+ rows unsustainable, no initial data
+- **A3 (DiscIt as fallback):** Rejected — still depends on DiscIt, defeats goal of independence
+
+**Implementation:** One-time seed script → insert into `public.discs` → verify row count → manual updates going forward
+
+---
+
+### B. Production Run Model: Recommendation = One Row per Plastic
+
+**Option B1 (Recommended ✓):**
+- **Schema:** Separate row per plastic variant (innova-destroyer-champion, innova-destroyer-star, etc.)
+- **Pros:** One true flight per physical variant, simple queries, enables plastic-aware UI, storage efficient
+- **Cons:** Larger table (~10k–15k rows vs 3k), duplication, import complexity
+- **Trade-off:** Larger table (negligible cost) vs. clarity (one flight = one reality)
+- **ID format:** `{manufacturer}-{name}-{plastic}` (lowercase, kebab-case)
+
+**Rejected Options:**
+- **B2 (JSONB overrides):** Rejected — Supabase queries harder without stored procedures, UI complexity
+- **B3 (Lookup table):** Rejected — overkill for data model, extra join complexity
+
+---
+
+### C. Wear Adjustment Model: Recommendation = Separate `disc_adjustments` Table
+
+**Option C1 (Recommended ✓):**
+- **Schema:** Separate table with `user_id`, `bagged_disc_id`, speed/glide/turn/fade offsets, reason field
+- **Constraints:** Offsets bounded [speed: -4–4, glide: -3–3, turn: -3–3, fade: -2–2], one adjustment per bagged disc
+- **RLS:** User can only adjust their own discs
+- **Pros:** Clean separation, audit trail, easy revert, reusable fields, flexible for extensions
+- **Cons:** Extra table + join (minimal performance hit at scale)
+
+**Example:** Innova Destroyer Star (canonical: 12/5/-2/2) + wear adjustment (0/0/+1/+1) = final flight 12/5/-1/3
+
+**Rejected Options:**
+- **C2 (JSONB on user_discs):** Rejected — hard to query, no bounds enforcement, loses audit trail
+- **C3 (Version history):** Rejected — conflates user adjustments with canonical data (data modeling nightmare)
+
+---
+
+### D. Frontend Migration: disc-catalog.js → Supabase
+
+**Option D1 (Recommended ✓):**
+- **Approach:** Direct Supabase query + localStorage cache (same pattern as DiscIt)
+- **Implementation:** Replace DiscIt fetch with `supabase.from('discs').select(...)`
+- **Cache:** localStorage still provides offline resilience + performance
+- **Fallback:** Stale cache if Supabase temporarily unavailable
+- **Pros:** Clean separation, no breaking changes to flight-guide.js, graceful degradation
+- **Cons:** Two caches to manage, Supabase required for first-time users
+
+**Rejected Options:**
+- **D2 (Supabase RPC):** Rejected — adds server-side maintenance burden, overkill for <15k rows
+
+**localStorage Version Bump:** Change key from `proispro_disc_catalog` to `proispro_disc_catalog_v2` (prevents stale data pollution)
+
+---
+
+### E. Migration Path: Phased Rollout with Feature Flag
+
+**Phases:**
+1. **Phase 1 (Schema Setup):** Create `discs` table, seed from DiscIt, verify counts
+2. **Phase 2 (Feature Flag):** Update `disc-catalog.js` with `USE_SUPABASE_CATALOG = false`, internal testing
+3. **Phase 3 (Cutover):** Flip flag to true, deploy, monitor error logs + latency
+4. **Phase 4 (Cleanup):** Remove DiscIt code + feature flag after 1 week stability
+
+**Concurrent Work:** While Phase 1/2 happen, build "Edit Flight" modal in `flight-guide.html` (wear adjustment UI)
+
+**Go/No-Go Criteria:**
+- ✅ Supabase row count within ±5% of DiscIt
+- ✅ Spot-check: 10 random discs match DiscIt data
+- ✅ Query latency <200ms (p95)
+- ✅ Flight guide loads without errors
+- ✅ localStorage fallback works (offline resilience proven)
+
+**Post-Launch Success (1 week):**
+- <1% error rate on Supabase queries
+- Zero support tickets about missing discs/wrong flights
+- ≥80% of users see all expected discs
+
+### Implementation Timeline
+
+| Dimension | Decision | Owner | Timeline |
+|-----------|----------|-------|----------|
+| **A. Data Ownership** | Import DiscIt once, self-manage | Basher | 1 day |
+| **B. Production Run** | One row per plastic variant | Basher + Rusty | 2 days (curate plastics) |
+| **C. Wear Adjustments** | Separate `disc_adjustments` table + RLS | Basher + Rusty | 3 days (schema + UI) |
+| **D. Frontend Migration** | Supabase query + localStorage cache | Rusty | 1 day |
+| **E. Migration Path** | Phased rollout with feature flag | Rusty + Basher | 5 days total |
+
+**Week 1:** Basher curates plastics + runs import; Rusty updates `disc-catalog.js` + deploys Phase 2  
+**Week 2:** Rusty builds wear adjustment UI + disc_adjustments schema; integration testing  
+**Week 3:** Observation window; cleanup (remove DiscIt code, feature flag); go live with Flight Guide v2
+
+### Key Decisions Locked In
+
+1. ✅ No Marshall Street dependency — migrate to self-owned Supabase discs
+2. ✅ Plastic variants as separate rows — enables per-plastic flight numbers
+3. ✅ Wear adjustments as separate table — clean, auditable, reversible
+4. ✅ Frontend stays vanilla — Supabase replaces DiscIt fetch, no UI rewrite
+5. ✅ Phased rollout — feature flag mitigates rollback risk
+
+### Risks & Mitigations
+
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|-----------|
+| Supabase outage during migration | Low (99.9% SLA) | Medium | Feature flag → fallback to DiscIt (48h max) |
+| Plastic variant data incomplete | Medium (manual curation) | Low | MVP: accept gaps, iterative improvement |
+| Wear adjustment queries slow | Low (small table) | Medium | Monitor p95 latency, paginate if needed |
+| Users lose custom adjustments | Very low (new feature) | N/A | RLS ensures user-scoped data |
+| localStorage corruption | Low | Low | Error handling in place |
+
+### Open Questions
+
+1. **Plastic curation:** Manual research vs. auto-detect from DiscIt payload?
+2. **New disc releases:** Manual admin updates or periodic DiscIt sync endpoint?
+3. **Adjustment history:** Needed at launch or deferred (can add later, backward-compatible)?
+
+---
+
+## Spec: Disc Detail Modal — UX Specification
+**By:** Livingston (UX Designer) | **Date:** 2026-04-16 | **For:** Rusty (Frontend Dev)
+
+Replace the current right-side detail panel (320px `<aside class="fg-detail">`) with a centered, full-screen modal overlay. Goal: in-your-face product detail experience (inspired by trydiscs.com) with more screen real estate, prominent CTAs, future-ready for wear adjustment UI.
+
+**Remove:** Marshall Street commercial link (lines 227-231 in flight-guide.html).
+
+### Modal Structure & Information Hierarchy
+
+**Desktop Layout (≥768px):** Two-column (image | details), max-width 720px, centered on viewport
+**Mobile Layout (<768px):** Single-column, full-screen, scrollable
+
+**Information Hierarchy:**
+1. Disc name (H2, 1.5–1.8rem, font-weight 800) — hero element
+2. Flight path visualization (large image/SVG) — visual anchor
+3. Type + Stability badges (color-coded) — quick scan
+4. Flight numbers with bars (enhanced: taller 12px, more spacing) — core data
+5. Brand + category (smaller, muted) — context
+6. Notes/description (placeholder) — future content
+7. Wear adjustment UI (future, design space reserved) — only when in bag
+8. "Add to My Bag" CTA (prominent button) — primary action
+
+**Modal Structure:**
+- **Backdrop:** `rgba(15, 23, 42, 0.85)` semi-transparent overlay, click to close
+- **Card:** White/surface card, max-width 720px desktop (100% mobile)
+- **Close button:** Top-right corner + ESC key + backdrop click
+
+### Interaction Spec
+
+**Open Modal:**
+- Trigger: Click disc tile in grid
+- Animation: Backdrop fade in (200ms), modal scale 95%→100% + fade (250ms ease-out)
+- Body scroll locked (`overflow: hidden`)
+- Focus moves to close button
+
+**Close Modal:**
+- Triggers: Close button (×), backdrop click, ESC key
+- Animation: Reverse of open (200ms ease-in)
+- Focus restored to clicked disc tile
+
+**Modal Behavior:**
+- Desktop: 720px max-width, centered, 2rem padding
+- Mobile: Full-screen (100vw × 100vh), edge-to-edge
+- Scrolling: Content scrollable if taller than viewport (overflow-y: auto)
+- Focus trap: Tab cycles within modal
+
+### Flight Number Visualization
+
+**Current bars (keep them ✅):**
+- Horizontal bar chart design (width = value)
+- Color-coded by type (speed=yellow, glide=green, turn=blue/orange, fade=red)
+- Numeric value displayed alongside
+- Improvements in modal: increase bar height 8px→12px, gap .45rem→.65rem
+
+**Wear Adjustment Section (Future):**
+- Location: Between flight numbers and notes, only visible when `disc.isInBag === true`
+- Design: Placeholder for now: `<div class="fg-wear-section" x-show="isInBag(selectedDisc)">Wear adjustments coming soon…</div>`
+- Future: Per-flight inline sliders or single "Wear" slider (0–10 scale)
+
+### Accessibility (WCAG 2.2)
+
+**Focus Management:**
+- On modal open: move focus to close button
+- Focus trap: Tab cycles within modal (close → badges? → CTA → close)
+- On modal close: return focus to clicked disc tile
+
+**Keyboard Navigation:**
+- ✅ ESC closes modal (already implemented)
+- ✅ Click backdrop closes modal (new)
+- ✅ Close button has aria-label
+- ✅ Modal: `role="dialog"`, `aria-modal="true"`
+- ✅ Modal title: `id="modal-title"`, backdrop: `aria-labelledby="modal-title"`
+
+**Target Size:** Close button & CTA ≥44×44px (WCAG 2.5.8 AA)  
+**Reduced Motion:** `@media (prefers-reduced-motion: reduce)` → transitions: none
+
+### CSS Structure
+
+**New classes:**
+- `.fg-modal-backdrop` — fixed overlay, flex center
+- `.fg-modal-card` — white card, max-width 720px, z-index 1000
+- `.fg-modal-close` — 44px button, top-right corner
+- `.fg-modal-content` — grid: 1fr 1.2fr (image | details)
+- `.fg-modal-image-col`, `.fg-modal-pic`, `.fg-modal-pic-placeholder`
+- `.fg-modal-details-col` — flex column, gap 1.2rem
+- `.fg-modal-name`, `.fg-modal-brand`, `.fg-modal-badges`
+- `.fg-wear-section`, `.fg-wear-title`
+- `.fg-notes-section`, `.fg-notes-title`
+- `.fg-modal-actions`, `.fg-modal-actions .fg-add-btn` — width 100%, min-height 48px
+
+**Mobile (<768px):**
+- `.fg-modal-backdrop`: padding 0 (full-screen)
+- `.fg-modal-card`: max-width 100%, border-radius 0
+- `.fg-modal-content`: grid-template-columns 1fr (single column), gap 1rem
+
+### What to Remove
+
+From `flight-guide.html`:
+- Lines 159-237: `<aside class="fg-detail">` block
+- Lines 227-231: `<a class="fg-store-link">` (no commercial links)
+
+From `flight-guide.css`:
+- Lines 269-395: `.fg-detail*` classes
+- Lines 380-394: `.fg-store-link` class
+
+From `flight-guide.js`:
+- No deletions — reuse existing `showDetail`, `selectedDisc`, `addToBag`, `isInBag`, ESC handler
+
+### Implementation Notes
+
+**Order of Work:**
+1. Remove old code (aside block, .fg-detail* CSS)
+2. Add modal HTML structure (new backdrop + card)
+3. Add modal CSS (from spec above)
+4. Update Alpine methods (add `closeModal()`, track focus in `selectDisc()`)
+5. Test interactions (open/close, backdrop, ESC, responsive, focus trap)
+6. Accessibility review (screen reader, keyboard nav, contrast)
+
+**Edge Cases:**
+- No flight path image → placeholder (✈️ emoji)
+- Very long disc names → wraps (line-height 1.2)
+- Modal taller than viewport → scrollable (overflow-y: auto)
+- Backdrop click during animation → completes without jank
+
+**Future Work (Not in Scope):**
+- Notes/description data source (Basher to add to schema?)
+- Wear adjustment UI (Basher designing schema + logic)
+- "Already in bag" state (change text to "View in Bag" or disable?)
+
+### Summary
+
+This spec replaces 320px side panel with modern, spacious modal:
+- **Desktop:** Two-column (image left, details right), 720px max-width, centered
+- **Mobile:** Full-screen, single-column, scrollable
+- **Accessibility:** Focus trap, backdrop click, ESC, ARIA labels, keyboard nav
+- **Future-ready:** Space for wear adjustments + notes
+
+Modal provides 2× screen real estate, emphasizes flight path image, makes CTA prominent. Flight bars enhanced (taller, more spacing) but keep excellent design. No commercial links.
+
+**Decision:** Modal replaces side panel. Marshall Street link removed. Wear + notes reserved for future work.
+
 10 vivid OKLCH disc colors for the color picker UI in the Add/Edit Disc modal. Designed to evoke bold, sporty disc plastic on dark navy background.
 
 **Palette (10 colors, hue-spread ~30–40° apart):**

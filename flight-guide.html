@@ -141,7 +141,7 @@
                     <div
                       class="disc-tile"
                       :class="'type-' + disc.type + (isInBag(disc) ? ' in-bag' : '')"
-                      @click="selectDisc(disc)"
+                      @click="selectDisc(disc, $event)"
                       :title="disc.name + ' (' + disc.brand + ') — ' + disc.speed + '/' + disc.glide + '/' + formatTurn(disc.turn) + '/' + disc.fade"
                     >
                       <span x-text="disc.name"></span>
@@ -155,86 +155,136 @@
 
         </div><!-- /fg-grid-wrapper -->
 
-        <!-- ── Detail Panel ── -->
-        <aside class="fg-detail" x-show="showDetail" x-transition.opacity>
-          <div class="fg-detail-inner">
-
-            <button class="fg-detail-close" @click="showDetail = false" aria-label="Close">✕</button>
+        <!-- Disc Detail Modal Backdrop -->
+        <div 
+          class="fg-modal-backdrop" 
+          x-show="showDetail" 
+          x-transition.opacity
+          @click.self="closeModal()"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+        >
+          <div class="fg-modal-card" @click.stop @keydown.tab.prevent="handleTabKey($event)">
+            
+            <!-- Close button -->
+            <button 
+              class="fg-modal-close" 
+              @click="closeModal()" 
+              aria-label="Close disc details"
+            >✕</button>
 
             <template x-if="selectedDisc">
-              <div>
-                <!-- Name + brand -->
-                <div class="fg-detail-name" x-text="selectedDisc.name"></div>
-                <div class="fg-detail-brand" x-text="selectedDisc.brand + ' · ' + (typeLabels[selectedDisc.type] || selectedDisc.category)"></div>
-
-                <!-- Badges -->
-                <div class="fg-detail-badges">
-                  <span class="type-badge" :class="'type-' + selectedDisc.type" x-text="typeLabels[selectedDisc.type] || selectedDisc.category"></span>
-                  <span class="fn-stability" x-text="stabilityLabels[selectedDisc.stabilitySlug]" style="font-size:.82rem;color:var(--clr-muted);display:flex;align-items:center;"></span>
+              <div class="fg-modal-content">
+                
+                <!-- Left col: Flight path image -->
+                <div class="fg-modal-image-col">
+                  <template x-if="selectedDisc.pic">
+                    <img 
+                      class="fg-modal-pic" 
+                      :src="selectedDisc.pic" 
+                      :alt="selectedDisc.name + ' flight path'" 
+                      loading="lazy" 
+                    />
+                  </template>
+                  <template x-if="!selectedDisc.pic">
+                    <div class="fg-modal-pic-placeholder">✈️</div>
+                  </template>
                 </div>
 
-                <!-- Flight path image -->
-                <template x-if="selectedDisc.pic">
-                  <img class="fg-detail-pic" :src="selectedDisc.pic" :alt="selectedDisc.name + ' flight path'" loading="lazy" />
-                </template>
-                <template x-if="!selectedDisc.pic">
-                  <div class="fg-detail-pic-placeholder">✈️</div>
-                </template>
+                <!-- Right col: Details -->
+                <div class="fg-modal-details-col">
+                  
+                  <!-- Name + Brand -->
+                  <h2 class="fg-modal-name" id="modal-title" x-text="selectedDisc.name"></h2>
+                  <div class="fg-modal-brand" x-text="selectedDisc.brand + ' · ' + (typeLabels[selectedDisc.type] || selectedDisc.category)"></div>
 
-                <!-- Flight numbers with bars -->
-                <div class="fg-fn-section">
-                  <div class="fg-fn-title">Flight Numbers</div>
-
-                  <div class="fg-fn-row">
-                    <span class="fg-fn-row-label" style="color:var(--fairway)">Speed</span>
-                    <div class="fg-fn-bar-wrap">
-                      <div class="fg-fn-bar bar-speed" :style="'width:' + speedBar(selectedDisc.speed)"></div>
-                    </div>
-                    <span class="fg-fn-val" x-text="selectedDisc.speed"></span>
+                  <!-- Badges -->
+                  <div class="fg-modal-badges">
+                    <span 
+                      class="type-badge" 
+                      :class="'type-' + selectedDisc.type" 
+                      x-text="typeLabels[selectedDisc.type] || selectedDisc.category"
+                    ></span>
+                    <span 
+                      class="fn-stability" 
+                      x-text="stabilityLabels[selectedDisc.stabilitySlug]"
+                    ></span>
                   </div>
 
-                  <div class="fg-fn-row">
-                    <span class="fg-fn-row-label" style="color:var(--midrange)">Glide</span>
-                    <div class="fg-fn-bar-wrap">
-                      <div class="fg-fn-bar bar-glide" :style="'width:' + glideBar(selectedDisc.glide)"></div>
+                  <!-- Flight Numbers -->
+                  <div class="fg-fn-section">
+                    <div class="fg-fn-title">Flight Numbers</div>
+
+                    <div class="fg-fn-row">
+                      <span class="fg-fn-row-label" style="color:var(--fairway)">Speed</span>
+                      <div class="fg-fn-bar-wrap">
+                        <div class="fg-fn-bar bar-speed" :style="'width:' + speedBar(selectedDisc.speed)"></div>
+                      </div>
+                      <span class="fg-fn-val" x-text="selectedDisc.speed"></span>
                     </div>
-                    <span class="fg-fn-val" x-text="selectedDisc.glide"></span>
+
+                    <div class="fg-fn-row">
+                      <span class="fg-fn-row-label" style="color:var(--midrange)">Glide</span>
+                      <div class="fg-fn-bar-wrap">
+                        <div class="fg-fn-bar bar-glide" :style="'width:' + glideBar(selectedDisc.glide)"></div>
+                      </div>
+                      <span class="fg-fn-val" x-text="selectedDisc.glide"></span>
+                    </div>
+
+                    <div class="fg-fn-row">
+                      <span 
+                        class="fg-fn-row-label" 
+                        :style="selectedDisc.turn < 0 ? 'color:oklch(0.74 0.18 204)' : 'color:oklch(0.72 0.22 25)'"
+                      >Turn</span>
+                      <div class="fg-fn-bar-wrap">
+                        <div 
+                          class="fg-fn-bar" 
+                          :class="selectedDisc.turn < 0 ? 'bar-turn-under' : 'bar-turn-over'"
+                          :style="'width:' + turnBar(selectedDisc.turn)"
+                        ></div>
+                      </div>
+                      <span class="fg-fn-val" x-text="formatTurn(selectedDisc.turn)"></span>
+                    </div>
+
+                    <div class="fg-fn-row">
+                      <span class="fg-fn-row-label" style="color:var(--distance)">Fade</span>
+                      <div class="fg-fn-bar-wrap">
+                        <div class="fg-fn-bar bar-fade" :style="'width:' + fadeBar(selectedDisc.fade)"></div>
+                      </div>
+                      <span class="fg-fn-val" x-text="selectedDisc.fade"></span>
+                    </div>
                   </div>
 
-                  <div class="fg-fn-row">
-                    <span class="fg-fn-row-label" :style="selectedDisc.turn < 0 ? 'color:oklch(0.74 0.18 204)' : 'color:oklch(0.72 0.22 25)'">Turn</span>
-                    <div class="fg-fn-bar-wrap">
-                      <div class="fg-fn-bar" :class="selectedDisc.turn < 0 ? 'bar-turn-under' : 'bar-turn-over'"
-                           :style="'width:' + turnBar(selectedDisc.turn)"></div>
-                    </div>
-                    <span class="fg-fn-val" x-text="formatTurn(selectedDisc.turn)"></span>
+                  <!-- Wear Adjustment Section (placeholder — schema being built by Basher) -->
+                  <div class="fg-wear-section" x-show="isInBag(selectedDisc)">
+                    <div class="fg-wear-title">Wear Adjustment</div>
+                    <p style="font-size:.85rem;color:var(--clr-muted);">
+                      Adjust flight numbers based on disc wear — coming soon.
+                    </p>
                   </div>
 
-                  <div class="fg-fn-row">
-                    <span class="fg-fn-row-label" style="color:var(--distance)">Fade</span>
-                    <div class="fg-fn-bar-wrap">
-                      <div class="fg-fn-bar bar-fade" :style="'width:' + fadeBar(selectedDisc.fade)"></div>
-                    </div>
-                    <span class="fg-fn-val" x-text="selectedDisc.fade"></span>
+                  <!-- Notes/Description placeholder -->
+                  <div class="fg-notes-section">
+                    <div class="fg-notes-title">Description</div>
+                    <p class="fg-notes-empty">No description available yet.</p>
                   </div>
-                </div>
 
-                <!-- Actions -->
-                <div class="fg-detail-actions">
-                  <button class="fg-add-btn" @click="addToBag(selectedDisc)">
-                    + Add to My Bag
-                  </button>
-                  <a class="fg-store-link" :href="selectedDisc.link || '#'" target="_blank" rel="noopener"
-                     x-show="selectedDisc.link">
-                    🛒 View on Marshall Street
-                  </a>
-                </div>
+                  <!-- CTA -->
+                  <div class="fg-modal-actions">
+                    <button 
+                      class="fg-add-btn" 
+                      @click="addToBag(selectedDisc)"
+                    >+ Add to My Bag</button>
+                  </div>
 
-              </div>
+                </div><!-- /fg-modal-details-col -->
+
+              </div><!-- /fg-modal-content -->
             </template>
 
-          </div><!-- /fg-detail-inner -->
-        </aside>
+          </div><!-- /fg-modal-card -->
+        </div><!-- /fg-modal-backdrop -->
 
       </div><!-- /fg-body -->
 

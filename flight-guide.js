@@ -36,19 +36,20 @@ const TYPE_LABELS_FG = {
 function flightGuide() {
   return {
     /* State */
-    loading:         true,
-    error:           null,
-    allDiscs:        [],
-    search:          '',
-    filterBrand:     '',
-    filterType:      '',
-    filterStability: '',
-    showDetail:      false,
-    selectedDisc:    null,
-    userBagDiscs:    [],
-    stabilityOrder:  STABILITY_ORDER,
-    stabilityLabels: STABILITY_LABELS,
-    typeLabels:      TYPE_LABELS_FG,
+    loading:            true,
+    error:              null,
+    allDiscs:           [],
+    search:             '',
+    filterBrand:        '',
+    filterType:         '',
+    filterStability:    '',
+    showDetail:         false,
+    selectedDisc:       null,
+    lastFocusedElement: null,
+    userBagDiscs:       [],
+    stabilityOrder:     STABILITY_ORDER,
+    stabilityLabels:    STABILITY_LABELS,
+    typeLabels:         TYPE_LABELS_FG,
 
     /* ── Computed ─────────────────────────────────────────────────────────── */
     get filteredDiscs() {
@@ -116,13 +117,40 @@ function flightGuide() {
       } catch { /* guest mode — no bag highlighting */ }
 
       document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') this.showDetail = false;
+        if (e.key === 'Escape') this.closeModal();
       });
     },
 
-    selectDisc(disc) {
+    selectDisc(disc, event) {
       this.selectedDisc = disc;
       this.showDetail   = true;
+      this.lastFocusedElement = event?.currentTarget || null;
+      document.body.style.overflow = 'hidden';
+      this.$nextTick(() => {
+        document.querySelector('.fg-modal-close')?.focus();
+      });
+    },
+
+    closeModal() {
+      this.showDetail = false;
+      document.body.style.overflow = '';
+      this.$nextTick(() => {
+        this.lastFocusedElement?.focus();
+      });
+    },
+
+    handleTabKey(e) {
+      const focusable = document.querySelectorAll(
+        '.fg-modal-card button, .fg-modal-card [href], .fg-modal-card input, .fg-modal-card select, .fg-modal-card textarea, .fg-modal-card [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last  = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
     },
 
     isInBag(disc) {

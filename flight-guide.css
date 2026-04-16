@@ -266,60 +266,166 @@
   border-color: oklch(0.82 0.18 80);
 }
 
-/* ── Detail Panel ─────────────────────────────────────────────────────────── */
-.fg-detail {
-  width: 320px;
-  flex-shrink: 0;
-  background: var(--clr-surface);
-  border-left: 1px solid var(--clr-border);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  position: relative;
-}
-.fg-detail-inner { padding: 1.2rem 1.3rem; }
-
-.fg-detail-close {
-  position: absolute;
-  top: .8rem;
-  right: .8rem;
-  background: none;
-  border: none;
-  color: var(--clr-muted);
-  font-size: 1.1rem;
-  cursor: pointer;
-  padding: .2rem;
-  line-height: 1;
-  border-radius: 4px;
-  transition: color .15s;
-}
-.fg-detail-close:hover { color: var(--clr-text); }
-
-.fg-detail-name   { font-size: 1.3rem; font-weight: 800; margin-bottom: .15rem; line-height: 1.2; }
-.fg-detail-brand  { font-size: .82rem; color: var(--clr-muted); margin-bottom: .5rem; }
-.fg-detail-badges { display: flex; gap: .45rem; flex-wrap: wrap; margin-bottom: 1rem; }
-
-.fg-detail-pic {
-  width: 100%;
-  border-radius: var(--radius);
-  margin-bottom: 1rem;
-  border: 1px solid var(--clr-border);
-  background: var(--clr-bg);
-  aspect-ratio: 4/3;
-  object-fit: contain;
-  padding: .5rem;
-}
-.fg-detail-pic-placeholder {
-  width: 100%;
-  aspect-ratio: 4/3;
-  background: var(--clr-surface2);
-  border: 1px solid var(--clr-border);
-  border-radius: var(--radius);
+/* ── Disc Detail Modal ─────────────────────────────────────────────────────── */
+.fg-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.85);
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.fg-modal-card {
+  background: var(--clr-surface);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  max-width: 720px;
+  width: 100%;
+  position: relative;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  outline: none;
+}
+
+.fg-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: var(--clr-muted);
+  cursor: pointer;
+  padding: 0.5rem;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  z-index: 1;
+}
+.fg-modal-close:hover { color: var(--clr-text); background: var(--clr-surface2); }
+
+.fg-modal-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  min-height: 420px;
+}
+
+.fg-modal-image-col {
+  padding: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--clr-surface2, oklch(0.18 0.02 260));
+  border-radius: var(--radius-lg, 12px) 0 0 var(--radius-lg, 12px);
+}
+
+.fg-modal-pic {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.fg-modal-pic-placeholder {
+  font-size: 5rem;
+  opacity: 0.3;
+}
+
+.fg-modal-details-col {
+  padding: 2rem 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+.fg-modal-name {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--clr-text);
+  margin: 0;
+  padding-right: 2.5rem; /* avoid overlap with close button */
+  line-height: 1.2;
+}
+
+.fg-modal-brand {
+  font-size: .875rem;
+  color: var(--clr-muted);
+  margin-top: -.25rem;
+}
+
+.fg-modal-badges {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.fg-modal-actions {
+  margin-top: auto;
+  padding-top: 1rem;
+}
+
+.fg-modal-actions .fg-add-btn {
+  width: 100%;
+}
+
+/* Wear section */
+.fg-wear-section {
+  border-top: 1px solid var(--clr-border, oklch(0.3 0.02 260));
+  padding-top: .75rem;
+  margin-top: .25rem;
+}
+
+.fg-wear-title {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--clr-muted);
+  margin-bottom: .5rem;
+}
+
+/* Notes section */
+.fg-notes-section {
+  border-top: 1px solid var(--clr-border, oklch(0.3 0.02 260));
+  padding-top: .75rem;
+}
+
+.fg-notes-title {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--clr-muted);
+  margin-bottom: .35rem;
+}
+
+.fg-notes-empty {
+  font-size: .85rem;
+  color: var(--clr-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+/* Larger bars in modal */
+.fg-modal-details-col .fg-fn-bar-wrap {
+  height: 12px;
+}
+.fg-modal-details-col .fg-fn-bar {
+  height: 12px;
+}
+.fg-modal-details-col .fg-fn-row {
+  gap: .65rem;
 }
 
 /* Flight number bars */
@@ -357,7 +463,6 @@
   margin-bottom: 1rem;
 }
 
-.fg-detail-actions { display: flex; flex-direction: column; gap: .5rem; margin-top: auto; padding-top: 1rem; }
 .fg-add-btn {
   display: flex;
   align-items: center;
@@ -377,22 +482,6 @@
 .fg-add-btn:hover  { filter: brightness(1.1); }
 .fg-add-btn:active { transform: scale(.97); }
 
-.fg-store-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .4rem;
-  padding: .5rem 1rem;
-  background: var(--clr-surface2);
-  color: var(--clr-muted);
-  border: 1px solid var(--clr-border);
-  border-radius: var(--radius);
-  font-size: .82rem;
-  text-decoration: none;
-  transition: color .15s, border-color .15s;
-}
-.fg-store-link:hover { color: var(--clr-text); border-color: var(--clr-accent); }
-
 /* ── Empty / Error States ────────────────────────────────────────────────── */
 .fg-state {
   flex: 1;
@@ -408,16 +497,43 @@
 .fg-state h2   { font-size: 1.3rem; color: var(--clr-text); }
 .fg-state p    { font-size: .9rem; color: var(--clr-muted); max-width: 360px; }
 
+/* Mobile: full-screen modal */
+@media (max-width: 767px) {
+  .fg-modal-backdrop {
+    padding: 0;
+    align-items: flex-start;
+  }
+  .fg-modal-card {
+    border-radius: 0;
+    max-height: 100vh;
+    max-width: 100%;
+  }
+  .fg-modal-content {
+    grid-template-columns: 1fr;
+  }
+  .fg-modal-image-col {
+    border-radius: 0;
+    padding: 1.5rem;
+  }
+  .fg-modal-details-col {
+    padding: 1.5rem;
+  }
+  .fg-modal-name {
+    font-size: 1.4rem;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .fg-modal-backdrop,
+  .fg-modal-card {
+    transition: none !important;
+  }
+}
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
-  .fg-detail {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    z-index: 500;
-    border-left: none;
-    border-top: 1px solid var(--clr-border);
-  }
+  /* Modal styles now handle this */
 }
 
 @media (max-width: 600px) {
