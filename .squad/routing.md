@@ -10,6 +10,7 @@ How to decide who handles what.
 | Supabase schema, RLS policies, migrations | Danny | {example: set up Row-Level Security, design PostgreSQL schema} |
 | GitHub Pages deployment, DNS, CI/CD | Linus | {example: enable Pages, CNAME setup, GitHub Actions workflows} |
 | Color palettes, accessibility, color systems | Saul | {example: "generate an accessible color palette", "check this color for WCAG contrast"} |
+| UX critique, layout redesigns, interaction design, data viz UX | Livingston | {example: "redesign the flight guide grid", "improve the disc card layout", "audit mobile UX"} |
 | Code review | Danny | Review PRs, check quality, suggest improvements |
 | Testing | Rusty | Write tests, find edge cases, verify fixes |
 | Scope & priorities | Danny | What to build next, trade-offs, decisions |
@@ -45,7 +46,7 @@ How to decide who handles what.
 | Work Type | Primary | Secondary |
 |-----------|---------|----------|
 | Architecture, decisions, review | Danny | — |
-| HTML, CSS, JavaScript, Alpine.js | Rusty | Saul (color impl) |
+| HTML, CSS, JavaScript, Alpine.js | Rusty | Saul (color impl), Livingston (UX spec) |
 | Supabase database, RLS policies | Danny | Basher (secondary) |
 | GitHub Pages, deployment | Linus | — |
 | Autonomous issue work | @copilot | Danny (triage/review) |

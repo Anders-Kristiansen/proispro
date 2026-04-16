@@ -17,6 +17,7 @@
 | Basher | Data Engineer | `.squad/agents/basher/charter.md` | ✅ Active |
 | Linus | DevOps | `.squad/agents/linus/charter.md` | ✅ Active |
 | Saul | Color Expert | `.squad/agents/saul/charter.md` | ✅ Active |
+| Livingston | UX Designer | `.squad/agents/livingston/charter.md` | ✅ Active |
 | Scribe | Session Logger | `.squad/agents/scribe/charter.md` | 📋 Silent |
 | Ralph | Work Monitor | `.squad/agents/ralph/charter.md` | 🔄 Monitor |
 | @copilot | Coding Agent | `.github/copilot-instructions.md` | 🤖 Coding Agent |
