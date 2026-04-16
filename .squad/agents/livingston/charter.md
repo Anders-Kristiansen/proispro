@@ -49,8 +49,10 @@ Before starting work, run `git rev-parse --show-toplevel` to find the repo root,
 
 Before starting work, read:
 1. `.squad/decisions.md` — team decisions to respect
-2. `.squad/skills/ux-design/SKILL.md` — UX patterns and principles for this project (if it exists)
-3. The current `flight-guide.html`, `flight-guide.css`, `index.html`, `styles.css` — understand before proposing changes
+2. `.squad/skills/ux-design/SKILL.md` — UX patterns and principles for this project
+3. `.agents/skills/penpot-uiux-design/SKILL.md` — UX/UI design patterns and component guidelines
+4. `.agents/skills/accessibility/SKILL.md` — web accessibility (WCAG) and A11Y patterns
+5. The current `flight-guide.html`, `flight-guide.css`, `index.html`, `styles.css` — understand before proposing changes
 
 After making a decision others should know, write it to `.squad/decisions/inbox/livingston-{brief-slug}.md` — the Scribe will merge it.
 
