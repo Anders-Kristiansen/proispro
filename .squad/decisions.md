@@ -786,6 +786,64 @@ Before making any architecture decisions involving cloud services (Azure, AWS, G
 
 ---
 
+---
+
+### Disc Photo Storage Architecture
+**By:** Danny (Lead/Architect) | **Date:** 2026-04-16 | **Status:** Active
+
+Store user-uploaded disc photos in Supabase Storage bucket `disc-photos` (public). Photo URL persisted as `user_photo_url TEXT` on `disc_wear_adjustments`. Full ADR at `docs/adr-disc-photo-storage.md`.
+
+**Schema:** `user_photo_url TEXT` column on `disc_wear_adjustments` — no new table; 1:1 per bag disc already enforced.
+
+**Storage path:** `{user_id}/{user_disc_id}.{ext}` — keyed on `user_disc_id` (not `wear_adjustment_id`) to avoid orphaned files if the adjustment row is recreated.
+
+**Upload:** Direct browser → Supabase Storage via `supabase-js` (`supabase.storage.from('disc-photos').upload(..., { upsert: true })`), then store returned public URL in DB.
+
+**RLS:** Four policies on `storage.objects` gate access by `(storage.foldername(name))[1] = auth.uid()::text` — INSERT, SELECT, UPDATE, DELETE scoped to own `{user_id}/*` prefix.
+
+**Constraints:** JPEG/PNG/WEBP, 5MB max. No client-side resize for v1.
+
+**Display priority:** (1) `wearAdjustment.user_photo_url` → (2) `catalogEntry.pic` → (3) SVG flight chart.
+
+**Migration:** `docs/migration-v4-disc-photos.sql` (Basher). ⚠️ Migration uses `adjustment_id` as path key vs. `user_disc_id` in this ADR — see "Disc Photo Storage Path — Fallback Strategy" below for tracking.
+
+---
+
+### Disc Photo Storage Path — Fallback Strategy
+**By:** Rusty (Frontend Dev) via Copilot | **Date:** 2026-04-16 | **Status:** Active (follow-up pending)
+
+Use `selectedDisc.adjustment_id || selectedDisc.id` as the Storage path key for disc photos until the wear-adjustments query is joined into the flight guide data load.
+
+`disc_wear_adjustments.id` (the adjustment row PK) is the intended key, but `selectedDisc` in `flightGuide()` may not carry `adjustment_id` until that join is wired in. Falling back to `selectedDisc.id` (catalog disc ID) is unique per disc model — not per user × adjustment row — so it must be treated as temporary.
+
+**Follow-up:** When Basher's wear-adjustments schema is joined into the flight guide data load, surface `adjustment_id` on `selectedDisc` and drop the fallback. Confirm the `disc_wear_adjustments` update uses `.eq('user_disc_id', ...)` (column name must match Basher's final migration output).
+
+---
+
+### Disc Photo UX — Tabbed View (Photo | Chart)
+**By:** Livingston (UX Designer) | **Date:** 2026-04-16 | **Status:** Proposed (pending Anders review)
+
+Use a tabbed interface ("📷 Photo" | "✈️ Chart") in the disc detail modal whenever a photo exists. Full spec at `docs/ux-spec-disc-photo.md`.
+
+**Priority order:**
+1. User photo present → photo tab shown by default; chart accessible via tab
+2. Catalog photo present (no user photo) → photo tab default + "Add your photo" CTA
+3. No photos → chart shown, tab bar hidden (current behavior unchanged)
+
+**Alpine implementation:**
+- `imageTab: 'photo'` state in `flightGuide()` component
+- `hasPhoto(disc)` → `!!disc.userPhotoUrl || !!disc.catalogPic`
+- Tab bar (`role="tablist"`) hidden via `x-show="hasPhoto(selectedDisc)"`
+- Chart SVG always rendered; toggled with `x-show`
+- After photo upload: `this.imageTab = 'photo'`; after removal: `this.imageTab = 'chart'`
+- ARIA tabs pattern: `role="tablist"`, `role="tab"`, arrow key navigation
+
+**CSS additions:** ~40 lines (`.image-tab-bar`, `.tab-btn`, `.tab-btn.active`, focus/hover states).
+
+**Rationale:** Priority approach (photo hides chart) rejected — UX regression; users lose flight path visualization. Side-by-side rejected — modal column too narrow (~350px), unusable on mobile. Tabs: no functionality loss, familiar pattern, mobile-friendly tap targets, accessible.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

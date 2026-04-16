@@ -88,3 +88,26 @@
 - Created `docs/supabase-setup.md` (setup guide) and `docs/migration-sql.sql` (PostgreSQL schema + RLS policies).
 - Weight input changed from `type="number"` to `type="text"` to match string storage model.
 - Export/import functionality preserved with Supabase and localStorage dual-path support.
+
+### 2026-04-16 — Disc Photo Upload (3-Tier Display + Upload/Remove Flow)
+
+- Implemented 3-tier photo display in the disc detail modal: (1) `wearAdjustment.user_photo_url` → (2) `catalogEntry.pic` → (3) SVG flight chart.
+- Upload flow: file input → browser preview → `supabase.storage.from('disc-photos').upload(path, file, { upsert: true })` → store public URL in `disc_wear_adjustments.user_photo_url`.
+- Remove flow: delete Storage object → clear DB column → revert to tier 2/3 display.
+- Storage path: `${userId}/${selectedDisc.adjustment_id || selectedDisc.id}.${ext}` — fallback to `selectedDisc.id` until `adjustment_id` is surfaced from wear-adjustments join (see decision in `decisions.md`).
+- **Follow-up:** Wire `adjustment_id` into `selectedDisc` when Basher's wear-adjustments query is joined into `flightGuide()` data load. Confirm `.eq('user_disc_id', ...)` column name matches Basher's migration.
+
+### 2026-04-16 — Livingston's Tab Switcher Recommendation (cross-agent from UX Designer)
+
+Livingston recommended a **tabbed interface** ("📷 Photo" | "✈️ Chart") for the disc detail modal instead of the priority approach (photo replaces chart). This is the spec to implement once Anders approves.
+
+**Key implementation points:**
+- Add `imageTab: 'photo'` to Alpine state in `flightGuide()` component
+- `hasPhoto(disc)` helper: `return !!disc.userPhotoUrl || !!disc.catalogPic`
+- Tab bar (`role="tablist"`) hidden via `x-show="hasPhoto(selectedDisc)"` — no UI change when no photo exists
+- Chart SVG always rendered; hidden when `imageTab === 'photo' && hasPhoto(selectedDisc)`
+- After upload success: `this.imageTab = 'photo'`; after removal: `this.imageTab = 'chart'`
+- ARIA tabs pattern: `role="tablist"`, `role="tab"`, arrow key navigation (keyboard accessible)
+- CSS: ~40 lines (`.image-tab-bar`, `.tab-btn`, `.tab-btn.active`, hover/focus states using existing OKLCH tokens)
+
+**Status:** Proposed — pending Anders review. Full spec at `docs/ux-spec-disc-photo.md`. Decision merged into `decisions.md` under "Disc Photo UX — Tabbed View (Photo | Chart)".

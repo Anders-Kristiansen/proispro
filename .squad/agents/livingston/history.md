@@ -32,3 +32,44 @@ I am the UX Designer. I critique and redesign UIs — flight guide, disc list, f
 ## Learnings
 
 _(append new learnings here after each session)_
+
+---
+
+## Disc Photo UX Review
+**Date:** 2025-05  
+**Requested by:** Anders  
+**Output:** `docs/ux-spec-disc-photo.md`
+
+### Context
+User disc photo feature being implemented by Rusty. Users can upload their own photo of their physical disc, see stock catalog photo if available, or fall back to SVG flight chart. Schema already supports it (Supabase Storage at `disc-photos/{user_id}/{id}.{ext}`, `user_photo_url` column in `disc_wear_adjustments`).
+
+Modal structure: two-column layout (left: image/chart area, right: disc details with flight numbers).
+
+### UX Critique
+
+**The photo vs. chart tradeoff:**
+- Current approach (photo replaces chart) creates a regression: users lose flight visualization once they add a photo
+- **Recommendation:** Tabbed interface (Photo | Chart) — give users both views without choosing
+- Why tabs: familiar pattern, mobile-friendly (large tap targets), no scrolling, degrades gracefully
+- Priority: User photo > Catalog photo > Chart (chart always available via tab)
+
+**Key UX decisions:**
+1. **Upload entry point:** Overlay button on chart (bottom-center for thumb reach), only shown when disc is in bag + no photo exists
+2. **Preview UX:** Three-step flow (file picker → preview with Cancel/Confirm → upload). Clear escape path (Cancel button).
+3. **States designed:** Empty, Has catalog pic, Has user photo, Uploading, Error, Loading — all specified with HTML/CSS snippets
+4. **Accessibility:** ARIA tabs pattern, keyboard nav with arrow keys, screen reader announcements (aria-live regions), 44px touch targets
+5. **Personal feel:** Photos use `object-fit: cover` to fill container without distortion. "Change" / "Remove" buttons on hover (desktop) or always visible (mobile). Catalog photos get a "Stock photo" badge to differentiate from personal uploads.
+
+**The thing Rusty might miss:**
+Photo aspect ratio handling. Users upload 16:9 or 4:3 photos, modal column is 1:1.2. Solution: `object-fit: cover` + `object-position: center` — crops to fill, keeps disc centered. This prevents stretched/distorted images.
+
+### Deliverables
+- **UX spec:** `docs/ux-spec-disc-photo.md` — comprehensive design spec with HTML/CSS/JS snippets, all 6 states, accessibility requirements, implementation checklist
+- **Decision:** `.squad/decisions/inbox/livingston-disc-photo-ux.md` — tab switcher recommendation (affects overall implementation approach)
+
+### Learnings
+- **Tabs beat toggles for dual-purpose views:** When both views have value, don't make users choose — tabs give equal access
+- **Mobile thumb reach matters:** Bottom-center placement (not top-right FAB) for primary actions
+- **Photo cropping is UX, not just CSS:** `object-fit: cover` prevents aspect ratio bugs that make disc photos unusable
+- **Catalog photos need differentiation:** "Stock photo" badge prevents confusion between user's photo and generic stock image
+- **ARIA tabs pattern is robust:** Handles keyboard nav (arrow keys), screen readers, and focus management elegantly
