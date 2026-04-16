@@ -326,6 +326,7 @@
   justify-content: center;
   background: var(--clr-surface2, oklch(0.18 0.02 260));
   border-radius: var(--radius-lg, 12px) 0 0 var(--radius-lg, 12px);
+  position: relative; /* needed for preview overlay positioning */
 }
 
 /* .fg-modal-pic — replaced by SVG flight path chart (.fg-flight-path) */
@@ -551,4 +552,93 @@
   .fg-legend   { padding: .4rem 1rem; gap: .6rem; }
   .fg-count    { margin-left: 0; width: 100%; }
   .disc-tile   { max-width: 100px; font-size: .64rem; }
+}
+
+/* ── Disc Photo Feature ──────────────────────────────────────────────────── */
+
+.fg-disc-photo-wrap {
+  position: relative;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: oklch(0.15 0.02 260);
+}
+
+.fg-disc-photo {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  aspect-ratio: 4/3;
+}
+
+.fg-disc-photo--stock {
+  opacity: 0.85; /* subtle indicator it's a stock photo */
+}
+
+.fg-disc-photo-actions {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  background: linear-gradient(transparent, oklch(0.05 0.02 260 / 0.85));
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.fg-photo-btn {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid oklch(0.5 0.1 200);
+  background: oklch(0.2 0.05 260 / 0.9);
+  color: oklch(0.85 0.05 200);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.fg-photo-btn:hover {
+  background: oklch(0.28 0.08 200 / 0.95);
+}
+
+.fg-photo-btn--remove {
+  border-color: oklch(0.5 0.15 30);
+  color: oklch(0.75 0.15 30);
+}
+
+.fg-photo-btn--remove:hover {
+  background: oklch(0.2 0.08 30 / 0.9);
+}
+
+.fg-photo-input-hidden {
+  display: none;
+}
+
+/* Upload preview overlay */
+.fg-photo-preview-overlay {
+  position: absolute;
+  inset: 0;
+  background: oklch(0.1 0.02 260 / 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 10;
+}
+
+.fg-photo-preview-img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.fg-photo-preview-actions {
+  display: flex;
+  gap: 8px;
 }

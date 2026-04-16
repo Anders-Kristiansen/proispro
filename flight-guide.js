@@ -51,6 +51,11 @@ function flightGuide() {
     stabilityLabels:    STABILITY_LABELS,
     typeLabels:         TYPE_LABELS_FG,
 
+    /* Photo upload state */
+    photoPreview:       null,
+    photoFile:          null,
+    photoUploading:     false,
+
     /* ── Computed ─────────────────────────────────────────────────────────── */
     get filteredDiscs() {
       let list = this.allDiscs;
@@ -220,6 +225,89 @@ function flightGuide() {
       const endX = Math.min(285, Math.max(15, midX - fadeOffset));
       const endY = Math.max(20, startY - dist);
       return { x: endX, y: endY };
+    },
+
+    /* ── Photo Upload ─────────────────────────────────────────────────────── */
+    triggerPhotoUpload() {
+      this.$refs.photoInput.click();
+    },
+
+    handlePhotoSelected(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Photo must be under 5MB');
+        return;
+      }
+      this.photoFile = file;
+      this.photoPreview = URL.createObjectURL(file);
+    },
+
+    cancelPhotoUpload() {
+      this.photoPreview = null;
+      this.photoFile = null;
+      this.$refs.photoInput.value = '';
+    },
+
+    async uploadDiscPhoto() {
+      if (!this.photoFile || !this.selectedDisc) return;
+
+      const supabase = window.supabase;
+      if (!supabase) { alert('Not connected to Supabase'); return; }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { alert('Sign in to add photos'); return; }
+
+      this.photoUploading = true;
+      try {
+        const ext = this.photoFile.name.split('.').pop().toLowerCase();
+        // Note: adjustment_id not yet on selectedDisc — using .id as fallback (see decisions inbox)
+        const path = `${user.id}/${this.selectedDisc.adjustment_id || this.selectedDisc.id}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('disc-photos')
+          .upload(path, this.photoFile, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('disc-photos')
+          .getPublicUrl(path);
+
+        const { error: updateError } = await supabase
+          .from('disc_wear_adjustments')
+          .update({ user_photo_url: path })
+          .eq('user_disc_id', this.selectedDisc.user_disc_id || this.selectedDisc.id)
+          .eq('user_id', user.id);
+
+        if (updateError) throw updateError;
+
+        this.selectedDisc.user_photo_url = publicUrl;
+        this.cancelPhotoUpload();
+      } catch (err) {
+        console.error('Photo upload failed:', err);
+        alert('Upload failed — please try again');
+      } finally {
+        this.photoUploading = false;
+      }
+    },
+
+    async removeDiscPhoto() {
+      if (!this.selectedDisc?.user_photo_url) return;
+
+      const supabase = window.supabase;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('disc_wear_adjustments')
+        .update({ user_photo_url: null })
+        .eq('user_disc_id', this.selectedDisc.user_disc_id || this.selectedDisc.id)
+        .eq('user_id', user.id);
+
+      if (!error) {
+        this.selectedDisc.user_photo_url = null;
+      }
     },
   };
 }

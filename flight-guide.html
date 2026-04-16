@@ -177,25 +177,74 @@
             <template x-if="selectedDisc">
               <div class="fg-modal-content">
                 
-                <!-- Left col: SVG flight path chart -->
+                <!-- Left col: disc photo / stock photo / SVG flight chart -->
                 <div class="fg-modal-image-col">
-                  <template x-if="selectedDisc">
-                    <svg class="fg-flight-path" viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
-                      <rect width="300" height="220" rx="8" fill="oklch(0.15 0.02 260)"/>
-                      <line x1="150" y1="15" x2="150" y2="205" stroke="oklch(0.35 0.02 260)" stroke-width="1" stroke-dasharray="3,5" opacity="0.5"/>
-                      <line x1="150" y1="195" x2="150" y2="25" stroke="oklch(0.4 0.04 260)" stroke-width="1" opacity="0.4"/>
-                      <polygon points="145,28 150,18 155,28" fill="oklch(0.4 0.04 260)" opacity="0.4"/>
-                      <path :d="flightPath(selectedDisc)" fill="none" stroke="oklch(0.65 0.18 195)" stroke-width="5" stroke-linecap="round" opacity="0.25"/>
-                      <path :d="flightPath(selectedDisc)" fill="none" stroke="oklch(0.78 0.22 195)" stroke-width="2.5" stroke-linecap="round"/>
-                      <circle cx="150" cy="195" r="5" fill="oklch(0.8 0.18 195)"/>
-                      <circle :cx="flightEnd(selectedDisc).x" :cy="flightEnd(selectedDisc).y" r="4" fill="oklch(0.72 0.2 35)"/>
-                      <text x="12" y="18" font-size="9" fill="oklch(0.5 0.04 260)" font-family="system-ui,sans-serif">L ←</text>
-                      <text x="260" y="18" font-size="9" fill="oklch(0.5 0.04 260)" font-family="system-ui,sans-serif">→ R</text>
-                    </svg>
+
+                  <!-- User photo (highest priority) -->
+                  <template x-if="selectedDisc && selectedDisc.user_photo_url">
+                    <div class="fg-disc-photo-wrap">
+                      <img class="fg-disc-photo" :src="selectedDisc.user_photo_url" :alt="selectedDisc.name + ' - your disc'"/>
+                      <div class="fg-disc-photo-actions">
+                        <button class="fg-photo-btn" @click="triggerPhotoUpload()">Change</button>
+                        <button class="fg-photo-btn fg-photo-btn--remove" @click="removeDiscPhoto()">Remove</button>
+                      </div>
+                    </div>
                   </template>
+
+                  <!-- Stock photo (medium priority — only if no user photo) -->
+                  <template x-if="selectedDisc && !selectedDisc.user_photo_url && selectedDisc.catalog_pic">
+                    <div class="fg-disc-photo-wrap fg-disc-photo-wrap--stock">
+                      <img class="fg-disc-photo fg-disc-photo--stock" :src="selectedDisc.catalog_pic" :alt="selectedDisc.name"/>
+                      <div class="fg-disc-photo-actions">
+                        <button class="fg-photo-btn" @click="triggerPhotoUpload()">Add your photo</button>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- SVG flight chart (fallback — no photos at all) -->
+                  <template x-if="selectedDisc && !selectedDisc.user_photo_url && !selectedDisc.catalog_pic">
+                    <div class="fg-disc-photo-wrap">
+                      <svg class="fg-flight-path" viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="300" height="220" rx="8" fill="oklch(0.15 0.02 260)"/>
+                        <line x1="150" y1="15" x2="150" y2="205" stroke="oklch(0.35 0.02 260)" stroke-width="1" stroke-dasharray="3,5" opacity="0.5"/>
+                        <line x1="150" y1="195" x2="150" y2="25" stroke="oklch(0.4 0.04 260)" stroke-width="1" opacity="0.4"/>
+                        <polygon points="145,28 150,18 155,28" fill="oklch(0.4 0.04 260)" opacity="0.4"/>
+                        <path :d="flightPath(selectedDisc)" fill="none" stroke="oklch(0.65 0.18 195)" stroke-width="5" stroke-linecap="round" opacity="0.25"/>
+                        <path :d="flightPath(selectedDisc)" fill="none" stroke="oklch(0.78 0.22 195)" stroke-width="2.5" stroke-linecap="round"/>
+                        <circle cx="150" cy="195" r="5" fill="oklch(0.8 0.18 195)"/>
+                        <circle :cx="flightEnd(selectedDisc).x" :cy="flightEnd(selectedDisc).y" r="4" fill="oklch(0.72 0.2 35)"/>
+                        <text x="12" y="18" font-size="9" fill="oklch(0.5 0.04 260)" font-family="system-ui,sans-serif">L ←</text>
+                        <text x="260" y="18" font-size="9" fill="oklch(0.5 0.04 260)" font-family="system-ui,sans-serif">→ R</text>
+                      </svg>
+                      <div class="fg-disc-photo-actions">
+                        <button class="fg-photo-btn" @click="triggerPhotoUpload()">Add your photo</button>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- Hidden file input -->
+                  <input type="file" x-ref="photoInput" class="fg-photo-input-hidden"
+                    accept="image/jpeg,image/png,image/webp"
+                    @change="handlePhotoSelected($event)"/>
+
+                  <!-- Upload preview overlay -->
+                  <template x-if="photoPreview">
+                    <div class="fg-photo-preview-overlay">
+                      <img class="fg-photo-preview-img" :src="photoPreview" alt="Photo preview"/>
+                      <div class="fg-photo-preview-actions">
+                        <button class="fg-photo-btn" @click="uploadDiscPhoto()" :disabled="photoUploading">
+                          <span x-show="!photoUploading">Save photo</span>
+                          <span x-show="photoUploading">Uploading…</span>
+                        </button>
+                        <button class="fg-photo-btn fg-photo-btn--remove" @click="cancelPhotoUpload()">Cancel</button>
+                      </div>
+                    </div>
+                  </template>
+
                   <template x-if="!selectedDisc">
                     <div class="fg-modal-pic-placeholder">✈️</div>
                   </template>
+
                 </div>
 
                 <!-- Right col: Details -->
