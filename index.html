@@ -111,6 +111,11 @@
             </div>
             <div class="card-notes" x-show="disc.notes" x-text="disc.notes"></div>
 
+            <!-- Photo thumbnail (only if user has uploaded one) -->
+            <div class="card-photo-wrap" x-show="disc.user_photo_url">
+              <img class="card-photo-thumb" :src="disc.user_photo_url" :alt="disc.name + ' photo'" loading="lazy"/>
+            </div>
+
             <div class="card-actions">
               <button class="btn btn-secondary edit-btn" @click="openEditModal(disc)">✏️ Edit</button>
               <button class="btn btn-danger delete-btn" @click="openDeleteModal(disc)">🗑 Remove</button>
@@ -268,6 +273,51 @@
               <label for="discNotes">Notes</label>
               <textarea id="discNotes" rows="2" placeholder="Favorite hyzer flip disc…"
                         x-model="form.notes"></textarea>
+            </div>
+
+            <!-- Photo upload (Edit only — user's personal disc photo) -->
+            <div class="form-group full-width" x-show="formId">
+              <label>Your Disc Photo</label>
+
+              <!-- Current photo -->
+              <template x-if="formId && discs.find(d => d.id === formId)?.user_photo_url">
+                <div class="bag-photo-current">
+                  <img class="bag-photo-current-img"
+                       :src="discs.find(d => d.id === formId)?.user_photo_url"
+                       :alt="form.name + ' photo'"/>
+                  <button type="button" class="btn btn-danger btn-sm" @click="removeDiscPhoto()">Remove photo</button>
+                </div>
+              </template>
+
+              <!-- Upload preview -->
+              <template x-if="photoPreview">
+                <div class="bag-photo-preview">
+                  <img class="bag-photo-preview-img" :src="photoPreview" alt="Preview"/>
+                  <div class="bag-photo-preview-actions">
+                    <button type="button" class="btn btn-primary btn-sm"
+                            @click="uploadDiscPhoto()"
+                            :disabled="photoUploading">
+                      <span x-show="!photoUploading">Save photo</span>
+                      <span x-show="photoUploading">Uploading…</span>
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" @click="cancelPhotoUpload()">Cancel</button>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Upload button (only shown when no preview active) -->
+              <template x-if="!photoPreview">
+                <div style="margin-top:.5rem">
+                  <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem">
+                    📸 <span x-text="discs.find(d => d.id === formId)?.user_photo_url ? 'Change photo' : 'Add photo'"></span>
+                    <input type="file" id="bagPhotoInput" x-ref="bagPhotoInput"
+                           accept="image/jpeg,image/png,image/webp"
+                           class="hidden-input"
+                           @change="handlePhotoSelected($event)"/>
+                  </label>
+                  <span style="font-size:.78rem;color:var(--clr-muted);margin-left:.5rem">JPEG, PNG or WEBP · max 5MB</span>
+                </div>
+              </template>
             </div>
 
             <div class="form-actions">

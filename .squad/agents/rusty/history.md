@@ -111,3 +111,10 @@ Livingston recommended a **tabbed interface** ("📷 Photo" | "✈️ Chart") fo
 - CSS: ~40 lines (`.image-tab-bar`, `.tab-btn`, `.tab-btn.active`, hover/focus states using existing OKLCH tokens)
 
 **Status:** Proposed — pending Anders review. Full spec at `docs/ux-spec-disc-photo.md`. Decision merged into `decisions.md` under "Disc Photo UX — Tabbed View (Photo | Chart)".
+
+### 2026-05 — Photo Upload Moved from Flight Guide to Bag Edit Modal
+
+- Photo upload was incorrectly implemented in `flight-guide.html` (public catalog browser). Moved it to `index.html` Edit Disc modal exclusively.
+- Flight Guide image column now always shows just the SVG flight chart. All photo upload HTML, hidden file input, preview overlay removed from `flight-guide.html`. Photo state + all 5 methods removed from `flight-guide.js`.
+- Bag (`index.html`/`app.js`): photo upload section in Edit modal only (guarded by `x-show="formId"`); photo thumbnail on disc cards; `user_photo_url` added to `fromDbDisc`, `toDbDisc`, `saveDisc`; photo state reset in `closeModals`.
+- Storage key: `{user_id}/{disc_id}.{ext}` on the `disc-photos` bucket. Photos stored in `discs.user_photo_url` (not `disc_wear_adjustments`). Migration: `ALTER TABLE discs ADD COLUMN IF NOT EXISTS user_photo_url TEXT` in `docs/migration-v4-disc-photos.sql`.

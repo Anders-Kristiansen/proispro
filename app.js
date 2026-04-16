@@ -37,6 +37,7 @@ function toDbDisc(disc) {
     turn:  disc.turn  !== '' && disc.turn  != null ? Number(disc.turn)  : null,
     fade:  disc.fade  !== '' && disc.fade  != null ? Number(disc.fade)  : null,
     notes: disc.notes || null,
+    user_photo_url: disc.user_photo_url || null,
     added_at: disc.added ? new Date(disc.added).toISOString() : new Date().toISOString(),
   };
 }
@@ -68,6 +69,7 @@ function fromDbDisc(d) {
     turn:  turn  != null ? turn  : '',
     fade:  fade  != null ? fade  : '',
     notes: d.notes || '',
+    user_photo_url: d.user_photo_url || null,
     added: d.added_at ? new Date(d.added_at).getTime() : Date.now(),
   };
 }
@@ -115,6 +117,9 @@ function discApp() {
     form: { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '' },
     formId: '',
     formInvalid: { name: false, type: false },
+    photoPreview:    null,
+    photoFile:       null,
+    photoUploading:  false,
 
     // Computed
     get filteredSorted() {
@@ -303,6 +308,7 @@ function discApp() {
         turn:  this.form.turn  !== '' && this.form.turn  != null ? Number(this.form.turn)  : null,
         fade:  this.form.fade  !== '' && this.form.fade  != null ? Number(this.form.fade)  : null,
         notes: this.form.notes.trim(),
+        user_photo_url: id ? (this.discs.find(x => x.id === id) || {}).user_photo_url || null : null,
         added: id ? (this.discs.find(x => x.id === id) || {}).added || Date.now() : Date.now(),
       };
 
@@ -405,6 +411,9 @@ function discApp() {
       this.showAddModal = false;
       this.showDeleteModal = false;
       this.formInvalid = { name: false, type: false };
+      if (this.photoPreview) URL.revokeObjectURL(this.photoPreview);
+      this.photoPreview = null;
+      this.photoFile = null;
     },
 
     // Color picker
@@ -518,6 +527,89 @@ function discApp() {
     // Toast
     toast(msg) {
       showToast(msg);
+    },
+
+    // Photo upload
+    triggerPhotoUpload() {
+      this.$refs.bagPhotoInput.click();
+    },
+
+    handlePhotoSelected(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('❌ Photo must be under 5MB');
+        event.target.value = '';
+        return;
+      }
+      this.photoFile = file;
+      this.photoPreview = URL.createObjectURL(file);
+    },
+
+    cancelPhotoUpload() {
+      if (this.photoPreview) URL.revokeObjectURL(this.photoPreview);
+      this.photoPreview = null;
+      this.photoFile = null;
+      const inp = document.getElementById('bagPhotoInput');
+      if (inp) inp.value = '';
+    },
+
+    async uploadDiscPhoto() {
+      if (!this.photoFile || !this.formId) return;
+      const sb = getSupabase();
+      if (!sb) { showToast('❌ Not connected to Supabase'); return; }
+
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) { showToast('❌ Sign in to add photos'); return; }
+
+      this.photoUploading = true;
+      try {
+        const ext = this.photoFile.name.split('.').pop().toLowerCase() || 'jpg';
+        const path = `${user.id}/${this.formId}.${ext}`;
+
+        const { error: uploadError } = await sb.storage
+          .from('disc-photos')
+          .upload(path, this.photoFile, { upsert: true });
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = sb.storage
+          .from('disc-photos')
+          .getPublicUrl(path);
+
+        const { error: updateError } = await sb
+          .from('discs')
+          .update({ user_photo_url: publicUrl })
+          .eq('id', this.formId);
+        if (updateError) throw updateError;
+
+        const idx = this.discs.findIndex(d => d.id === this.formId);
+        if (idx !== -1) this.discs[idx] = { ...this.discs[idx], user_photo_url: publicUrl };
+
+        this.cancelPhotoUpload();
+        showToast('📸 Photo saved!');
+      } catch (err) {
+        console.error('Photo upload failed:', err);
+        showToast('❌ Upload failed — try again');
+      } finally {
+        this.photoUploading = false;
+      }
+    },
+
+    async removeDiscPhoto() {
+      if (!this.formId) return;
+      const sb = getSupabase();
+      if (!sb) return;
+
+      const { error } = await sb
+        .from('discs')
+        .update({ user_photo_url: null })
+        .eq('id', this.formId);
+
+      if (!error) {
+        const idx = this.discs.findIndex(d => d.id === this.formId);
+        if (idx !== -1) this.discs[idx] = { ...this.discs[idx], user_photo_url: null };
+        showToast('🗑 Photo removed');
+      }
     },
   };
 }

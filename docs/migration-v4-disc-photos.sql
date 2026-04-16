@@ -6,8 +6,11 @@
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- A) Schema delta — Add user_photo_url to disc_wear_adjustments
+-- A) Schema delta
 -- ─────────────────────────────────────────────────────────────────────────────
+
+-- Add user photo URL to the bag discs table
+ALTER TABLE discs ADD COLUMN IF NOT EXISTS user_photo_url TEXT;
 
 ALTER TABLE disc_wear_adjustments
   ADD COLUMN IF NOT EXISTS user_photo_url TEXT;
