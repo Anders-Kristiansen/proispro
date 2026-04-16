@@ -81,6 +81,10 @@
         <!-- Disc cards -->
         <template x-for="disc in filteredSorted" :key="disc.id">
           <div class="disc-card">
+            <!-- Photo avatar — absolute top-right corner -->
+            <div class="card-photo-wrap" x-show="disc.user_photo_url">
+              <img class="card-photo-thumb" :src="disc.user_photo_url" :alt="disc.name + ' photo'" loading="lazy"/>
+            </div>
             <div class="card-header">
               <div>
                 <div class="card-name" x-text="disc.name"></div>
@@ -110,11 +114,6 @@
               <span class="fn-stability" x-text="stabilityLabel(disc.turn, disc.fade)"></span>
             </div>
             <div class="card-notes" x-show="disc.notes" x-text="disc.notes"></div>
-
-            <!-- Photo thumbnail (only if user has uploaded one) -->
-            <div class="card-photo-wrap" x-show="disc.user_photo_url">
-              <img class="card-photo-thumb" :src="disc.user_photo_url" :alt="disc.name + ' photo'" loading="lazy"/>
-            </div>
 
             <div class="card-actions">
               <button class="btn btn-secondary edit-btn" @click="openEditModal(disc)">✏️ Edit</button>

@@ -181,6 +181,7 @@ a { color: var(--clr-accent); }
   flex-direction: column;
   gap: .5rem;
   transition: transform .15s, box-shadow .15s;
+  position: relative;
 }
 .disc-card:hover {
   transform: translateY(-2px);
@@ -593,11 +594,16 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
 
 /* ── Bag Disc Photo ────────────────────────────────────────── */
 .card-photo-wrap {
-  width: 100%;
-  aspect-ratio: 16/9;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
   overflow: hidden;
-  border-radius: calc(var(--radius) - 2px);
-  margin-bottom: .5rem;
+  border: 2px solid oklch(100% 0 0 / .85);
+  box-shadow: 0 2px 8px oklch(0% 0 0 / .25);
+  flex-shrink: 0;
 }
 .card-photo-thumb {
   width: 100%;
