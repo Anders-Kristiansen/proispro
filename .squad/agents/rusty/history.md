@@ -118,3 +118,10 @@ Livingston recommended a **tabbed interface** ("📷 Photo" | "✈️ Chart") fo
 - Flight Guide image column now always shows just the SVG flight chart. All photo upload HTML, hidden file input, preview overlay removed from `flight-guide.html`. Photo state + all 5 methods removed from `flight-guide.js`.
 - Bag (`index.html`/`app.js`): photo upload section in Edit modal only (guarded by `x-show="formId"`); photo thumbnail on disc cards; `user_photo_url` added to `fromDbDisc`, `toDbDisc`, `saveDisc`; photo state reset in `closeModals`.
 - Storage key: `{user_id}/{disc_id}.{ext}` on the `disc-photos` bucket. Photos stored in `discs.user_photo_url` (not `disc_wear_adjustments`). Migration: `ALTER TABLE discs ADD COLUMN IF NOT EXISTS user_photo_url TEXT` in `docs/migration-v4-disc-photos.sql`.
+
+### 2026-05 — Disc Photo Redesigned as Circular Avatar Thumbnail
+
+- Replaced the full-width 16/9 banner photo below the notes with a 64×64px circular avatar pinned absolutely to the top-right corner of each disc card.
+- `styles.css`: Added `position: relative` to `.disc-card`. Updated `.card-photo-wrap` to `position: absolute; top: 12px; right: 12px; width/height: 64px; border-radius: 50%` with a translucent white border and subtle drop shadow. `.card-photo-thumb` kept as `object-fit: cover` to fill the circle.
+- `index.html`: Moved the photo wrap div to be the **first child** of `.disc-card` (before `.card-header`) so it participates in stacking context correctly. Removed the old placement below `.card-notes`.
+- Decision: avatar approach chosen over banner because it keeps the card compact, doesn't push other content down, and gives a personal "player photo" feel consistent with disc golf bag culture.
