@@ -572,18 +572,21 @@ function discApp() {
           .upload(path, this.photoFile, { upsert: true });
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = sb.storage
+        const TEN_YEARS = 60 * 60 * 24 * 365 * 10;
+        const { data: signedData, error: signError } = await sb.storage
           .from('disc-photos')
-          .getPublicUrl(path);
+          .createSignedUrl(path, TEN_YEARS);
+        if (signError) throw signError;
+        const displayUrl = signedData.signedUrl;
 
         const { error: updateError } = await sb
           .from('discs')
-          .update({ user_photo_url: publicUrl })
+          .update({ user_photo_url: displayUrl })
           .eq('id', this.formId);
         if (updateError) throw updateError;
 
         const idx = this.discs.findIndex(d => d.id === this.formId);
-        if (idx !== -1) this.discs[idx] = { ...this.discs[idx], user_photo_url: publicUrl };
+        if (idx !== -1) this.discs[idx] = { ...this.discs[idx], user_photo_url: displayUrl };
 
         this.cancelPhotoUpload();
         showToast('📸 Photo saved!');
@@ -599,6 +602,22 @@ function discApp() {
       if (!this.formId) return;
       const sb = getSupabase();
       if (!sb) return;
+
+      const { data: { user } } = await sb.auth.getUser();
+
+      // Try to delete the file from storage (list user's files for this disc)
+      if (user) {
+        const prefix = `${user.id}/${this.formId}`;
+        const { data: files } = await sb.storage.from('disc-photos').list(user.id, {
+          search: this.formId,
+        });
+        if (files?.length) {
+          const toRemove = files
+            .filter(f => f.name.startsWith(this.formId))
+            .map(f => `${user.id}/${f.name}`);
+          if (toRemove.length) await sb.storage.from('disc-photos').remove(toRemove);
+        }
+      }
 
       const { error } = await sb
         .from('discs')
