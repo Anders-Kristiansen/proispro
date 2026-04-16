@@ -328,12 +328,21 @@
   border-radius: var(--radius-lg, 12px) 0 0 var(--radius-lg, 12px);
 }
 
-.fg-modal-pic {
+/* .fg-modal-pic — replaced by SVG flight path chart (.fg-flight-path) */
+/* .fg-modal-pic {
   width: 100%;
   max-width: 320px;
   height: auto;
   object-fit: contain;
   border-radius: 8px;
+} */
+
+.fg-flight-path {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  border-radius: 8px;
+  display: block;
 }
 
 .fg-modal-pic-placeholder {

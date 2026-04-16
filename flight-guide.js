@@ -195,5 +195,31 @@ function flightGuide() {
     glideBar(v)  { return Math.max(2, (Number(v) / 7)   * 100) + '%'; },
     turnBar(v)   { return Math.max(2, (Math.abs(Number(v)) / 5) * 100) + '%'; },
     fadeBar(v)   { return Math.max(2, (Number(v) / 5)   * 100) + '%'; },
+
+    /* ── SVG Flight Path helpers ──────────────────────────────────────────── */
+    flightPath(disc) {
+      if (!disc) return '';
+      const startX = 150, startY = 195;
+      const dist = Math.min(165, Math.max(80, ((disc.speed || 5) + (disc.glide || 4)) * 9));
+      const turnOffset = -((disc.turn) || 0) * 11;
+      const midX = Math.min(285, Math.max(15, startX + turnOffset));
+      const midY = startY - (dist * 0.55);
+      const fadeOffset = ((disc.fade) || 0) * 13;
+      const endX = Math.min(285, Math.max(15, midX - fadeOffset));
+      const endY = Math.max(20, startY - dist);
+      return `M ${startX},${startY} C ${startX},${midY + 20} ${midX},${midY} ${endX},${endY}`;
+    },
+
+    flightEnd(disc) {
+      if (!disc) return { x: 150, y: 30 };
+      const startX = 150, startY = 195;
+      const dist = Math.min(165, Math.max(80, ((disc.speed || 5) + (disc.glide || 4)) * 9));
+      const turnOffset = -((disc.turn) || 0) * 11;
+      const midX = Math.min(285, Math.max(15, startX + turnOffset));
+      const fadeOffset = ((disc.fade) || 0) * 13;
+      const endX = Math.min(285, Math.max(15, midX - fadeOffset));
+      const endY = Math.max(20, startY - dist);
+      return { x: endX, y: endY };
+    },
   };
 }
