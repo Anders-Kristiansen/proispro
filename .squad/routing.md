@@ -21,6 +21,7 @@ How to decide who handles what.
 |-------|--------|-----|
 | `squad` | Triage: analyze issue, assign `squad:{member}` label | Lead |
 | `squad:{name}` | Pick up issue and complete the work | Named member |
+| `squad:copilot` | Auto-assigned to @copilot coding agent via squad-heartbeat.yml | @copilot |
 
 ### How Issue Assignment Works
 
@@ -47,5 +48,5 @@ How to decide who handles what.
 | HTML, CSS, JavaScript, Alpine.js | Rusty | Saul (color impl) |
 | Supabase database, RLS policies | Danny | Basher (secondary) |
 | GitHub Pages, deployment | Linus | — |
-| Color palettes, color spaces, accessibility contrast, color tokens | Saul | Rusty (CSS impl) |
+| Autonomous issue work | @copilot | Danny (triage/review) |
 
