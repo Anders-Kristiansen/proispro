@@ -8,6 +8,14 @@
 
 ## Learnings
 
+### Codespaces devcontainer for zero-build static sites
+
+Set up `.devcontainer/devcontainer.json` for the proispro Alpine.js + Supabase static site (no build step). Key choices: `mcr.microsoft.com/devcontainers/base:ubuntu` image (lightweight, no Node toolchain overhead), Live Server extension on port 5500 for instant static preview, Supabase VS Code extension for schema/query inspection. No `postCreateCommand` — nothing to install. The copilot-setup-steps.yml in `.github/workflows/` is a CI workflow, not a devcontainer, so no conflict.
+
+**Trade-off noted:** Live Server port-forwarding in Codespaces requires the "Go Live" button click — not fully automatic. Alternative (serve via `npx serve`) would auto-start but adds a Node dependency. Kept zero-dependency approach consistent with project philosophy.
+
+---
+
 ### Static-first architecture validates for single-user tools
 
 The proispro disc golf inventory deliberately ships vanilla HTML/CSS/JS with zero build pipeline. This choice surfaces a key principle: **shipping simplicity beats framework cargo-cult**. The app weighs <50KB total and has zero external dependencies beyond browser APIs. Every build tool adds complexity without corresponding benefit at this scale.
