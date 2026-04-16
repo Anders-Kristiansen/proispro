@@ -37,6 +37,7 @@
           <p class="tagline">Your personal disc golf bag tracker</p>
         </div>
         <div class="header-actions">
+          <a href="flight-guide.html" class="btn btn-secondary btn-sm" title="Browse the disc flight guide">🗺 Flight Guide</a>
           <span class="disc-count" x-text="user.email || 'Local mode'" style="font-size:.78rem;"></span>
           <button class="btn btn-secondary btn-sm" @click="signOut()" title="Sign out">↪ Logout</button>
           <button class="btn btn-primary" @click="openAddModal()">+ Add Disc</button>
@@ -97,7 +98,17 @@
               <span x-show="disc.condition"><span class="condition-dot" :class="'cond-' + safeCond(disc.condition)" :title="condLabel(safeCond(disc.condition))"></span><span x-text="condLabel(safeCond(disc.condition))"></span></span>
             </div>
 
-            <div class="card-flight" x-show="disc.flight">✈️ <span x-text="disc.flight"></span></div>
+            <div class="card-flight" x-show="hasFlightNumbers(disc)">
+              <span class="fn-icon">✈️</span>
+              <span class="fn-pill fp-speed" x-text="disc.speed" title="Speed"></span>
+              <span class="fn-sep">/</span>
+              <span class="fn-pill fp-glide" x-text="disc.glide" title="Glide"></span>
+              <span class="fn-sep">/</span>
+              <span class="fn-pill" :class="disc.turn < 0 ? 'fp-under' : 'fp-neutral'" x-text="formatTurn(disc.turn)" title="Turn"></span>
+              <span class="fn-sep">/</span>
+              <span class="fn-pill fp-fade" x-text="disc.fade" title="Fade"></span>
+              <span class="fn-stability" x-text="stabilityLabel(disc.turn, disc.fade)"></span>
+            </div>
             <div class="card-notes" x-show="disc.notes" x-text="disc.notes"></div>
 
             <div class="card-actions">
@@ -224,9 +235,32 @@
                 </select>
               </div>
               <div class="form-group">
-                <label for="discFlight">Flight Numbers</label>
-                <input type="text" id="discFlight" placeholder="e.g. 12 / 5 / -1 / 3"
-                       x-model="form.flight" />
+                <label>Flight Numbers</label>
+                <div class="flight-inputs">
+                  <div class="flight-input-group">
+                    <input type="number" id="discSpeed" min="1" max="15" placeholder="Spd"
+                           x-model="form.speed" title="Speed (1-15)" />
+                    <span class="flight-input-label">Spd</span>
+                  </div>
+                  <div class="flight-input-group">
+                    <input type="number" id="discGlide" min="1" max="7" placeholder="Gli"
+                           x-model="form.glide" title="Glide (1-7)" />
+                    <span class="flight-input-label">Gli</span>
+                  </div>
+                  <div class="flight-input-group">
+                    <input type="number" id="discTurn" min="-5" max="1" placeholder="Trn"
+                           x-model="form.turn" title="Turn (-5 to +1)" />
+                    <span class="flight-input-label">Trn</span>
+                  </div>
+                  <div class="flight-input-group">
+                    <input type="number" id="discFade" min="0" max="5" placeholder="Fde"
+                           x-model="form.fade" title="Fade (0-5)" />
+                    <span class="flight-input-label">Fde</span>
+                  </div>
+                </div>
+                <div class="stability-preview"
+                     x-show="form.speed !== '' && form.speed != null"
+                     x-text="stabilityLabel(Number(form.turn), Number(form.fade))"></div>
               </div>
             </div>
 
@@ -279,6 +313,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+<script src="disc-catalog.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -327,3 +327,26 @@ First proposed replacing DAB with SWA Managed Functions + CosmosDB SDK. Seemed l
 
 **This migration is now complete and live.** Proispro works at scale (fast UI, reliable cloud sync, zero 500 errors).
 
+---
+
+## 2026-04-16 Session: Codespaces Devcontainer Setup (Issue #6, PR #7)
+
+### GitHub Codespaces Support for Zero-Build Static Site
+
+Added `.devcontainer/devcontainer.json` to enable GitHub Codespaces development environment for proispro.
+
+**Key Configuration Decisions:**
+- **Base image:** `mcr.microsoft.com/devcontainers/base:ubuntu` — lightweight, no Node toolchain overhead (aligns with "no build pipeline" principle)
+- **Extensions:** Live Server, Prettier, Supabase VS Code extension, GitHub PRs
+- **Port forwarding:** 5500 (Live Server default) — opens in Codespaces preview automatically
+- **No postCreateCommand** — zero build dependencies means nothing to install
+
+**Trade-offs Considered:**
+1. Auto-starting server via `npx serve` in postCreateCommand — rejected because it requires Node runtime, violates zero-dependency constraint
+2. Node-based devcontainer image — rejected as overkill for a static site
+3. **Chosen:** Base Ubuntu + Live Server extension — minimal, consistent with "boring technology" philosophy. One-click "Go Live" button acceptable trade-off
+
+**Rationale:** The project is pure HTML/CSS/JS (no build step). Adding Node just to auto-serve defeats the point. Live Server gives identical UX (static preview) with one extra click. This keeps the development environment as simple as the application itself.
+
+**Verification:** `.devcontainer/devcontainer.json` created, PR #7 opened for review.
+

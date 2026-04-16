@@ -32,12 +32,27 @@ function toDbDisc(disc) {
     color: disc.color || null,
     condition: disc.condition || null,
     flight: disc.flight || null,
+    speed: disc.speed !== '' && disc.speed != null ? Number(disc.speed) : null,
+    glide: disc.glide !== '' && disc.glide != null ? Number(disc.glide) : null,
+    turn:  disc.turn  !== '' && disc.turn  != null ? Number(disc.turn)  : null,
+    fade:  disc.fade  !== '' && disc.fade  != null ? Number(disc.fade)  : null,
     notes: disc.notes || null,
     added_at: disc.added ? new Date(disc.added).toISOString() : new Date().toISOString(),
   };
 }
 
 function fromDbDisc(d) {
+  // Backward compat: if speed is null but legacy flight string exists, try parsing it
+  let speed = d.speed != null ? Number(d.speed) : null;
+  let glide = d.glide != null ? Number(d.glide) : null;
+  let turn  = d.turn  != null ? Number(d.turn)  : null;
+  let fade  = d.fade  != null ? Number(d.fade)  : null;
+
+  if (speed == null && d.flight) {
+    const parsed = parseFlightString(d.flight);
+    if (parsed) { speed = parsed.speed; glide = parsed.glide; turn = parsed.turn; fade = parsed.fade; }
+  }
+
   return {
     id: d.id,
     name: d.name,
@@ -48,6 +63,10 @@ function fromDbDisc(d) {
     color: d.color || '',
     condition: d.condition || 'good',
     flight: d.flight || '',
+    speed: speed != null ? speed : '',
+    glide: glide != null ? glide : '',
+    turn:  turn  != null ? turn  : '',
+    fade:  fade  != null ? fade  : '',
     notes: d.notes || '',
     added: d.added_at ? new Date(d.added_at).getTime() : Date.now(),
   };
@@ -93,7 +112,7 @@ function discApp() {
     showDeleteModal: false,
     editingDisc: null,
     pendingDeleteDisc: null,
-    form: { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', flight: '', notes: '' },
+    form: { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '' },
     formId: '',
     formInvalid: { name: false, type: false },
 
@@ -151,6 +170,28 @@ function discApp() {
         this.loading = false;
       }
 
+      // Pre-fill from flight guide link: index.html?name=Destroyer&manufacturer=Innova&...
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('name')) {
+        this.form = {
+          name: params.get('name') || '',
+          manufacturer: params.get('manufacturer') || '',
+          type: params.get('type') || '',
+          plastic: '',
+          weight: '',
+          color: '',
+          condition: 'good',
+          speed: params.get('speed') != null ? params.get('speed') : '',
+          glide: params.get('glide') != null ? params.get('glide') : '',
+          turn:  params.get('turn')  != null ? params.get('turn')  : '',
+          fade:  params.get('fade')  != null ? params.get('fade')  : '',
+          notes: '',
+        };
+        this.formInvalid = { name: false, type: false };
+        this.showAddModal = true;
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
       // Global keyboard handler
       document.addEventListener('keydown', e => {
         if (e.key === 'Escape') this.closeModals();
@@ -198,7 +239,15 @@ function discApp() {
     // Data
     loadFromLocalStorage() {
       try {
-        this.discs = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        // Backward compat: parse legacy "12 / 5 / -1 / 3" flight strings on load
+        this.discs = raw.map(d => {
+          if ((d.speed == null || d.speed === '') && d.flight) {
+            const parsed = parseFlightString(d.flight);
+            if (parsed) return { ...d, speed: parsed.speed, glide: parsed.glide, turn: parsed.turn, fade: parsed.fade };
+          }
+          return d;
+        });
       } catch {
         this.discs = [];
       }
@@ -248,7 +297,11 @@ function discApp() {
         weight: this.form.weight.trim(),
         color: this.form.color.trim(),
         condition: this.form.condition,
-        flight: this.form.flight.trim(),
+        flight: '',
+        speed: this.form.speed !== '' && this.form.speed != null ? Number(this.form.speed) : null,
+        glide: this.form.glide !== '' && this.form.glide != null ? Number(this.form.glide) : null,
+        turn:  this.form.turn  !== '' && this.form.turn  != null ? Number(this.form.turn)  : null,
+        fade:  this.form.fade  !== '' && this.form.fade  != null ? Number(this.form.fade)  : null,
         notes: this.form.notes.trim(),
         added: id ? (this.discs.find(x => x.id === id) || {}).added || Date.now() : Date.now(),
       };
@@ -310,7 +363,7 @@ function discApp() {
     // Modal helpers
     openAddModal() {
       this.formId = '';
-      this.form = { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', flight: '', notes: '' };
+      this.form = { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '' };
       this.formInvalid = { name: false, type: false };
       this.showAddModal = true;
       this.$nextTick(() => {
@@ -329,7 +382,10 @@ function discApp() {
         weight: disc.weight != null ? String(disc.weight) : '',
         color: disc.color || '',
         condition: disc.condition || 'good',
-        flight: disc.flight || '',
+        speed: disc.speed != null && disc.speed !== '' ? disc.speed : '',
+        glide: disc.glide != null && disc.glide !== '' ? disc.glide : '',
+        turn:  disc.turn  != null && disc.turn  !== '' ? disc.turn  : '',
+        fade:  disc.fade  != null && disc.fade  !== '' ? disc.fade  : '',
         notes: disc.notes || '',
       };
       this.formInvalid = { name: false, type: false };
@@ -365,6 +421,20 @@ function discApp() {
     condLabel(cond) { return COND_LABELS[cond] || cond || ''; },
     safeType(type) { return VALID_TYPES.has(type) ? type : 'putter'; },
     safeCond(cond) { return VALID_CONDS.has(cond) ? cond : 'good'; },
+
+    // Flight number helpers
+    stabilityLabel(turn, fade) {
+      const s = (Number(turn) || 0) + (Number(fade) || 0);
+      if (s >= 4)  return 'Very Overstable';
+      if (s >= 2)  return 'Overstable';
+      if (s >= 0)  return 'Stable';
+      if (s >= -2) return 'Understable';
+      return 'Very Understable';
+    },
+    formatTurn(n) { return n > 0 ? '+' + n : String(n); },
+    hasFlightNumbers(disc) {
+      return disc.speed !== '' && disc.speed != null;
+    },
 
     // Export
     exportBag() {
@@ -403,7 +473,12 @@ function discApp() {
       let count = 0;
 
       for (const raw of valid) {
-        const disc = { ...raw, added: raw.added || Date.now() };
+        // Backward compat: parse legacy "12 / 5 / -1 / 3" flight strings
+        let disc = { ...raw, added: raw.added || Date.now() };
+        if ((disc.speed == null || disc.speed === '') && disc.flight) {
+          const parsed = parseFlightString(disc.flight);
+          if (parsed) disc = { ...disc, ...parsed };
+        }
         try {
           if (sb && this.user && this.user.id !== 'local') {
             if (existingIds.has(disc.id)) {

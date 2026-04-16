@@ -235,6 +235,30 @@ Host static frontend on GitHub Pages at proispro.com. Backend is Supabase (not S
 
 ---
 
+### GitHub Codespaces: Zero-Dependency devcontainer
+**By:** Danny (Lead) | **Date:** 2026-04-16 | **Status:** Active
+
+Add `.devcontainer/devcontainer.json` to support GitHub Codespaces for the proispro static site (Alpine.js + Supabase).
+
+**Configuration:**
+- **Base image:** `mcr.microsoft.com/devcontainers/base:ubuntu` — lightweight, no Node toolchain overhead
+- **Extensions:** Live Server (ritwickdey.LiveServer), Prettier, Supabase VS Code, GitHub PRs
+- **Port forwarding:** 5500 (Live Server default), opens in preview pane automatically
+- **No postCreateCommand** — project has zero build dependencies
+
+**Alternatives Considered:**
+| Option | Pros | Cons | Decision |
+|---|---|---|---|
+| `npx serve` in postCreateCommand | Fully auto-starts server | Requires Node runtime, adds dependency | ❌ Rejected |
+| Node devcontainer image | Full Node ecosystem available | Overkill for a zero-build static site | ❌ Rejected |
+| Base Ubuntu + Live Server | Minimal, matches project philosophy | One manual click to "Go Live" | ✅ Chosen |
+
+**Trade-off:** Live Server doesn't auto-start in Codespaces — developer clicks "Go Live" button in VS Code status bar. This acceptable to preserve zero-dependency constraint.
+
+**Rationale:** Consistent with "boring technology" principle. No Node runtime, no build pipeline. Project is pure HTML/CSS/JS; Live Server provides identical static preview experience with one extra click.
+
+---
+
 ### OKLCH Color Palette — Perceptually Uniform
 **By:** Saul (Color Expert) | **Date:** 2026-04-13 | **Status:** Active
 
