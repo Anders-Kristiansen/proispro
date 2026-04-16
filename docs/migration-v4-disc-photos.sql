@@ -36,6 +36,7 @@ COMMENT ON COLUMN disc_wear_adjustments.user_photo_url IS
 -- 3. Apply the Storage RLS policies below in Supabase SQL Editor:
 
 -- Allow authenticated users to upload to their own prefix ({user_id}/*)
+DROP POLICY IF EXISTS "users can upload own disc photos" ON storage.objects;
 CREATE POLICY "users can upload own disc photos"
 ON storage.objects FOR INSERT
 TO authenticated
@@ -45,6 +46,7 @@ WITH CHECK (
 );
 
 -- Allow users to read their own photos
+DROP POLICY IF EXISTS "users can read own disc photos" ON storage.objects;
 CREATE POLICY "users can read own disc photos"
 ON storage.objects FOR SELECT
 TO authenticated
@@ -54,6 +56,7 @@ USING (
 );
 
 -- Allow users to update (replace) their own photos
+DROP POLICY IF EXISTS "users can update own disc photos" ON storage.objects;
 CREATE POLICY "users can update own disc photos"
 ON storage.objects FOR UPDATE
 TO authenticated
@@ -63,6 +66,7 @@ USING (
 );
 
 -- Allow users to delete their own photos
+DROP POLICY IF EXISTS "users can delete own disc photos" ON storage.objects;
 CREATE POLICY "users can delete own disc photos"
 ON storage.objects FOR DELETE
 TO authenticated

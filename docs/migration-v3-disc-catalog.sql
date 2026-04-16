@@ -9,7 +9,7 @@
 -- A) disc_catalog — Canonical disc catalog (replaces DiscIt API)
 -- ─────────────────────────────────────────────────────────────────────────────
 
-CREATE TABLE disc_catalog (
+CREATE TABLE IF NOT EXISTS disc_catalog (
   -- Primary key: UUID for future-proofing (external ID mapping, federation)
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -63,19 +63,19 @@ CREATE TABLE disc_catalog (
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- Flight guide main query: filter by brand, type, stability; sort by speed DESC
-CREATE INDEX idx_catalog_brand_slug ON disc_catalog(brand_slug);
-CREATE INDEX idx_catalog_type ON disc_catalog(type);
-CREATE INDEX idx_catalog_stability_slug ON disc_catalog(stability_slug);
-CREATE INDEX idx_catalog_speed_desc ON disc_catalog(speed DESC);
+CREATE INDEX IF NOT EXISTS idx_catalog_brand_slug ON disc_catalog(brand_slug);
+CREATE INDEX IF NOT EXISTS idx_catalog_type ON disc_catalog(type);
+CREATE INDEX IF NOT EXISTS idx_catalog_stability_slug ON disc_catalog(stability_slug);
+CREATE INDEX IF NOT EXISTS idx_catalog_speed_desc ON disc_catalog(speed DESC);
 
 -- Compound index for common filter combos (brand + type is a hot path)
-CREATE INDEX idx_catalog_brand_type_speed ON disc_catalog(brand_slug, type, speed DESC);
+CREATE INDEX IF NOT EXISTS idx_catalog_brand_type_speed ON disc_catalog(brand_slug, type, speed DESC);
 
 -- Text search on name/brand (for autocomplete / fuzzy search)
 -- Requires pg_trgm extension (enabled below before use)
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE INDEX idx_catalog_name_trgm ON disc_catalog USING gin(name gin_trgm_ops);
-CREATE INDEX idx_catalog_brand_trgm ON disc_catalog USING gin(brand gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_catalog_name_trgm ON disc_catalog USING gin(name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_catalog_brand_trgm ON disc_catalog USING gin(brand gin_trgm_ops);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- RLS Policies: Public read, admin write
@@ -84,11 +84,13 @@ CREATE INDEX idx_catalog_brand_trgm ON disc_catalog USING gin(brand gin_trgm_ops
 ALTER TABLE disc_catalog ENABLE ROW LEVEL SECURITY;
 
 -- Public read: flight guide is a public page
+DROP POLICY IF EXISTS "catalog_public_read" ON disc_catalog;
 CREATE POLICY "catalog_public_read" ON disc_catalog
   FOR SELECT USING (true);
 
 -- Admin write: only service role can INSERT/UPDATE/DELETE
 -- (In practice: seed script runs as service role, app never writes to catalog)
+DROP POLICY IF EXISTS "catalog_admin_write" ON disc_catalog;
 CREATE POLICY "catalog_admin_write" ON disc_catalog
   FOR ALL USING (
     auth.jwt() ->> 'role' = 'service_role'
@@ -106,6 +108,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS set_disc_catalog_timestamp ON disc_catalog;
 CREATE TRIGGER set_disc_catalog_timestamp
   BEFORE UPDATE ON disc_catalog
   FOR EACH ROW
@@ -115,7 +118,7 @@ CREATE TRIGGER set_disc_catalog_timestamp
 -- B) disc_wear_adjustments — Per-user wear overrides
 -- ─────────────────────────────────────────────────────────────────────────────
 
-CREATE TABLE disc_wear_adjustments (
+CREATE TABLE IF NOT EXISTS disc_wear_adjustments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   
   -- Link to user's bag disc (existing `discs` table)
@@ -151,10 +154,10 @@ CREATE TABLE disc_wear_adjustments (
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- Lookup by user_disc_id (hot path when rendering user's bag)
-CREATE INDEX idx_wear_user_disc_id ON disc_wear_adjustments(user_disc_id);
+CREATE INDEX IF NOT EXISTS idx_wear_user_disc_id ON disc_wear_adjustments(user_disc_id);
 
 -- Lookup by user_id (for "show all my adjustments" page)
-CREATE INDEX idx_wear_user_id ON disc_wear_adjustments(user_id);
+CREATE INDEX IF NOT EXISTS idx_wear_user_id ON disc_wear_adjustments(user_id);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- RLS Policies: User can only read/write their own adjustments
@@ -163,18 +166,22 @@ CREATE INDEX idx_wear_user_id ON disc_wear_adjustments(user_id);
 ALTER TABLE disc_wear_adjustments ENABLE ROW LEVEL SECURITY;
 
 -- Users can read their own wear adjustments
+DROP POLICY IF EXISTS "wear_user_read" ON disc_wear_adjustments;
 CREATE POLICY "wear_user_read" ON disc_wear_adjustments
   FOR SELECT USING (auth.uid() = user_id);
 
 -- Users can insert their own wear adjustments
+DROP POLICY IF EXISTS "wear_user_insert" ON disc_wear_adjustments;
 CREATE POLICY "wear_user_insert" ON disc_wear_adjustments
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Users can update their own wear adjustments
+DROP POLICY IF EXISTS "wear_user_update" ON disc_wear_adjustments;
 CREATE POLICY "wear_user_update" ON disc_wear_adjustments
   FOR UPDATE USING (auth.uid() = user_id);
 
 -- Users can delete their own wear adjustments
+DROP POLICY IF EXISTS "wear_user_delete" ON disc_wear_adjustments;
 CREATE POLICY "wear_user_delete" ON disc_wear_adjustments
   FOR DELETE USING (auth.uid() = user_id);
 
@@ -182,6 +189,7 @@ CREATE POLICY "wear_user_delete" ON disc_wear_adjustments
 -- Trigger: Auto-update updated_at timestamp
 -- ─────────────────────────────────────────────────────────────────────────────
 
+DROP TRIGGER IF EXISTS set_disc_wear_timestamp ON disc_wear_adjustments;
 CREATE TRIGGER set_disc_wear_timestamp
   BEFORE UPDATE ON disc_wear_adjustments
   FOR EACH ROW
