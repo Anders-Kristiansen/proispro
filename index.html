@@ -235,6 +235,17 @@
                 <span class="course-bag-name" x-text="getBagForPin(pin)?.name || '(bag deleted)'"></span>
               </div>
               <div class="course-pin-actions">
+                <a class="btn btn-secondary btn-sm"
+                   :href="getPinMapLinks(pin).google"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   title="Open in Google Maps">🧭 Google Maps</a>
+                <a class="btn btn-secondary btn-sm"
+                   x-show="getPinMapLinks(pin).osm"
+                   :href="getPinMapLinks(pin).osm"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   title="Open in OpenStreetMap">🗺 OSM</a>
                 <button class="btn btn-secondary btn-sm" @click="openPinModal(pin)" title="Edit">✏️</button>
                 <button class="btn btn-danger btn-sm" @click="deletePin(pin)" title="Remove">🗑</button>
               </div>
@@ -574,6 +585,10 @@
                      x-model="pinForm.courseQuery"
                      @input="searchCoursesDebounced(pinForm.courseQuery); pinForm.courseName = pinForm.courseQuery"
                      required />
+              <div class="form-actions" style="justify-content:flex-start; margin-top:.5rem; margin-bottom:.25rem;">
+                <button type="button" class="btn btn-secondary btn-sm" @click="loadNorwayCourses()">🇳🇴 Load Norway courses</button>
+              </div>
+              <p style="margin:.25rem 0 .5rem; font-size:.8rem; color:var(--clr-muted);">DiscGolfMetrix map links require a Metrix course ID. Google Maps is available for all pins.</p>
               <!-- OSM Overpass autocomplete dropdown -->
               <div class="pdga-suggestions" x-show="pdgaSuggestions.length > 0">
                 <template x-for="course in pdgaSuggestions" :key="course.osmId">
