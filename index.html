@@ -233,8 +233,10 @@
               <div class="course-pin-info">
                 <span class="course-name" x-text="pin.courseName"></span>
                 <span class="course-bag-name" x-text="getBagForPin(pin)?.name || '(bag deleted)'"></span>
+                <span class="course-bag-name" x-show="getDownloadedMapSummary(pin)" x-text="'Downloaded map: ' + getDownloadedMapSummary(pin)"></span>
               </div>
               <div class="course-pin-actions">
+                <button class="btn btn-secondary btn-sm" @click="downloadCourseMap(pin)" title="Download hole map data">⬇ Download Map</button>
                 <a class="btn btn-secondary btn-sm"
                    :href="getPinMapLinks(pin).google"
                    target="_blank"
