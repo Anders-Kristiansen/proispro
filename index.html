@@ -574,12 +574,12 @@
                      x-model="pinForm.courseQuery"
                      @input="searchCoursesDebounced(pinForm.courseQuery); pinForm.courseName = pinForm.courseQuery"
                      required />
-              <!-- PDGA autocomplete dropdown -->
+              <!-- OSM Overpass autocomplete dropdown -->
               <div class="pdga-suggestions" x-show="pdgaSuggestions.length > 0">
-                <template x-for="course in pdgaSuggestions" :key="course.nid">
+                <template x-for="course in pdgaSuggestions" :key="course.osmId">
                   <button type="button" class="pdga-suggestion-item" @click="selectCourse(course)">
-                    <span x-text="course.title"></span>
-                    <span class="pdga-course-meta" x-text="[course.city, course.country].filter(Boolean).join(', ')"></span>
+                    <span x-text="course.name"></span>
+                    <span class="pdga-course-meta" x-text="[course.holes ? course.holes + ' holes' : '', course.city, course.country].filter(Boolean).join(' · ')"></span>
                   </button>
                 </template>
               </div>

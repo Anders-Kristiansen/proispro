@@ -166,6 +166,7 @@ function discApp() {
     pdgaSuggestions: [],
     pdgaLoading: false,
     _pdgaTimer: null,
+    _courseCache: {},
 
     // Computed
     get filteredSorted() {
@@ -235,6 +236,7 @@ function discApp() {
         this.loadPinsFromLocalStorage();
         this.loading = false;
       }
+      try { this._courseCache = JSON.parse(localStorage.getItem('proispro_course_cache') || '{}'); } catch { this._courseCache = {}; }
 
       // Pre-fill from flight guide link: index.html?name=Destroyer&manufacturer=Innova&...
       const params = new URLSearchParams(window.location.search);
@@ -971,7 +973,7 @@ function discApp() {
       return this.bags.find(b => b.id === pin.bagId) || null;
     },
 
-    // ── PDGA Course Search ───────────────────────────────────
+    // ── Course Search (OpenStreetMap Overpass API) ───────────────────────────────────
 
     searchCoursesDebounced(query) {
       if (this._pdgaTimer) clearTimeout(this._pdgaTimer);
@@ -982,11 +984,26 @@ function discApp() {
 
     async searchCourses(query) {
       try {
-        const url = `https://api.pdga.com/services/json/courses?course_name=${encodeURIComponent(query)}&status=1&limit=8`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-        if (!res.ok) throw new Error('pdga-api-unavailable');
+        // Escape regex special chars for Overpass QL name filter (supports åæø natively)
+        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const oql = `[out:json][timeout:10];(node["leisure"="disc_golf_course"]["name"~"${escaped}",i];way["leisure"="disc_golf_course"]["name"~"${escaped}",i];relation["leisure"="disc_golf_course"]["name"~"${escaped}",i];);out center 10;`;
+        const res = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          body: oql,
+          signal: AbortSignal.timeout(9000),
+        });
+        if (!res.ok) throw new Error('overpass-unavailable');
         const data = await res.json();
-        this.pdgaSuggestions = Array.isArray(data) ? data.slice(0, 8) : [];
+        this.pdgaSuggestions = (data.elements || []).slice(0, 8).map(el => ({
+          osmId: el.id,
+          osmType: el.type,
+          name: el.tags?.name || '',
+          holes: el.tags?.holes || el.tags?.['disc_golf:holes'] || '',
+          city: el.tags?.['addr:city'] || el.tags?.['addr:municipality'] || el.tags?.['is_in:city'] || '',
+          country: el.tags?.['addr:country'] || '',
+          lat: el.lat ?? el.center?.lat,
+          lon: el.lon ?? el.center?.lon,
+        }));
       } catch {
         this.pdgaSuggestions = [];
       } finally {
@@ -995,10 +1012,14 @@ function discApp() {
     },
 
     selectCourse(course) {
-      this.pinForm.courseId = String(course.nid || '');
-      this.pinForm.courseName = course.title || '';
-      this.pinForm.courseQuery = course.title || '';
+      const courseId = `osm:${course.osmType}:${course.osmId}`;
+      this.pinForm.courseId = courseId;
+      this.pinForm.courseName = course.name;
+      this.pinForm.courseQuery = course.name;
       this.pdgaSuggestions = [];
+      // Cache OSM metadata locally for future hole-planning feature
+      this._courseCache[courseId] = { holes: course.holes, city: course.city, country: course.country, lat: course.lat, lon: course.lon };
+      try { localStorage.setItem('proispro_course_cache', JSON.stringify(this._courseCache)); } catch {}
     },
   };
 }
