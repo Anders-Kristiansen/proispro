@@ -93,9 +93,15 @@
         <!-- Disc cards -->
         <template x-for="disc in filteredSorted" :key="disc.id">
           <div class="disc-card">
-            <!-- Photo avatar — absolute top-right corner -->
-            <div class="card-photo-wrap" x-show="disc.user_photo_url">
-              <img class="card-photo-thumb" :src="disc.user_photo_url" :alt="disc.name + ' photo'" loading="lazy"/>
+            <!-- Round avatar: photo when available, otherwise disc type label -->
+            <div class="card-photo-wrap"
+                 :class="disc.user_photo_url ? '' : 'card-photo-fallback type-avatar-' + safeType(disc.type)">
+              <template x-if="disc.user_photo_url">
+                <img class="card-photo-thumb" :src="disc.user_photo_url" :alt="disc.name + ' photo'" loading="lazy"/>
+              </template>
+              <template x-if="!disc.user_photo_url">
+                <span class="card-photo-fallback-label" x-text="typeLabel(safeType(disc.type))"></span>
+              </template>
             </div>
             <div class="card-header">
               <div>

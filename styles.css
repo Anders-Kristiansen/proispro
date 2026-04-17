@@ -192,6 +192,7 @@ a { color: var(--clr-accent); }
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  padding-right: 76px;
 }
 .card-name {
   font-size: 1.1rem;
@@ -611,6 +612,24 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   object-fit: cover;
   display: block;
 }
+.card-photo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: .32rem;
+}
+.card-photo-fallback-label {
+  font-size: .54rem;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.type-avatar-putter   { background: rgba(167,139,250,.22); color: var(--putter); }
+.type-avatar-midrange { background: rgba(52,211,153,.22);  color: var(--midrange); }
+.type-avatar-fairway  { background: rgba(251,191,36,.22);  color: var(--fairway); }
+.type-avatar-distance { background: rgba(248,113,113,.22); color: var(--distance); }
 .bag-photo-current {
   display: flex;
   align-items: flex-start;
