@@ -40,9 +40,21 @@
           <a href="flight-guide.html" class="btn btn-secondary btn-sm" title="Browse the disc flight guide">🗺 Flight Guide</a>
           <span class="disc-count" x-text="user.email || 'Local mode'" style="font-size:.78rem;"></span>
           <button class="btn btn-secondary btn-sm" @click="signOut()" title="Sign out">↪ Logout</button>
-          <button class="btn btn-primary" @click="openAddModal()">+ Add Disc</button>
+          <button class="btn btn-primary" x-show="activeTab === 'inventory'" @click="openAddModal()">+ Add Disc</button>
+          <button class="btn btn-primary" x-show="activeTab === 'bags'" @click="openCreateBagModal()">+ Create Bag</button>
+          <button class="btn btn-primary" x-show="activeTab === 'courses'" @click="openPinModal()">📍 Pin a Course</button>
         </div>
       </header>
+
+      <!-- ── Tab Navigation ── -->
+      <nav class="tab-nav" aria-label="Main navigation">
+        <button class="tab-btn" :class="{active: activeTab==='inventory'}" @click="activeTab='inventory'">🥏 Inventory</button>
+        <button class="tab-btn" :class="{active: activeTab==='bags'}" @click="activeTab='bags'">👜 Bags</button>
+        <button class="tab-btn" :class="{active: activeTab==='courses'}" @click="activeTab='courses'">🗺 Courses</button>
+      </nav>
+
+      <!-- ── Inventory Tab ── -->
+      <div x-show="activeTab === 'inventory'">
 
       <!-- ── Toolbar ── -->
       <div class="toolbar">
@@ -113,15 +125,123 @@
               <span class="fn-pill fp-fade" x-text="disc.fade" title="Fade"></span>
               <span class="fn-stability" x-text="stabilityLabel(disc.turn, disc.fade)"></span>
             </div>
+            <div class="card-bag-badges" x-show="getBagsForDisc(disc.id).length > 0">
+              <span class="bag-badge" x-text="'In ' + getBagsForDisc(disc.id).length + ' bag' + (getBagsForDisc(disc.id).length !== 1 ? 's' : '')"></span>
+            </div>
             <div class="card-notes" x-show="disc.notes" x-text="disc.notes"></div>
 
             <div class="card-actions">
               <button class="btn btn-secondary edit-btn" @click="openEditModal(disc)">✏️ Edit</button>
+              <div class="bag-quick-action" x-data="{ open: false }" x-show="bags.length > 0">
+                <button class="btn btn-secondary btn-sm bag-quick-btn"
+                        @click.stop="open = !open"
+                        :title="getBagsForDisc(disc.id).map(b => b.name).join(', ') || 'Add to bag'">
+                  👜<template x-if="getBagsForDisc(disc.id).length > 0"><span x-text="' ' + getBagsForDisc(disc.id).length"></span></template>
+                </button>
+                <div class="bag-dropdown" x-show="open" @click.outside="open = false">
+                  <template x-for="bag in bags" :key="bag.id">
+                    <label class="bag-dropdown-item">
+                      <input type="checkbox"
+                             :checked="isDiscInBag(bag.id, disc.id)"
+                             @change.stop="toggleDiscInBag(bag.id, disc.id)" />
+                      <span x-text="bag.name"></span>
+                    </label>
+                  </template>
+                </div>
+              </div>
               <button class="btn btn-danger delete-btn" @click="openDeleteModal(disc)">🗑 Remove</button>
             </div>
           </div>
         </template>
       </main>
+
+      </div><!-- /inventory tab -->
+
+      <!-- ── Bags Tab ── -->
+      <div x-show="activeTab === 'bags'">
+        <div class="bags-panel">
+          <div class="bags-header">
+            <span x-text="bags.length + ' bag' + (bags.length !== 1 ? 's' : '')"></span>
+          </div>
+
+          <!-- Empty state -->
+          <div class="empty-state" x-show="bags.length === 0">
+            <div class="empty-icon">👜</div>
+            <h2>No bags yet</h2>
+            <p>Click <strong>+ Create Bag</strong> to build your first bag configuration!</p>
+          </div>
+
+          <!-- Bag cards -->
+          <template x-for="bag in bags" :key="bag.id">
+            <div class="bag-card">
+              <div class="bag-card-header" @click="activeBagId = (activeBagId === bag.id ? null : bag.id)">
+                <div class="bag-card-info">
+                  <span class="bag-name" x-text="bag.name"></span>
+                  <span class="bag-count" x-text="bag.discIds.length + ' disc' + (bag.discIds.length !== 1 ? 's' : '')"></span>
+                </div>
+                <div class="bag-card-actions">
+                  <button class="btn btn-secondary btn-sm" @click.stop="openEditBagModal(bag)" title="Rename">✏️</button>
+                  <button class="btn btn-danger btn-sm" @click.stop="openDeleteBagModal(bag)" title="Delete">🗑</button>
+                  <span class="bag-chevron" x-text="activeBagId === bag.id ? '▲' : '▼'"></span>
+                </div>
+              </div>
+
+              <!-- Expanded detail -->
+              <div class="bag-detail" x-show="activeBagId === bag.id">
+                <div class="bag-detail-actions">
+                  <button class="btn btn-secondary btn-sm" @click="openDiscPicker(bag.id)">+ Add / Remove Discs</button>
+                  <button class="btn btn-secondary btn-sm" @click="openPinModal(null, bag.id)">📍 Pin to Course</button>
+                </div>
+
+                <div class="bag-discs-empty" x-show="bag.discIds.length === 0">
+                  No discs in this bag yet — add some from your inventory!
+                </div>
+
+                <div class="bag-discs-list" x-show="bag.discIds.length > 0">
+                  <template x-for="disc in getDiscsForBag(bag)" :key="disc.id">
+                    <div class="bag-disc-row">
+                      <span class="bag-disc-name" x-text="disc.name"></span>
+                      <span class="bag-disc-mfr" x-show="disc.manufacturer" x-text="disc.manufacturer"></span>
+                      <span class="type-badge" :class="'type-' + safeType(disc.type)" x-text="typeLabel(safeType(disc.type))"></span>
+                      <button class="btn btn-danger btn-sm" @click="removeDiscFromBag(bag.id, disc.id)" title="Remove from bag">✕</button>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div><!-- /bags tab -->
+
+      <!-- ── Courses Tab ── -->
+      <div x-show="activeTab === 'courses'">
+        <div class="courses-panel">
+          <div class="courses-header">
+            <span x-text="coursePins.length + ' pinned course' + (coursePins.length !== 1 ? 's' : '')"></span>
+          </div>
+
+          <!-- Empty state -->
+          <div class="empty-state" x-show="coursePins.length === 0">
+            <div class="empty-icon">🗺</div>
+            <h2>No courses pinned yet</h2>
+            <p>Click <strong>📍 Pin a Course</strong> to save a bag setup for a course!</p>
+          </div>
+
+          <!-- Course pin cards -->
+          <template x-for="pin in coursePins" :key="pin.id">
+            <div class="course-pin-card">
+              <div class="course-pin-info">
+                <span class="course-name" x-text="pin.courseName"></span>
+                <span class="course-bag-name" x-text="getBagForPin(pin)?.name || '(bag deleted)'"></span>
+              </div>
+              <div class="course-pin-actions">
+                <button class="btn btn-secondary btn-sm" @click="openPinModal(pin)" title="Edit">✏️</button>
+                <button class="btn btn-danger btn-sm" @click="deletePin(pin)" title="Remove">🗑</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div><!-- /courses tab -->
 
       <!-- ── Add / Edit Modal ── -->
       <div class="modal-overlay"
@@ -353,6 +473,133 @@
           ⬆ Import
           <input type="file" accept=".json" class="hidden-input" @change="importBag($event)" />
         </label>
+      </div>
+
+      <!-- ── Bag Create / Rename Modal ── -->
+      <div class="modal-overlay"
+           x-show="showBagModal"
+           x-transition.opacity
+           @click.self="showBagModal = false"
+           role="dialog" aria-modal="true" aria-labelledby="bagModalTitle">
+        <div class="modal modal-sm">
+          <div class="modal-header">
+            <h2 class="modal-title" id="bagModalTitle" x-text="bagForm.id ? 'Rename Bag' : 'Create Bag'"></h2>
+            <button class="modal-close" @click="showBagModal = false" aria-label="Close">✕</button>
+          </div>
+          <form @submit.prevent="saveBag()" novalidate>
+            <div class="form-group">
+              <label for="bagNameInput">Bag Name</label>
+              <input type="text" id="bagNameInput" placeholder="e.g. Short Course Bag"
+                     x-model="bagForm.name" required />
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" @click="showBagModal = false">Cancel</button>
+              <button type="submit" class="btn btn-primary" x-text="bagForm.id ? 'Rename' : 'Create'"></button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Bag Delete Confirm Modal ── -->
+      <div class="modal-overlay"
+           x-show="showDeleteBagModal"
+           x-transition.opacity
+           @click.self="showDeleteBagModal = false"
+           role="dialog" aria-modal="true" aria-labelledby="deleteBagTitle">
+        <div class="modal modal-sm">
+          <div class="modal-header">
+            <h2 class="modal-title" id="deleteBagTitle">Delete Bag</h2>
+            <button class="modal-close" @click="showDeleteBagModal = false" aria-label="Close">✕</button>
+          </div>
+          <p x-text="pendingDeleteBag ? 'Delete &quot;' + pendingDeleteBag.name + '&quot;? Discs stay in your inventory.' : ''"></p>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @click="showDeleteBagModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @click="confirmDeleteBag()">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Disc Picker Modal ── -->
+      <div class="modal-overlay"
+           x-show="showDiscPickerModal"
+           x-transition.opacity
+           @click.self="closeDiscPicker()"
+           role="dialog" aria-modal="true" aria-labelledby="discPickerTitle">
+        <div class="modal modal-lg">
+          <div class="modal-header">
+            <h2 class="modal-title" id="discPickerTitle">Add / Remove Discs</h2>
+            <button class="modal-close" @click="closeDiscPicker()" aria-label="Close">✕</button>
+          </div>
+          <div class="form-group">
+            <input type="search" placeholder="Search inventory…"
+                   aria-label="Search discs"
+                   x-model="discPickerSearch" />
+          </div>
+          <div class="disc-picker-list" role="list">
+            <template x-for="disc in discPickerFiltered" :key="disc.id">
+              <label class="disc-picker-item" :class="{ selected: isDiscInBag(discPickerBagId, disc.id) }" role="listitem">
+                <input type="checkbox"
+                       :checked="isDiscInBag(discPickerBagId, disc.id)"
+                       @change="toggleDiscInBag(discPickerBagId, disc.id)" />
+                <span class="disc-picker-name" x-text="disc.name"></span>
+                <span class="disc-picker-mfr" x-show="disc.manufacturer" x-text="disc.manufacturer"></span>
+                <span class="type-badge" :class="'type-' + safeType(disc.type)" x-text="typeLabel(safeType(disc.type))"></span>
+              </label>
+            </template>
+            <div class="bag-discs-empty" x-show="discPickerFiltered.length === 0">No discs found</div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-primary" @click="closeDiscPicker()">Done</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Course Pin Modal ── -->
+      <div class="modal-overlay"
+           x-show="showPinModal"
+           x-transition.opacity
+           @click.self="closePinModal()"
+           role="dialog" aria-modal="true" aria-labelledby="pinModalTitle">
+        <div class="modal modal-sm">
+          <div class="modal-header">
+            <h2 class="modal-title" id="pinModalTitle" x-text="editingPinId ? 'Edit Course Pin' : 'Pin a Course'"></h2>
+            <button class="modal-close" @click="closePinModal()" aria-label="Close">✕</button>
+          </div>
+          <form @submit.prevent="savePin()" novalidate>
+            <div class="form-group" style="position:relative">
+              <label for="courseSearchInput">Course Name</label>
+              <input type="text" id="courseSearchInput"
+                     placeholder="Search or type course name…"
+                     autocomplete="off"
+                     x-model="pinForm.courseQuery"
+                     @input="searchCoursesDebounced(pinForm.courseQuery); pinForm.courseName = pinForm.courseQuery"
+                     required />
+              <!-- PDGA autocomplete dropdown -->
+              <div class="pdga-suggestions" x-show="pdgaSuggestions.length > 0">
+                <template x-for="course in pdgaSuggestions" :key="course.nid">
+                  <button type="button" class="pdga-suggestion-item" @click="selectCourse(course)">
+                    <span x-text="course.title"></span>
+                    <span class="pdga-course-meta" x-text="[course.city, course.country].filter(Boolean).join(', ')"></span>
+                  </button>
+                </template>
+              </div>
+              <div class="pdga-loading" x-show="pdgaLoading">Searching courses…</div>
+            </div>
+            <div class="form-group">
+              <label for="pinBagSelect">Bag</label>
+              <select id="pinBagSelect" x-model="pinForm.bagId" required>
+                <option value="">Select a bag…</option>
+                <template x-for="bag in bags" :key="bag.id">
+                  <option :value="bag.id" x-text="bag.name"></option>
+                </template>
+              </select>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" @click="closePinModal()">Cancel</button>
+              <button type="submit" class="btn btn-primary">Save Pin</button>
+            </div>
+          </form>
+        </div>
       </div>
 
     </div>

@@ -6,6 +6,8 @@ const SUPABASE_URL  = 'https://odqhusmmqgipvazusrxs.supabase.co';
 const SUPABASE_ANON = 'sb_publishable_p0KpjMepMloZb6SI-y6ang_2uzbdQ9U';
 
 const STORAGE_KEY = 'proispro_discs';
+const BAGS_KEY    = 'proispro_bags';
+const PINS_KEY    = 'proispro_course_pins';
 
 // ── Supabase Client ─────────────────────────────────────────
 let _supabase = null;
@@ -74,6 +76,31 @@ function fromDbDisc(d) {
   };
 }
 
+// ── Bag + Course Pin Field Mapping ──────────────────────────
+function toDbBag(bag) {
+  return { id: bag.id, name: bag.name, disc_ids: bag.discIds, updated_at: new Date().toISOString() };
+}
+function fromDbBag(b) {
+  return {
+    id: b.id,
+    name: b.name || '',
+    discIds: Array.isArray(b.disc_ids) ? b.disc_ids : [],
+    createdAt: b.created_at ? new Date(b.created_at).getTime() : Date.now(),
+  };
+}
+function toDbPin(pin) {
+  return { id: pin.id, course_name: pin.courseName, course_id: pin.courseId || null, bag_id: pin.bagId };
+}
+function fromDbPin(p) {
+  return {
+    id: p.id,
+    courseName: p.course_name || '',
+    courseId: p.course_id || null,
+    bagId: p.bag_id,
+    createdAt: p.created_at ? new Date(p.created_at).getTime() : Date.now(),
+  };
+}
+
 // ── Helpers ─────────────────────────────────────────────────
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -121,6 +148,25 @@ function discApp() {
     photoFile:       null,
     photoUploading:  false,
 
+    // Bag + Course state
+    bags: [],
+    coursePins: [],
+    activeTab: 'inventory',
+    activeBagId: null,
+    showBagModal: false,
+    bagForm: { id: '', name: '' },
+    showDeleteBagModal: false,
+    pendingDeleteBag: null,
+    showDiscPickerModal: false,
+    discPickerBagId: null,
+    discPickerSearch: '',
+    showPinModal: false,
+    editingPinId: null,
+    pinForm: { courseQuery: '', courseId: '', courseName: '', bagId: '' },
+    pdgaSuggestions: [],
+    pdgaLoading: false,
+    _pdgaTimer: null,
+
     // Computed
     get filteredSorted() {
       const q = this.search.toLowerCase().trim();
@@ -154,6 +200,15 @@ function discApp() {
       return `${n} disc${n !== 1 ? 's' : ''}`;
     },
 
+    get discPickerFiltered() {
+      const q = this.discPickerSearch.toLowerCase().trim();
+      if (!q) return this.discs;
+      return this.discs.filter(d =>
+        (d.name || '').toLowerCase().includes(q) ||
+        (d.manufacturer || '').toLowerCase().includes(q)
+      );
+    },
+
     // Lifecycle
     async init() {
       const sb = getSupabase();
@@ -162,8 +217,12 @@ function discApp() {
           this.user = session?.user || null;
           if (this.user) {
             this.loadDiscs();
+            this.loadBags();
+            this.loadCoursePins();
           } else {
             this.discs = [];
+            this.bags = [];
+            this.coursePins = [];
             this.loading = false;
           }
         });
@@ -172,6 +231,8 @@ function discApp() {
         // No Supabase configured — localStorage-only mode
         this.user = { id: 'local', email: 'local' };
         this.loadFromLocalStorage();
+        this.loadBagsFromLocalStorage();
+        this.loadPinsFromLocalStorage();
         this.loading = false;
       }
 
@@ -212,9 +273,13 @@ function discApp() {
         this.user = user;
         if (user) {
           await this.loadDiscs();
+          await this.loadBags();
+          await this.loadCoursePins();
         }
       } catch {
         this.loadFromLocalStorage();
+        this.loadBagsFromLocalStorage();
+        this.loadPinsFromLocalStorage();
       }
       this.loading = false;
     },
@@ -410,10 +475,16 @@ function discApp() {
     closeModals() {
       this.showAddModal = false;
       this.showDeleteModal = false;
+      this.showBagModal = false;
+      this.showDeleteBagModal = false;
+      this.showDiscPickerModal = false;
+      this.showPinModal = false;
       this.formInvalid = { name: false, type: false };
       if (this.photoPreview) URL.revokeObjectURL(this.photoPreview);
       this.photoPreview = null;
       this.photoFile = null;
+      this.pdgaSuggestions = [];
+      if (this._pdgaTimer) { clearTimeout(this._pdgaTimer); this._pdgaTimer = null; }
     },
 
     // Color picker
@@ -629,6 +700,305 @@ function discApp() {
         if (idx !== -1) this.discs[idx] = { ...this.discs[idx], user_photo_url: null };
         showToast('🗑 Photo removed');
       }
+    },
+
+    // ── Bag Management ───────────────────────────────────────
+
+    async loadBags() {
+      const sb = getSupabase();
+      if (sb && this.user?.id !== 'local') {
+        try {
+          const { data, error } = await sb.from('bags').select('*').order('created_at');
+          if (error) throw error;
+          this.bags = (data || []).map(fromDbBag);
+          this.saveBagsToLocalStorage();
+          await this.ensureDefaultBags();
+          return;
+        } catch { /* fall through to localStorage */ }
+      }
+      this.loadBagsFromLocalStorage();
+    },
+
+    loadBagsFromLocalStorage() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(BAGS_KEY));
+        this.bags = Array.isArray(raw) ? raw : [];
+      } catch { this.bags = []; }
+      this.ensureDefaultBags();
+    },
+
+    saveBagsToLocalStorage() {
+      try { localStorage.setItem(BAGS_KEY, JSON.stringify(this.bags)); } catch { /* ignore */ }
+    },
+
+    async ensureDefaultBags() {
+      if (this.bags.length > 0) return;
+      const sb = getSupabase();
+      for (const name of ['Bag 1', 'Bag 2', 'Bag 3']) {
+        const bag = { id: uid(), name, discIds: [], createdAt: Date.now() };
+        try {
+          if (sb && this.user?.id !== 'local') {
+            const { data, error } = await sb.from('bags')
+              .insert([{ id: bag.id, name, disc_ids: [], user_id: this.user.id }])
+              .select().single();
+            if (!error && data) bag.id = data.id;
+          }
+        } catch { /* use local id */ }
+        this.bags.push(bag);
+      }
+      this.saveBagsToLocalStorage();
+    },
+
+    openCreateBagModal() {
+      this.bagForm = { id: '', name: '' };
+      this.showBagModal = true;
+      this.$nextTick(() => { const el = document.getElementById('bagNameInput'); if (el) el.focus(); });
+    },
+
+    openEditBagModal(bag) {
+      this.bagForm = { id: bag.id, name: bag.name };
+      this.showBagModal = true;
+      this.$nextTick(() => { const el = document.getElementById('bagNameInput'); if (el) el.focus(); });
+    },
+
+    async saveBag() {
+      const name = this.bagForm.name.trim();
+      if (!name) return;
+      const sb = getSupabase();
+
+      if (this.bagForm.id) {
+        const bag = this.bags.find(b => b.id === this.bagForm.id);
+        if (!bag) return;
+        bag.name = name;
+        try {
+          if (sb && this.user?.id !== 'local') {
+            await sb.from('bags').update({ name, updated_at: new Date().toISOString() }).eq('id', bag.id);
+          }
+        } catch { /* ignore */ }
+        this.saveBagsToLocalStorage();
+        showToast('✏️ Bag renamed!');
+      } else {
+        const bag = { id: uid(), name, discIds: [], createdAt: Date.now() };
+        try {
+          if (sb && this.user?.id !== 'local') {
+            const { data, error } = await sb.from('bags')
+              .insert([{ id: bag.id, name, disc_ids: [], user_id: this.user.id }])
+              .select().single();
+            if (!error && data) bag.id = data.id;
+          }
+        } catch { /* use local id */ }
+        this.bags.push(bag);
+        this.saveBagsToLocalStorage();
+        showToast('✅ Bag created!');
+      }
+      this.showBagModal = false;
+    },
+
+    openDeleteBagModal(bag) {
+      this.pendingDeleteBag = bag;
+      this.showDeleteBagModal = true;
+    },
+
+    async confirmDeleteBag() {
+      if (!this.pendingDeleteBag) return;
+      const bag = this.pendingDeleteBag;
+      this.showDeleteBagModal = false;
+      this.pendingDeleteBag = null;
+      const sb = getSupabase();
+      try {
+        if (sb && this.user?.id !== 'local') {
+          await sb.from('bags').delete().eq('id', bag.id);
+          await sb.from('course_pins').delete().eq('bag_id', bag.id);
+        }
+      } catch { /* ignore */ }
+      this.bags = this.bags.filter(b => b.id !== bag.id);
+      this.coursePins = this.coursePins.filter(p => p.bagId !== bag.id);
+      if (this.activeBagId === bag.id) this.activeBagId = null;
+      this.saveBagsToLocalStorage();
+      this.savePinsToLocalStorage();
+      showToast('🗑 Bag deleted');
+    },
+
+    // ── Disc ↔ Bag ───────────────────────────────────────────
+
+    openDiscPicker(bagId) {
+      this.discPickerBagId = bagId;
+      this.discPickerSearch = '';
+      this.showDiscPickerModal = true;
+    },
+
+    closeDiscPicker() {
+      this.showDiscPickerModal = false;
+      this.discPickerBagId = null;
+      this.discPickerSearch = '';
+    },
+
+    isDiscInBag(bagId, discId) {
+      const bag = this.bags.find(b => b.id === bagId);
+      return bag ? bag.discIds.includes(discId) : false;
+    },
+
+    async toggleDiscInBag(bagId, discId) {
+      const bag = this.bags.find(b => b.id === bagId);
+      if (!bag) return;
+      const idx = bag.discIds.indexOf(discId);
+      if (idx === -1) bag.discIds.push(discId);
+      else bag.discIds.splice(idx, 1);
+      await this._syncBagDiscIds(bag);
+    },
+
+    async removeDiscFromBag(bagId, discId) {
+      const bag = this.bags.find(b => b.id === bagId);
+      if (!bag) return;
+      bag.discIds = bag.discIds.filter(id => id !== discId);
+      await this._syncBagDiscIds(bag);
+      showToast('Disc removed from bag');
+    },
+
+    async _syncBagDiscIds(bag) {
+      this.saveBagsToLocalStorage();
+      const sb = getSupabase();
+      if (sb && this.user?.id !== 'local') {
+        try {
+          await sb.from('bags').update({ disc_ids: bag.discIds, updated_at: new Date().toISOString() }).eq('id', bag.id);
+        } catch { /* ignore */ }
+      }
+    },
+
+    getDiscsForBag(bag) {
+      if (!bag) return [];
+      return bag.discIds.map(id => this.discs.find(d => d.id === id)).filter(Boolean);
+    },
+
+    getBagsForDisc(discId) {
+      return this.bags.filter(b => b.discIds.includes(discId));
+    },
+
+    // ── Course Pinning ───────────────────────────────────────
+
+    async loadCoursePins() {
+      const sb = getSupabase();
+      if (sb && this.user?.id !== 'local') {
+        try {
+          const { data, error } = await sb.from('course_pins').select('*').order('created_at');
+          if (error) throw error;
+          this.coursePins = (data || []).map(fromDbPin);
+          this.savePinsToLocalStorage();
+          return;
+        } catch { /* fall through */ }
+      }
+      this.loadPinsFromLocalStorage();
+    },
+
+    loadPinsFromLocalStorage() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(PINS_KEY));
+        this.coursePins = Array.isArray(raw) ? raw : [];
+      } catch { this.coursePins = []; }
+    },
+
+    savePinsToLocalStorage() {
+      try { localStorage.setItem(PINS_KEY, JSON.stringify(this.coursePins)); } catch { /* ignore */ }
+    },
+
+    openPinModal(pin = null, preselectedBagId = null) {
+      if (pin) {
+        this.editingPinId = pin.id;
+        this.pinForm = { courseQuery: pin.courseName, courseId: pin.courseId || '', courseName: pin.courseName, bagId: pin.bagId };
+      } else {
+        this.editingPinId = null;
+        this.pinForm = { courseQuery: '', courseId: '', courseName: '', bagId: preselectedBagId || (this.bags[0]?.id || '') };
+      }
+      this.pdgaSuggestions = [];
+      this.showPinModal = true;
+    },
+
+    closePinModal() {
+      this.showPinModal = false;
+      this.editingPinId = null;
+      this.pdgaSuggestions = [];
+      if (this._pdgaTimer) { clearTimeout(this._pdgaTimer); this._pdgaTimer = null; }
+    },
+
+    async savePin() {
+      const courseName = (this.pinForm.courseName || this.pinForm.courseQuery).trim();
+      const bagId = this.pinForm.bagId;
+      if (!courseName || !bagId) return;
+      const sb = getSupabase();
+
+      if (this.editingPinId) {
+        const pin = this.coursePins.find(p => p.id === this.editingPinId);
+        if (!pin) return;
+        pin.courseName = courseName;
+        pin.courseId = this.pinForm.courseId || null;
+        pin.bagId = bagId;
+        try {
+          if (sb && this.user?.id !== 'local') {
+            await sb.from('course_pins').update(toDbPin(pin)).eq('id', pin.id);
+          }
+        } catch { /* ignore */ }
+        showToast('📍 Pin updated!');
+      } else {
+        const pin = { id: uid(), courseName, courseId: this.pinForm.courseId || null, bagId, createdAt: Date.now() };
+        try {
+          if (sb && this.user?.id !== 'local') {
+            const { data, error } = await sb.from('course_pins')
+              .insert([{ ...toDbPin(pin), user_id: this.user.id }])
+              .select().single();
+            if (!error && data) pin.id = data.id;
+          }
+        } catch { /* use local id */ }
+        this.coursePins.push(pin);
+        showToast('📍 Course pinned!');
+      }
+      this.savePinsToLocalStorage();
+      this.closePinModal();
+    },
+
+    async deletePin(pin) {
+      const sb = getSupabase();
+      try {
+        if (sb && this.user?.id !== 'local') {
+          await sb.from('course_pins').delete().eq('id', pin.id);
+        }
+      } catch { /* ignore */ }
+      this.coursePins = this.coursePins.filter(p => p.id !== pin.id);
+      this.savePinsToLocalStorage();
+      showToast('🗑 Pin removed');
+    },
+
+    getBagForPin(pin) {
+      return this.bags.find(b => b.id === pin.bagId) || null;
+    },
+
+    // ── PDGA Course Search ───────────────────────────────────
+
+    searchCoursesDebounced(query) {
+      if (this._pdgaTimer) clearTimeout(this._pdgaTimer);
+      if (!query || query.length < 2) { this.pdgaSuggestions = []; this.pdgaLoading = false; return; }
+      this.pdgaLoading = true;
+      this._pdgaTimer = setTimeout(() => this.searchCourses(query), 400);
+    },
+
+    async searchCourses(query) {
+      try {
+        const url = `https://api.pdga.com/services/json/courses?course_name=${encodeURIComponent(query)}&status=1&limit=8`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) throw new Error('pdga-api-unavailable');
+        const data = await res.json();
+        this.pdgaSuggestions = Array.isArray(data) ? data.slice(0, 8) : [];
+      } catch {
+        this.pdgaSuggestions = [];
+      } finally {
+        this.pdgaLoading = false;
+      }
+    },
+
+    selectCourse(course) {
+      this.pinForm.courseId = String(course.nid || '');
+      this.pinForm.courseName = course.title || '';
+      this.pinForm.courseQuery = course.title || '';
+      this.pdgaSuggestions = [];
     },
   };
 }

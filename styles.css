@@ -641,3 +641,323 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   display: flex;
   gap: .5rem;
 }
+/* ── Tab Navigation ───────────────────────────────────────── */
+.tab-nav {
+  display: flex;
+  gap: .3rem;
+  padding: .6rem 1.2rem;
+  background: var(--clr-surface);
+  border-bottom: 1px solid var(--clr-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tab-btn {
+  padding: .45rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--clr-muted);
+  font-size: .88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.tab-btn:hover {
+  background: var(--clr-surface2);
+  color: var(--clr-text);
+}
+
+.tab-btn.active {
+  background: var(--clr-surface2);
+  border-color: var(--clr-border);
+  color: var(--clr-accent);
+}
+
+/* ── Bags / Courses panels ────────────────────────────────── */
+.bags-panel,
+.courses-panel {
+  max-width: 720px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
+
+.bags-header,
+.courses-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  color: var(--clr-muted);
+  font-size: .88rem;
+}
+
+.bag-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  margin-bottom: .75rem;
+  overflow: hidden;
+  transition: border-color .15s;
+}
+
+.bag-card:hover { border-color: var(--clr-accent2); }
+
+.bag-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .85rem 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bag-card-info {
+  display: flex;
+  align-items: baseline;
+  gap: .75rem;
+}
+
+.bag-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--clr-text);
+}
+
+.bag-count {
+  font-size: .8rem;
+  color: var(--clr-muted);
+}
+
+.bag-card-actions {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+.bag-chevron {
+  font-size: .75rem;
+  color: var(--clr-muted);
+  margin-left: .25rem;
+}
+
+.bag-detail {
+  border-top: 1px solid var(--clr-border);
+  padding: .85rem 1rem;
+  background: var(--clr-surface2);
+}
+
+.bag-detail-actions {
+  display: flex;
+  gap: .5rem;
+  margin-bottom: .85rem;
+  flex-wrap: wrap;
+}
+
+.bag-discs-empty {
+  color: var(--clr-muted);
+  font-size: .88rem;
+  text-align: center;
+  padding: .75rem 0;
+}
+
+.bag-discs-list {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+
+.bag-disc-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .45rem .6rem;
+  background: var(--clr-surface);
+  border-radius: 6px;
+  font-size: .88rem;
+}
+
+.bag-disc-name { font-weight: 500; color: var(--clr-text); flex: 1 1 auto; }
+.bag-disc-mfr  { color: var(--clr-muted); font-size: .8rem; }
+
+/* ── Disc card bag quick-assign ───────────────────────────── */
+.bag-quick-action { position: relative; }
+
+.bag-quick-btn {
+  min-width: 2.8rem;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+}
+
+.bag-dropdown {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  min-width: 160px;
+  z-index: 50;
+  padding: .35rem 0;
+}
+
+.bag-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .45rem .85rem;
+  cursor: pointer;
+  font-size: .88rem;
+  color: var(--clr-text);
+  transition: background .1s;
+}
+
+.bag-dropdown-item:hover { background: var(--clr-surface2); }
+
+.bag-dropdown-item input[type="checkbox"] {
+  accent-color: var(--clr-accent);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* ── Disc Picker Modal ────────────────────────────────────── */
+.modal-lg { max-width: 560px; }
+
+.disc-picker-list {
+  max-height: 52vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  margin: .75rem 0;
+  border: 1px solid var(--clr-border);
+  border-radius: 6px;
+  padding: .35rem;
+}
+
+.disc-picker-item {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .45rem .6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: .88rem;
+  transition: background .1s;
+}
+
+.disc-picker-item:hover { background: var(--clr-surface2); }
+
+.disc-picker-item input[type="checkbox"] {
+  accent-color: var(--clr-accent);
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.disc-picker-name { font-weight: 500; flex: 1 1 auto; }
+.disc-picker-mfr  { color: var(--clr-muted); font-size: .8rem; }
+
+/* ── Course Pins ──────────────────────────────────────────── */
+.course-pin-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .85rem 1rem;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  margin-bottom: .6rem;
+  gap: 1rem;
+}
+
+.course-pin-info {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+
+.course-name {
+  font-weight: 600;
+  color: var(--clr-text);
+}
+
+.course-bag-name {
+  font-size: .82rem;
+  color: var(--clr-accent);
+}
+
+.course-pin-actions { display: flex; gap: .4rem; flex-shrink: 0; }
+
+/* ── PDGA autocomplete ────────────────────────────────────── */
+.pdga-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  box-shadow: var(--shadow);
+  z-index: 60;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.pdga-suggestion-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  padding: .55rem .85rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: .88rem;
+  color: var(--clr-text);
+  transition: background .1s;
+}
+
+.pdga-suggestion-item:hover { background: var(--clr-surface2); }
+
+.pdga-course-meta {
+  font-size: .78rem;
+  color: var(--clr-muted);
+  margin-top: .1rem;
+}
+
+.pdga-loading {
+  font-size: .8rem;
+  color: var(--clr-muted);
+  padding: .3rem .6rem;
+}
+
+/* ── Bag badge on disc card ───────────────────────────────── */
+.card-bag-badges {
+  display: flex;
+  gap: .35rem;
+  flex-wrap: wrap;
+  margin-bottom: .35rem;
+}
+
+.bag-badge {
+  font-size: .72rem;
+  padding: .15rem .5rem;
+  border-radius: 99px;
+  background: oklch(0.22 0.06 204);
+  color: var(--clr-accent);
+  border: 1px solid oklch(0.35 0.08 204);
+}
+
+@media (max-width: 520px) {
+  .tab-nav { padding: .5rem .8rem; overflow-x: auto; }
+  .bags-panel, .courses-panel { padding: 0 .8rem; }
+  .bag-dropdown { min-width: 140px; }
+}
