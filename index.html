@@ -93,14 +93,14 @@
         <!-- Disc cards -->
         <template x-for="disc in filteredSorted" :key="disc.id">
           <div class="disc-card">
-            <!-- Round avatar: photo when available, otherwise disc type label -->
+            <!-- Round avatar: photo when available, otherwise generic disc icon -->
             <div class="card-photo-wrap"
-                 :class="disc.user_photo_url ? '' : 'card-photo-fallback type-avatar-' + safeType(disc.type)">
+                 :class="disc.user_photo_url ? '' : 'card-photo-fallback'">
               <template x-if="disc.user_photo_url">
                 <img class="card-photo-thumb" :src="disc.user_photo_url" :alt="disc.name + ' photo'" loading="lazy"/>
               </template>
               <template x-if="!disc.user_photo_url">
-                <span class="card-photo-fallback-label" x-text="typeLabel(safeType(disc.type))"></span>
+                <span class="card-photo-fallback-label" aria-hidden="true">🥏</span>
               </template>
             </div>
             <div class="card-header">
@@ -108,9 +108,6 @@
                 <div class="card-name" x-text="disc.name"></div>
                 <div class="card-manufacturer" x-show="disc.manufacturer" x-text="disc.manufacturer"></div>
               </div>
-              <span class="type-badge"
-                    :class="'type-' + safeType(disc.type)"
-                    x-text="typeLabel(safeType(disc.type))"></span>
             </div>
 
             <div class="card-details" x-show="disc.weight || disc.plastic || disc.color || disc.condition">

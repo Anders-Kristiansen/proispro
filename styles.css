@@ -616,20 +616,12 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   display: flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  padding: .32rem;
+  background: var(--clr-surface2);
 }
 .card-photo-fallback-label {
-  font-size: .54rem;
-  line-height: 1.15;
-  font-weight: 800;
-  letter-spacing: .03em;
-  text-transform: uppercase;
+  font-size: 1.55rem;
+  line-height: 1;
 }
-.type-avatar-putter   { background: rgba(167,139,250,.22); color: var(--putter); }
-.type-avatar-midrange { background: rgba(52,211,153,.22);  color: var(--midrange); }
-.type-avatar-fairway  { background: rgba(251,191,36,.22);  color: var(--fairway); }
-.type-avatar-distance { background: rgba(248,113,113,.22); color: var(--distance); }
 .bag-photo-current {
   display: flex;
   align-items: flex-start;
