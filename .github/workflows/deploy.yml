@@ -19,6 +19,9 @@ on:
     branches:
       - main
 
+# Manual trigger
+  workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
