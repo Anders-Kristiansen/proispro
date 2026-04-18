@@ -982,6 +982,116 @@ function discApp() {
       this._pdgaTimer = setTimeout(() => this.searchCourses(query), 400);
     },
 
+    mapCourseElement(el) {
+      return {
+        osmId: el.id,
+        osmType: el.type,
+        name: el.tags?.name || '',
+        holes: el.tags?.holes || el.tags?.['disc_golf:holes'] || '',
+        city: el.tags?.['addr:city'] || el.tags?.['addr:municipality'] || el.tags?.['is_in:city'] || '',
+        country: el.tags?.['addr:country'] || '',
+        lat: el.lat ?? el.center?.lat,
+        lon: el.lon ?? el.center?.lon,
+      };
+    },
+
+    getGoogleMapsUrl(name, lat, lon) {
+      if (lat != null && lon != null) {
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lon}`)}`;
+      }
+      if (name) {
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
+      }
+      return '';
+    },
+
+    getOpenStreetMapUrl(lat, lon) {
+      if (lat == null || lon == null) return '';
+      return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
+    },
+
+    getPinMapLinks(pin) {
+      const cached = pin?.courseId ? this._courseCache[pin.courseId] : null;
+      const lat = cached?.lat;
+      const lon = cached?.lon;
+      return {
+        google: this.getGoogleMapsUrl(pin?.courseName || '', lat, lon),
+        osm: this.getOpenStreetMapUrl(lat, lon),
+      };
+    },
+
+    getDownloadedMapSummary(pin) {
+      const data = pin?.courseId ? this._courseCache[pin.courseId]?.mapData : null;
+      if (!data) return '';
+      const parts = [];
+      if (data.holeCount) parts.push(`${data.holeCount} holes`);
+      if (data.teeCount) parts.push(`${data.teeCount} tees`);
+      if (data.basketCount) parts.push(`${data.basketCount} baskets`);
+      if (data.fairwayCount) parts.push(`${data.fairwayCount} fairways`);
+      if (!parts.length && data.totalElements) parts.push(`${data.totalElements} map elements`);
+      return parts.join(' · ');
+    },
+
+    async downloadCourseMap(pin) {
+      if (!pin?.courseId) {
+        showToast('⚠️ Select a mapped course first to download hole data');
+        return;
+      }
+
+      const cached = this._courseCache[pin.courseId] || {};
+      const lat = cached.lat;
+      const lon = cached.lon;
+      if (lat == null || lon == null) {
+        showToast('⚠️ Missing course coordinates — reselect from suggestions first');
+        return;
+      }
+
+      this.pdgaLoading = true;
+      try {
+        const radius = 2500;
+        const oql = `[out:json][timeout:25];
+          (
+            node(around:${radius},${lat},${lon})["disc_golf"];
+            way(around:${radius},${lat},${lon})["disc_golf"];
+            relation(around:${radius},${lat},${lon})["disc_golf"];
+          );
+          out center tags;`;
+        const res = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          body: oql,
+          signal: AbortSignal.timeout(20000),
+        });
+        if (!res.ok) throw new Error('overpass-unavailable');
+        const data = await res.json();
+        const elements = (data.elements || []);
+        const byType = (name) => elements.filter(el => (el.tags?.disc_golf || '').toLowerCase() === name).length;
+        cached.mapData = {
+          downloadedAt: Date.now(),
+          totalElements: elements.length,
+          holeCount: byType('hole'),
+          teeCount: byType('tee'),
+          basketCount: byType('basket'),
+          fairwayCount: byType('fairway'),
+          elements: elements.map(el => ({
+            id: `${el.type}:${el.id}`,
+            type: el.type,
+            discGolf: el.tags?.disc_golf || '',
+            ref: el.tags?.ref || '',
+            name: el.tags?.name || '',
+            lat: el.lat ?? el.center?.lat ?? null,
+            lon: el.lon ?? el.center?.lon ?? null,
+          })),
+        };
+        this._courseCache[pin.courseId] = cached;
+        try { localStorage.setItem('proispro_course_cache', JSON.stringify(this._courseCache)); } catch {}
+        showToast(`⬇ Downloaded ${cached.mapData.totalElements} map elements for ${pin.courseName}`);
+      } catch {
+        showToast('⚠️ Could not download course map data right now');
+      } finally {
+        this.pdgaLoading = false;
+      }
+    },
+
     async searchCourses(query) {
       try {
         // Escape regex special chars for Overpass QL name filter (supports åæø natively)
@@ -994,18 +1104,34 @@ function discApp() {
         });
         if (!res.ok) throw new Error('overpass-unavailable');
         const data = await res.json();
-        this.pdgaSuggestions = (data.elements || []).slice(0, 8).map(el => ({
-          osmId: el.id,
-          osmType: el.type,
-          name: el.tags?.name || '',
-          holes: el.tags?.holes || el.tags?.['disc_golf:holes'] || '',
-          city: el.tags?.['addr:city'] || el.tags?.['addr:municipality'] || el.tags?.['is_in:city'] || '',
-          country: el.tags?.['addr:country'] || '',
-          lat: el.lat ?? el.center?.lat,
-          lon: el.lon ?? el.center?.lon,
-        }));
+        this.pdgaSuggestions = (data.elements || []).slice(0, 8).map(el => this.mapCourseElement(el));
       } catch {
         this.pdgaSuggestions = [];
+      } finally {
+        this.pdgaLoading = false;
+      }
+    },
+
+    async loadNorwayCourses() {
+      this.pdgaLoading = true;
+      try {
+        const oql = `[out:json][timeout:25];area["ISO3166-1"="NO"][admin_level=2]->.norway;(node["leisure"="disc_golf_course"](area.norway);way["leisure"="disc_golf_course"](area.norway);relation["leisure"="disc_golf_course"](area.norway););out center 400;`;
+        const res = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          body: oql,
+          signal: AbortSignal.timeout(20000),
+        });
+        if (!res.ok) throw new Error('overpass-unavailable');
+        const data = await res.json();
+        this.pdgaSuggestions = (data.elements || [])
+          .map(el => this.mapCourseElement(el))
+          .filter(c => c.name)
+          .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
+          .slice(0, 100);
+        showToast(`🗺 Loaded ${this.pdgaSuggestions.length} course suggestions from Norway`);
+      } catch {
+        this.pdgaSuggestions = [];
+        showToast('⚠️ Could not load Norway courses right now');
       } finally {
         this.pdgaLoading = false;
       }
