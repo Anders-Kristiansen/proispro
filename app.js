@@ -1046,20 +1046,15 @@ function discApp() {
         return;
       }
 
+      showToast(`⏳ Downloading map data for ${pin.courseName}…`);
       this.pdgaLoading = true;
       try {
         const radius = 2500;
-        const oql = `[out:json][timeout:25];
-          (
-            node(around:${radius},${lat},${lon})["disc_golf"];
-            way(around:${radius},${lat},${lon})["disc_golf"];
-            relation(around:${radius},${lat},${lon})["disc_golf"];
-          );
-          out center tags;`;
+        const oql = `[out:json][timeout:25];(node(around:${radius},${lat},${lon})["disc_golf"];way(around:${radius},${lat},${lon})["disc_golf"];relation(around:${radius},${lat},${lon})["disc_golf"];);out center tags;`;
         const res = await fetch('https://overpass-api.de/api/interpreter', {
           method: 'POST',
           body: oql,
-          signal: AbortSignal.timeout(20000),
+          signal: AbortSignal.timeout(30000),
         });
         if (!res.ok) throw new Error('overpass-unavailable');
         const data = await res.json();
@@ -1114,24 +1109,25 @@ function discApp() {
 
     async loadNorwayCourses() {
       this.pdgaLoading = true;
+      showToast('⏳ Loading Norway courses…');
       try {
-        const oql = `[out:json][timeout:25];area["ISO3166-1"="NO"][admin_level=2]->.norway;(node["leisure"="disc_golf_course"](area.norway);way["leisure"="disc_golf_course"](area.norway);relation["leisure"="disc_golf_course"](area.norway););out center 400;`;
+        // bbox pre-filter speeds up the area query significantly
+        const oql = `[out:json][timeout:30][bbox:57.7,4.5,71.2,31.2];area["ISO3166-1"="NO"][admin_level=2]->.norway;(node["leisure"="disc_golf_course"](area.norway);way["leisure"="disc_golf_course"](area.norway);relation["leisure"="disc_golf_course"](area.norway););out center;`;
         const res = await fetch('https://overpass-api.de/api/interpreter', {
           method: 'POST',
           body: oql,
-          signal: AbortSignal.timeout(20000),
+          signal: AbortSignal.timeout(35000),
         });
         if (!res.ok) throw new Error('overpass-unavailable');
         const data = await res.json();
         this.pdgaSuggestions = (data.elements || [])
           .map(el => this.mapCourseElement(el))
           .filter(c => c.name)
-          .sort((a, b) => a.name.localeCompare(b.name, 'nb'))
-          .slice(0, 100);
-        showToast(`🗺 Loaded ${this.pdgaSuggestions.length} course suggestions from Norway`);
+          .sort((a, b) => a.name.localeCompare(b.name, 'nb'));
+        showToast(`🗺 Loaded ${this.pdgaSuggestions.length} Norwegian courses`);
       } catch {
         this.pdgaSuggestions = [];
-        showToast('⚠️ Could not load Norway courses right now');
+        showToast('⚠️ Could not load Norway courses — try again or search manually');
       } finally {
         this.pdgaLoading = false;
       }
