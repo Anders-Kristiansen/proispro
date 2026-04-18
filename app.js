@@ -982,6 +982,25 @@ function discApp() {
       this._pdgaTimer = setTimeout(() => this.searchCourses(query), 400);
     },
 
+    // Tries multiple public Overpass mirrors in order; skips 429/504 responses
+    async overpassFetch(oql, timeoutMs = 30000) {
+      const mirrors = [
+        'https://overpass-api.de/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter',
+        'https://overpass.openstreetmap.ru/api/interpreter',
+      ];
+      let lastErr;
+      for (const url of mirrors) {
+        try {
+          const res = await fetch(url, { method: 'POST', body: oql, signal: AbortSignal.timeout(timeoutMs) });
+          if (res.status === 429 || res.status === 504) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        } catch (e) { lastErr = e; }
+      }
+      throw lastErr;
+    },
+
     mapCourseElement(el) {
       return {
         osmId: el.id,
@@ -1051,13 +1070,7 @@ function discApp() {
       try {
         const radius = 2500;
         const oql = `[out:json][timeout:25];(node(around:${radius},${lat},${lon})["disc_golf"];way(around:${radius},${lat},${lon})["disc_golf"];relation(around:${radius},${lat},${lon})["disc_golf"];);out center tags;`;
-        const res = await fetch('https://overpass-api.de/api/interpreter', {
-          method: 'POST',
-          body: oql,
-          signal: AbortSignal.timeout(30000),
-        });
-        if (!res.ok) throw new Error('overpass-unavailable');
-        const data = await res.json();
+        const data = await this.overpassFetch(oql, 32000);
         const elements = (data.elements || []);
         const byType = (name) => elements.filter(el => (el.tags?.disc_golf || '').toLowerCase() === name).length;
         cached.mapData = {
@@ -1089,16 +1102,9 @@ function discApp() {
 
     async searchCourses(query) {
       try {
-        // Escape regex special chars for Overpass QL name filter (supports åæø natively)
         const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const oql = `[out:json][timeout:10];(node["leisure"="disc_golf_course"]["name"~"${escaped}",i];way["leisure"="disc_golf_course"]["name"~"${escaped}",i];relation["leisure"="disc_golf_course"]["name"~"${escaped}",i];);out center 10;`;
-        const res = await fetch('https://overpass-api.de/api/interpreter', {
-          method: 'POST',
-          body: oql,
-          signal: AbortSignal.timeout(9000),
-        });
-        if (!res.ok) throw new Error('overpass-unavailable');
-        const data = await res.json();
+        const data = await this.overpassFetch(oql, 12000);
         this.pdgaSuggestions = (data.elements || []).slice(0, 8).map(el => this.mapCourseElement(el));
       } catch {
         this.pdgaSuggestions = [];
@@ -1111,15 +1117,8 @@ function discApp() {
       this.pdgaLoading = true;
       showToast('⏳ Loading Norway courses…');
       try {
-        // bbox pre-filter speeds up the area query significantly
         const oql = `[out:json][timeout:30][bbox:57.7,4.5,71.2,31.2];area["ISO3166-1"="NO"][admin_level=2]->.norway;(node["leisure"="disc_golf_course"](area.norway);way["leisure"="disc_golf_course"](area.norway);relation["leisure"="disc_golf_course"](area.norway););out center;`;
-        const res = await fetch('https://overpass-api.de/api/interpreter', {
-          method: 'POST',
-          body: oql,
-          signal: AbortSignal.timeout(35000),
-        });
-        if (!res.ok) throw new Error('overpass-unavailable');
-        const data = await res.json();
+        const data = await this.overpassFetch(oql, 40000);
         this.pdgaSuggestions = (data.elements || [])
           .map(el => this.mapCourseElement(el))
           .filter(c => c.name)
