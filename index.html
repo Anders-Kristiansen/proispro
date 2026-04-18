@@ -100,7 +100,7 @@
                 <img class="card-photo-thumb" :src="disc.user_photo_url" :alt="disc.name + ' photo'" loading="lazy"/>
               </template>
               <template x-if="!disc.user_photo_url">
-                <span class="card-photo-fallback-label" aria-hidden="true">🥏</span>
+                <span class="card-photo-fallback-label" role="img" aria-label="No disc photo">🥏</span>
               </template>
             </div>
             <div class="card-header">

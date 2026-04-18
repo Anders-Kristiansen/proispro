@@ -619,7 +619,7 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   background: var(--clr-surface2);
 }
 .card-photo-fallback-label {
-  font-size: 1.55rem;
+  font-size: 1.5rem;
   line-height: 1;
 }
 .bag-photo-current {
