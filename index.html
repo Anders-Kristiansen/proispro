@@ -460,6 +460,18 @@
                     📸 Photo will be saved with the disc
                     <button type="button" class="btn btn-secondary btn-sm" style="margin-left:.5rem" @click="cancelPhotoUpload()">Remove</button>
                   </div>
+
+                  <!-- AI disc identification -->
+                  <div style="margin-top:.6rem">
+                    <button type="button" class="btn btn-primary btn-sm"
+                            @click="identifyDiscFromPhoto()"
+                            :disabled="aiIdentifying">
+                      <span x-show="!aiIdentifying">🔍 AI Identify Disc</span>
+                      <span x-show="aiIdentifying">🔄 Scanning photo…</span>
+                    </button>
+                    <div x-show="aiIdentifyMsg" x-text="aiIdentifyMsg"
+                         style="font-size:.78rem;margin-top:.35rem;padding:.3rem .5rem;border-radius:6px;background:var(--clr-surface-raised)"></div>
+                  </div>
                 </div>
               </template>
 
@@ -476,6 +488,21 @@
                   <span style="font-size:.78rem;color:var(--clr-muted);margin-left:.5rem">JPEG, PNG or WEBP · max 5MB</span>
                 </div>
               </template>
+
+              <!-- AI key configuration -->
+              <div style="margin-top:.5rem">
+                <button type="button"
+                        @click="showAiKeyPrompt = !showAiKeyPrompt"
+                        style="background:none;border:none;color:var(--clr-muted);cursor:pointer;padding:0;font-size:.75rem">
+                  ⚙ <span x-text="openAiKey ? 'AI key configured ✓ — click to change' : 'Set OpenAI key for AI disc identification'"></span>
+                </button>
+                <div x-show="showAiKeyPrompt" style="margin-top:.4rem;display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+                  <input type="password" x-model="openAiKey" placeholder="sk-…"
+                         style="flex:1;min-width:180px;padding:.3rem .5rem;border-radius:6px;border:1px solid var(--clr-border);background:var(--clr-surface);color:var(--clr-text);font-size:.8rem"
+                         @keydown.enter.prevent="saveAiKey()"/>
+                  <button type="button" class="btn btn-primary btn-sm" @click="saveAiKey()">Save key</button>
+                </div>
+              </div>
             </div>
 
             <div class="form-actions">

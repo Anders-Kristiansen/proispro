@@ -170,6 +170,10 @@ function discApp() {
     discSuggestions: [],
     discSuggestionsLoading: false,
     _discTimer: null,
+    openAiKey: localStorage.getItem('proispro_openai_key') || '',
+    showAiKeyPrompt: false,
+    aiIdentifying: false,
+    aiIdentifyMsg: '',
 
     // Computed
     get filteredSorted() {
@@ -493,11 +497,96 @@ function discApp() {
       if (this._pdgaTimer) { clearTimeout(this._pdgaTimer); this._pdgaTimer = null; }
       this.discSuggestions = [];
       if (this._discTimer) { clearTimeout(this._discTimer); this._discTimer = null; }
+      this.aiIdentifyMsg = '';
+      this.showAiKeyPrompt = false;
     },
 
     // Color picker
     selectColor(colorName) {
       this.form.color = colorName;
+    },
+
+    // AI key management
+    saveAiKey() {
+      const key = this.openAiKey.trim();
+      if (key) localStorage.setItem('proispro_openai_key', key);
+      else localStorage.removeItem('proispro_openai_key');
+      this.openAiKey = key;
+      this.showAiKeyPrompt = false;
+      showToast(key ? '🤖 AI key saved' : '🤖 AI key removed');
+    },
+
+    // Identify disc from photo via OpenAI GPT-4o-mini vision
+    async identifyDiscFromPhoto() {
+      const key = (this.openAiKey || '').trim();
+      if (!key) { this.showAiKeyPrompt = true; return; }
+      if (!this.photoFile) return;
+
+      this.aiIdentifying = true;
+      this.aiIdentifyMsg = '';
+      try {
+        // Convert blob URL → base64 data URL so OpenAI can read it
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(this.photoFile);
+        });
+
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${key}`,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{
+              role: 'user',
+              content: [
+                { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
+                { type: 'text', text: 'Identify this disc golf disc. Reply ONLY with valid JSON: {"name":"<disc model name>","brand":"<manufacturer>","type":"<putter|midrange|fairway|distance>"}. If you cannot identify it, set each field to null.' },
+              ],
+            }],
+            max_tokens: 80,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error?.message || `OpenAI API error ${res.status}`);
+        }
+
+        const data = await res.json();
+        const raw = (data.choices?.[0]?.message?.content || '{}')
+          .trim().replace(/^```json?\n?|```$/g, '').trim();
+        const result = JSON.parse(raw);
+
+        if (!result.name) {
+          this.aiIdentifyMsg = '❓ Could not identify — try a clearer photo';
+          return;
+        }
+
+        // Match against DiscIt catalog and auto-fill form
+        const catalog = await loadCatalog();
+        const matches = searchDiscs(catalog, result.name);
+        if (matches.length > 0) {
+          const best = result.brand
+            ? (matches.find(m => (m.brand || '').toLowerCase().includes(result.brand.toLowerCase())) || matches[0])
+            : matches[0];
+          this.selectDiscFromCatalog(best);
+          this.aiIdentifyMsg = `✅ ${best.name} by ${best.brand}`;
+        } else {
+          if (result.name)  this.form.name = result.name;
+          if (result.brand) this.form.manufacturer = result.brand;
+          if (['putter', 'midrange', 'fairway', 'distance'].includes(result.type)) this.form.type = result.type;
+          this.aiIdentifyMsg = `✅ ${result.name}${result.brand ? ' by ' + result.brand : ''} (no catalog stats found)`;
+        }
+      } catch (err) {
+        this.aiIdentifyMsg = `❌ ${err.message || 'AI identification failed'}`;
+      } finally {
+        this.aiIdentifying = false;
+      }
     },
 
     colorSlug(name) {
