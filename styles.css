@@ -127,7 +127,9 @@ a { color: var(--clr-accent); }
   box-shadow: var(--shadow);
 }
 .header-inner { display: flex; flex-direction: column; gap: .1rem; }
-.logo   { font-size: 1.5rem; letter-spacing: -.5px; }
+.logo   { font-size: 1.5rem; letter-spacing: -.5px; line-height: 1; }
+.logo-img { height: 48px; width: auto; display: block; }
+.logo-img--login { height: 120px; width: auto; filter: drop-shadow(0 4px 16px rgba(0,0,0,.5)); }
 .tagline { font-size: .8rem; color: var(--clr-muted); }
 
 /* ── Toolbar ──────────────────────────────────────────────── */
