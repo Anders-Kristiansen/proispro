@@ -57,7 +57,40 @@ This creates:
 
 ---
 
-## 4. Connect the Frontend
+## 4. Enable Google OAuth (Optional)
+
+To allow users to sign in with Google, follow these steps:
+
+### 4a. Create Google OAuth Credentials
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Go to **APIs & Services → OAuth consent screen**
+   - Choose "External" user type
+   - Fill in:
+     - **App name:** `ProIsPro`
+     - **User support email:** Your email
+     - **Developer contact info:** Your email
+   - Under **Scopes**, add: `email` and `profile`
+4. Go to **APIs & Services → Credentials**
+5. Click **Create Credentials → OAuth 2.0 Client IDs**
+   - **Application type:** Web application
+   - **Authorized redirect URIs:** `https://odqhusmmqgipvazusrxs.supabase.co/auth/v1/callback`
+6. Copy your **Client ID** and **Client Secret**
+
+### 4b. Configure Google Provider in Supabase
+
+1. In Supabase dashboard, go to **Authentication → Providers**
+2. Find **Google** and toggle it **ON**
+3. Paste your **Client ID** and **Client Secret** from step 4a
+4. Configure additional options (per your requirements):
+   - **Skip nonce checks:** Optional, disable for better security (enable only if needed)
+   - **Allow users without an email:** Optional, enable if you want to accept users who don't provide email
+5. Click **Save**
+
+---
+
+## 5. Connect the Frontend
 
 Open `app.js` and replace the placeholder values at the top:
 
@@ -67,13 +100,13 @@ const SUPABASE_ANON = 'eyJhbGci...';                   // Your anon public key
 ```
 
 That's it! The app will now:
-- Show a "Sign in with GitHub" button
+- Show "Sign in with Google" and "Sign in with GitHub" buttons
 - After login, load/save discs from your Supabase PostgreSQL database
 - Fall back to localStorage if Supabase is unreachable
 
 ---
 
-## 5. Deploy to GitHub Pages
+## 6. Deploy to GitHub Pages
 
 1. Push your code to the `main` branch.
 2. In your repo, go to **Settings → Pages**.

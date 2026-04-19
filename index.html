@@ -22,7 +22,10 @@
       <div class="empty-icon">🥏</div>
       <h1 class="logo" style="margin-bottom:.5rem;">ProIsPro</h1>
       <p class="tagline" style="margin-bottom:1.5rem;">Your personal disc golf bag tracker</p>
-      <button class="btn btn-primary" @click="signIn()">🔑 Sign in with GitHub</button>
+      <div style="display:flex;gap:1rem;flex-direction:column;">
+        <button class="btn btn-primary" @click="signIn('google')">🔑 Sign in with Google</button>
+        <button class="btn btn-secondary" @click="signIn('github')">🐙 Sign in with GitHub</button>
+      </div>
     </div>
   </template>
 
@@ -113,7 +116,7 @@
             <div class="card-details" x-show="disc.weight || disc.plastic || disc.color || disc.condition">
               <span x-show="disc.weight">⚖️ <span x-text="disc.weight + 'g'"></span></span>
               <span x-show="disc.plastic">🧪 <span x-text="disc.plastic"></span></span>
-              <span x-show="disc.color">🎨 <span class="disc-color-dot" :style="'background:var(--disc-' + colorSlug(disc.color) + ')'"></span><span x-text="disc.color"></span></span>
+              <span x-show="disc.color"><span class="disc-color-dot" :style="'background:var(--disc-' + colorSlug(disc.color) + ')'"></span><span x-text="disc.color"></span></span>
               <span x-show="disc.condition"><span class="condition-dot" :class="'cond-' + safeCond(disc.condition)" :title="condLabel(safeCond(disc.condition))"></span><span x-text="condLabel(safeCond(disc.condition))"></span></span>
             </div>
 
@@ -273,11 +276,23 @@
           <form @submit.prevent="saveDisc()" novalidate>
 
             <div class="form-row">
-              <div class="form-group">
+              <div class="form-group" style="position:relative">
                 <label for="discName">Disc Name *</label>
                 <input type="text" id="discName" placeholder="e.g. Destroyer" required
+                       autocomplete="off"
                        x-model="form.name"
+                       @input="searchDiscCatalogDebounced(form.name)"
                        :class="{ 'invalid': formInvalid.name }" />
+                <!-- Catalog suggestions dropdown -->
+                <div class="pdga-suggestions" x-show="discSuggestions.length > 0">
+                  <template x-for="s in discSuggestions" :key="s.id">
+                    <button type="button" class="pdga-suggestion-item" @click="selectDiscFromCatalog(s)">
+                      <span x-text="s.name"></span>
+                      <span class="pdga-course-meta" x-text="s.brand + ' · ' + s.category + ' · ' + s.speed + '/' + s.glide + '/' + s.turn + '/' + s.fade"></span>
+                    </button>
+                  </template>
+                </div>
+                <div class="pdga-loading" x-show="discSuggestionsLoading">Searching catalog…</div>
               </div>
               <div class="form-group">
                 <label for="discManufacturer">Manufacturer</label>
@@ -410,11 +425,11 @@
                         x-model="form.notes"></textarea>
             </div>
 
-            <!-- Photo upload (Edit only — user's personal disc photo) -->
-            <div class="form-group full-width" x-show="formId">
+            <!-- Photo upload -->
+            <div class="form-group full-width">
               <label>Your Disc Photo</label>
 
-              <!-- Current photo -->
+              <!-- Current photo (Edit mode only) -->
               <template x-if="formId && discs.find(d => d.id === formId)?.user_photo_url">
                 <div class="bag-photo-current">
                   <img class="bag-photo-current-img"
@@ -428,7 +443,8 @@
               <template x-if="photoPreview">
                 <div class="bag-photo-preview">
                   <img class="bag-photo-preview-img" :src="photoPreview" alt="Preview"/>
-                  <div class="bag-photo-preview-actions">
+                  <!-- In Edit mode: manual save/cancel buttons -->
+                  <div class="bag-photo-preview-actions" x-show="formId">
                     <button type="button" class="btn btn-primary btn-sm"
                             @click="uploadDiscPhoto()"
                             :disabled="photoUploading">
@@ -437,6 +453,11 @@
                     </button>
                     <button type="button" class="btn btn-secondary btn-sm" @click="cancelPhotoUpload()">Cancel</button>
                   </div>
+                  <!-- In Add mode: photo saves automatically with disc -->
+                  <div x-show="!formId" style="font-size:.78rem;color:var(--clr-muted);margin-top:.4rem">
+                    📸 Photo will be saved with the disc
+                    <button type="button" class="btn btn-secondary btn-sm" style="margin-left:.5rem" @click="cancelPhotoUpload()">Remove</button>
+                  </div>
                 </div>
               </template>
 
@@ -444,7 +465,7 @@
               <template x-if="!photoPreview">
                 <div style="margin-top:.5rem">
                   <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem">
-                    📸 <span x-text="discs.find(d => d.id === formId)?.user_photo_url ? 'Change photo' : 'Add photo'"></span>
+                    📸 <span x-text="formId && discs.find(d => d.id === formId)?.user_photo_url ? 'Change photo' : 'Add photo'"></span>
                     <input type="file" id="bagPhotoInput" x-ref="bagPhotoInput"
                            accept="image/jpeg,image/png,image/webp"
                            class="hidden-input"

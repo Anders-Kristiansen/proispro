@@ -167,6 +167,9 @@ function discApp() {
     pdgaLoading: false,
     _pdgaTimer: null,
     _courseCache: {},
+    discSuggestions: [],
+    discSuggestionsLoading: false,
+    _discTimer: null,
 
     // Computed
     get filteredSorted() {
@@ -286,14 +289,14 @@ function discApp() {
       this.loading = false;
     },
 
-    async signIn() {
+    async signIn(provider = 'google') {
       const sb = getSupabase();
       if (!sb) {
         showToast('⚠️ Supabase not configured');
         return;
       }
       const { error } = await sb.auth.signInWithOAuth({
-        provider: 'github',
+        provider: provider,
         options: { redirectTo: window.location.origin },
       });
       if (error) showToast('❌ Login failed: ' + error.message);
@@ -395,6 +398,7 @@ function discApp() {
               .single();
             if (error) throw error;
             this.discs.push(fromDbDisc(data));
+            if (this.photoFile) await this.uploadDiscPhoto(data.id);
           }
         } else {
           // localStorage-only mode
@@ -487,6 +491,8 @@ function discApp() {
       this.photoFile = null;
       this.pdgaSuggestions = [];
       if (this._pdgaTimer) { clearTimeout(this._pdgaTimer); this._pdgaTimer = null; }
+      this.discSuggestions = [];
+      if (this._discTimer) { clearTimeout(this._discTimer); this._discTimer = null; }
     },
 
     // Color picker
@@ -496,6 +502,39 @@ function discApp() {
 
     colorSlug(name) {
       return name ? name.toLowerCase().replace(/\s+/g, '-') : '';
+    },
+
+    // Disc catalog autocomplete
+    searchDiscCatalogDebounced(query) {
+      if (this._discTimer) { clearTimeout(this._discTimer); this._discTimer = null; }
+      if (!query || query.length < 2) { this.discSuggestions = []; return; }
+      this._discTimer = setTimeout(() => this.searchDiscCatalog(query), 300);
+    },
+
+    async searchDiscCatalog(query) {
+      if (!query || query.length < 2) { this.discSuggestions = []; return; }
+      this.discSuggestionsLoading = true;
+      try {
+        const catalog = await loadCatalog();
+        this.discSuggestions = searchDiscs(catalog, query).slice(0, 8);
+      } catch {
+        this.discSuggestions = [];
+      } finally {
+        this.discSuggestionsLoading = false;
+      }
+    },
+
+    selectDiscFromCatalog(disc) {
+      this.form.name         = disc.name;
+      this.form.manufacturer = disc.brand || this.form.manufacturer;
+      this.form.type         = disc.type  || this.form.type;
+      if (disc.speed != null) this.form.speed = disc.speed;
+      if (disc.glide != null) this.form.glide = disc.glide;
+      if (disc.turn  != null) this.form.turn  = disc.turn;
+      if (disc.fade  != null) this.form.fade  = disc.fade;
+      this.discSuggestions = [];
+      this.formInvalid.name = false;
+      this.formInvalid.type = false;
     },
 
     // Type/condition helpers
@@ -627,8 +666,9 @@ function discApp() {
       if (inp) inp.value = '';
     },
 
-    async uploadDiscPhoto() {
-      if (!this.photoFile || !this.formId) return;
+    async uploadDiscPhoto(discId) {
+      const targetId = discId || this.formId;
+      if (!this.photoFile || !targetId) return;
       const sb = getSupabase();
       if (!sb) { showToast('❌ Not connected to Supabase'); return; }
 
@@ -638,7 +678,7 @@ function discApp() {
       this.photoUploading = true;
       try {
         const ext = this.photoFile.name.split('.').pop().toLowerCase() || 'jpg';
-        const path = `${user.id}/${this.formId}.${ext}`;
+        const path = `${user.id}/${targetId}.${ext}`;
 
         const { error: uploadError } = await sb.storage
           .from('disc-photos')
@@ -655,10 +695,10 @@ function discApp() {
         const { error: updateError } = await sb
           .from('discs')
           .update({ user_photo_url: displayUrl })
-          .eq('id', this.formId);
+          .eq('id', targetId);
         if (updateError) throw updateError;
 
-        const idx = this.discs.findIndex(d => d.id === this.formId);
+        const idx = this.discs.findIndex(d => d.id === targetId);
         if (idx !== -1) this.discs[idx] = { ...this.discs[idx], user_photo_url: displayUrl };
 
         this.cancelPhotoUpload();
