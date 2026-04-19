@@ -18,13 +18,19 @@ serve(async (req) => {
     const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) return json({ error: 'GEMINI_API_KEY not configured on server' });
 
-    // Try flash first (faster, more available), fall back to pro
-    const models = ['gemini-1.5-flash', 'gemini-1.5-pro'];
+    // Try models in order — newer ones first, then fallbacks
+    const candidates = [
+      { model: 'gemini-2.0-flash', api: 'v1beta' },
+      { model: 'gemini-2.0-flash-lite', api: 'v1beta' },
+      { model: 'gemini-1.5-flash', api: 'v1beta' },
+      { model: 'gemini-1.5-flash', api: 'v1' },
+      { model: 'gemini-1.5-pro', api: 'v1' },
+    ];
     let lastError = '';
 
-    for (const model of models) {
+    for (const { model, api } of candidates) {
       const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/${api}/models/${model}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -42,7 +48,7 @@ serve(async (req) => {
 
       if (!geminiRes.ok) {
         const err = await geminiRes.json().catch(() => ({}));
-        lastError = `${model}: ${err.error?.message || geminiRes.status}`;
+        lastError = `${model}(${api}): ${err.error?.message || geminiRes.status}`;
         continue;
       }
 
