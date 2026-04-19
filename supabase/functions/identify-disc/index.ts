@@ -36,10 +36,24 @@ serve(async (req) => {
             contents: [{
               parts: [
                 { inline_data: { mime_type: mimeType, data: imageBase64 } },
-                { text: 'Identify this disc golf disc. Reply ONLY with valid JSON (no markdown): {"name":"disc model name","brand":"manufacturer","type":"putter or midrange or fairway or distance"}. If you cannot identify it, use null for each field.' },
+                { text: `You are identifying a disc golf disc from a photo.
+
+Look carefully for:
+1. TEXT printed or hot-stamped on the disc face or rim — this will show the brand (e.g. Innova, Discraft, Latitude 64, Dynamic Discs, MVP, Axiom, Prodigy, Westside) and mold name (e.g. Wraith, Buzzz, Destroyer, Leopard3, Saint Pro)
+2. FLIGHT NUMBERS printed as 4 values like "12 | 5 | -1 | 3" or "Speed: 12 Glide: 5 Turn: -1 Fade: 3" — they are Speed, Glide, Turn, Fade
+3. Disc SHAPE — drivers are thin/sharp-edged, putters are blunt/rounded edge, midranges are in between
+
+Reply ONLY with valid JSON (no markdown, no explanation):
+{"name":"mold name","brand":"manufacturer name","type":"putter OR midrange OR fairway OR distance","speed":null,"glide":null,"turn":null,"fade":null}
+
+Rules:
+- name and brand: read directly from text visible on the disc — do NOT guess if nothing is legible
+- type: infer from shape if text is unclear
+- speed/glide/turn/fade: integer or null — read from numbers on disc if visible
+- If nothing is legible at all, use null for every field` },
               ],
             }],
-            generationConfig: { maxOutputTokens: 150, temperature: 0.1 },
+            generationConfig: { maxOutputTokens: 300, temperature: 0.1 },
           }),
         }
       );
