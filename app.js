@@ -11,13 +11,20 @@ const PINS_KEY    = 'proispro_course_pins';
 
 // ── Supabase Client ─────────────────────────────────────────
 //
-// Edge (and Safari) block localStorage/Web Locks for cross-site content.
-// Supabase's auth client uses navigator.locks internally; when storage is
-// blocked those locks time out after 5 s and get "stolen", flooding the
-// console. Fix: give the client a synchronous in-memory storage adapter so
-// lock acquire/release is instant and never depends on browser storage.
-// Auth sessions won't survive page reload in that environment, but the app
-// falls back to localStorage-data anyway once Supabase is unavailable.
+// Two issues in Edge with Tracking Prevention enabled:
+//
+// 1. STORAGE: Edge blocks localStorage/IndexedDB for cross-site origins.
+//    Fix: _authStorage wraps localStorage in try/catch + in-memory fallback.
+//
+// 2. LOCK (root cause of slow login): Supabase GoTrue uses navigator.locks
+//    internally to serialize auth token reads. Every PostgREST query calls
+//    getSession() → _acquireLock(). When multiple queries fire concurrently
+//    (loadDiscs + loadBags + loadCoursePins), they all race for the lock.
+//    Each waits 5 s before stealing → 15–25 s of cascaded timeouts.
+//    Fix: _authLock replaces navigator.locks with a simple promise queue.
+//    No 5-second timeouts. Callers queue up and each runs immediately after
+//    the previous completes. Supabase JS v2 accepts this via auth.lock option.
+
 const _authStorage = (() => {
   const mem = Object.create(null);
   const safe = (fn) => { try { return fn(); } catch { return null; } };
@@ -28,13 +35,23 @@ const _authStorage = (() => {
   };
 })();
 
+const _authLock = (() => {
+  const pending = new Map();
+  return (name, _acquireTimeout, fn) => {
+    const tail = pending.get(name) ?? Promise.resolve();
+    const next = tail.then(fn, fn);
+    pending.set(name, next.catch(() => {}));
+    return next;
+  };
+})();
+
 let _supabase = null;
 function getSupabase() {
   if (_supabase) return _supabase;
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON === 'YOUR_SUPABASE_ANON_KEY') return null;
   try {
     _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-      auth: { storage: _authStorage },
+      auth: { storage: _authStorage, lock: _authLock },
     });
     return _supabase;
   } catch {
@@ -239,12 +256,17 @@ function discApp() {
     async init() {
       const sb = getSupabase();
       if (sb) {
-        sb.auth.onAuthStateChange((_event, session) => {
+        // authReady gates the onAuthStateChange handler.
+        // checkAuth() handles the initial data load; this handler fires only
+        // for subsequent sign-in / sign-out events (e.g. after OAuth redirect).
+        let authReady = false;
+        sb.auth.onAuthStateChange(async (_event, session) => {
           this.user = session?.user || null;
+          if (!authReady) return;
           if (this.user) {
-            this.loadDiscs();
-            this.loadBags();
-            this.loadCoursePins();
+            await this.loadDiscs();
+            await this.loadBags();
+            await this.loadCoursePins();
           } else {
             this.discs = [];
             this.bags = [];
@@ -253,6 +275,7 @@ function discApp() {
           }
         });
         await this.checkAuth();
+        authReady = true;
       } else {
         // No Supabase configured — localStorage-only mode
         this.user = { id: 'local', email: 'local' };
