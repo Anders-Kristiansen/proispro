@@ -192,6 +192,7 @@ a { color: var(--clr-accent); }
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  padding-right: 76px;
 }
 .card-name {
   font-size: 1.1rem;
@@ -610,6 +611,16 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   height: 100%;
   object-fit: cover;
   display: block;
+}
+.card-photo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--clr-surface2);
+}
+.card-photo-fallback-label {
+  font-size: 1.5rem;
+  line-height: 1;
 }
 .bag-photo-current {
   display: flex;
