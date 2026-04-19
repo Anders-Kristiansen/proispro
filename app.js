@@ -76,6 +76,7 @@ function toDbDisc(disc) {
     turn:  disc.turn  !== '' && disc.turn  != null ? Number(disc.turn)  : null,
     fade:  disc.fade  !== '' && disc.fade  != null ? Number(disc.fade)  : null,
     notes: disc.notes || null,
+    tags: disc.tags || [],
     user_photo_url: disc.user_photo_url || null,
     added_at: disc.added ? new Date(disc.added).toISOString() : new Date().toISOString(),
   };
@@ -108,8 +109,10 @@ function fromDbDisc(d) {
     turn:  turn  != null ? turn  : '',
     fade:  fade  != null ? fade  : '',
     notes: d.notes || '',
+    tags: d.tags || [],
     user_photo_url: d.user_photo_url || null,
     added: d.added_at ? new Date(d.added_at).getTime() : Date.now(),
+    addedAt: d.added_at ? new Date(d.added_at).getTime() : Date.now(),
   };
 }
 
@@ -173,12 +176,25 @@ function discApp() {
     loading: true,
     search: '',
     filterType: '',
-    sortBy: 'name',
+    sortBy: 'name-asc',
+    sortDir: 'asc',
+    activeSortColumn: 'name',
+    viewMode: 'grid',
+    groupBy: 'none',
+    activeTagFilter: '',
+    showAdvancedPopover: false,
+    filterBrand: '',
+    filterBag: '',
+    filterCondition: '',
+    filterWeightMin: null,
+    filterWeightMax: null,
+    groupExpanded: {},
+    tagInput: '',
     showAddModal: false,
     showDeleteModal: false,
     editingDisc: null,
     pendingDeleteDisc: null,
-    form: { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '' },
+    form: { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '', tags: [] },
     formId: '',
     formInvalid: { name: false, type: false },
     photoPreview:    null,
@@ -214,24 +230,88 @@ function discApp() {
     get filteredSorted() {
       const q = this.search.toLowerCase().trim();
       const type = this.filterType;
-      const sort = this.sortBy;
+      const sortStr = this.sortBy;
 
       let list = this.discs.filter(d => {
+        // Text search
         const matchQ = !q ||
           (d.name || '').toLowerCase().includes(q) ||
           (d.manufacturer || '').toLowerCase().includes(q) ||
           (d.plastic || '').toLowerCase().includes(q) ||
           (d.color || '').toLowerCase().includes(q) ||
-          (d.notes || '').toLowerCase().includes(q);
+          (d.notes || '').toLowerCase().includes(q) ||
+          ((d.tags || []).some(t => t.toLowerCase().includes(q)));
+        
+        // Type filter
         const matchT = !type || d.type === type;
-        return matchQ && matchT;
+        
+        // Tag filter
+        const matchTag = !this.activeTagFilter || (d.tags || []).includes(this.activeTagFilter);
+        
+        // Brand filter
+        const matchBrand = !this.filterBrand || (d.manufacturer || '').toLowerCase().includes(this.filterBrand.toLowerCase());
+        
+        // Bag filter
+        const matchBag = !this.filterBag || this.isDiscInBag(this.filterBag, d.id);
+        
+        // Condition filter
+        const matchCondition = !this.filterCondition || d.condition === this.filterCondition;
+        
+        // Weight range filter
+        const matchWeightMin = this.filterWeightMin === null || (Number(d.weight) || 0) >= Number(this.filterWeightMin);
+        const matchWeightMax = this.filterWeightMax === null || (Number(d.weight) || 0) <= Number(this.filterWeightMax);
+        
+        return matchQ && matchT && matchTag && matchBrand && matchBag && matchCondition && matchWeightMin && matchWeightMax;
       });
 
+      // Parse sort string (e.g., 'name-asc' → field='name', desc=false)
+      const [field, dir] = sortStr.split('-');
+      const desc = dir === 'desc';
+
+      // Type order helper
+      const typeOrder = { putter: 0, midrange: 1, fairway: 2, distance: 3 };
+      // Condition order helper
+      const condOrder = { new: 0, mint: 0, good: 1, used: 2, beat: 3 };
+
       list.sort((a, b) => {
-        if (sort === 'name') return (a.name || '').localeCompare(b.name || '');
-        if (sort === 'type') return (a.type || '').localeCompare(b.type || '');
-        if (sort === 'weight') return (Number(a.weight) || 0) - (Number(b.weight) || 0);
-        if (sort === 'added') return (b.added || 0) - (a.added || 0);
+        let aVal, bVal;
+        
+        if (field === 'name') {
+          aVal = (a.name || '').toLowerCase();
+          bVal = (b.name || '').toLowerCase();
+          return desc ? bVal.localeCompare(aVal) : aVal.localeCompare(bVal);
+        }
+        
+        if (field === 'type') {
+          aVal = typeOrder[a.type] ?? 99;
+          bVal = typeOrder[b.type] ?? 99;
+          return desc ? bVal - aVal : aVal - bVal;
+        }
+        
+        if (field === 'speed' || field === 'glide' || field === 'turn' || field === 'fade') {
+          aVal = a[field] != null && a[field] !== '' ? Number(a[field]) : (desc ? -Infinity : Infinity);
+          bVal = b[field] != null && b[field] !== '' ? Number(b[field]) : (desc ? -Infinity : Infinity);
+          return desc ? bVal - aVal : aVal - bVal;
+        }
+        
+        if (field === 'weight') {
+          aVal = a.weight != null && a.weight !== '' ? Number(a.weight) : (desc ? -Infinity : Infinity);
+          bVal = b.weight != null && b.weight !== '' ? Number(b.weight) : (desc ? -Infinity : Infinity);
+          return desc ? bVal - aVal : aVal - bVal;
+        }
+        
+        if (field === 'condition') {
+          aVal = condOrder[a.condition] ?? 99;
+          bVal = condOrder[b.condition] ?? 99;
+          return desc ? bVal - aVal : aVal - bVal;
+        }
+        
+        if (field === 'added') {
+          aVal = a.addedAt || 0;
+          bVal = b.addedAt || 0;
+          return desc ? bVal - aVal : aVal - bVal;
+        }
+        
         return 0;
       });
 
@@ -240,7 +320,11 @@ function discApp() {
 
     get discCount() {
       const n = this.filteredSorted.length;
-      return `${n} disc${n !== 1 ? 's' : ''}`;
+      const total = this.discs.length;
+      if (n === total) {
+        return `${n} disc${n !== 1 ? 's' : ''}`;
+      }
+      return `${n} of ${total} disc${total !== 1 ? 's' : ''}`;
     },
 
     get discPickerFiltered() {
@@ -250,6 +334,96 @@ function discApp() {
         (d.name || '').toLowerCase().includes(q) ||
         (d.manufacturer || '').toLowerCase().includes(q)
       );
+    },
+
+    get groupedDiscs() {
+      if (this.groupBy === 'none') {
+        return [{ label: null, count: this.filteredSorted.length, discs: this.filteredSorted }];
+      }
+      
+      if (this.groupBy === 'type') {
+        const types = [
+          { key: 'putter', label: 'Putter' },
+          { key: 'midrange', label: 'Midrange' },
+          { key: 'fairway', label: 'Fairway Driver' },
+          { key: 'distance', label: 'Distance Driver' }
+        ];
+        return types
+          .map(t => {
+            const discs = this.filteredSorted.filter(d => d.type === t.key);
+            return { label: t.label, count: discs.length, discs };
+          })
+          .filter(g => g.count > 0);
+      }
+      
+      if (this.groupBy === 'brand') {
+        const brandMap = {};
+        this.filteredSorted.forEach(d => {
+          const brand = (d.manufacturer || '(Unknown Brand)').trim() || '(Unknown Brand)';
+          if (!brandMap[brand]) brandMap[brand] = [];
+          brandMap[brand].push(d);
+        });
+        return Object.keys(brandMap)
+          .sort()
+          .map(brand => ({ label: brand, count: brandMap[brand].length, discs: brandMap[brand] }));
+      }
+      
+      if (this.groupBy === 'bag') {
+        const groups = [];
+        
+        // Group by each bag
+        this.bags.forEach(bag => {
+          const discs = this.filteredSorted.filter(d => this.isDiscInBag(bag.id, d.id));
+          if (discs.length > 0) {
+            groups.push({ label: bag.name, count: discs.length, discs });
+          }
+        });
+        
+        // "Not in any bag" group
+        const unbaggedDiscs = this.filteredSorted.filter(d => {
+          return !this.bags.some(bag => this.isDiscInBag(bag.id, d.id));
+        });
+        if (unbaggedDiscs.length > 0) {
+          groups.push({ label: 'Not in any bag', count: unbaggedDiscs.length, discs: unbaggedDiscs });
+        }
+        
+        return groups;
+      }
+      
+      return [{ label: null, count: this.filteredSorted.length, discs: this.filteredSorted }];
+    },
+
+    get allTags() {
+      const tagSet = new Set();
+      this.discs.forEach(d => (d.tags || []).forEach(t => tagSet.add(t)));
+      return [...tagSet].sort();
+    },
+
+    // Tag helpers
+    tagColor(tag) {
+      const hash = tag.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+      const colors = ['putter','midrange','fairway','distance','clr-accent','clr-accent2','disc-emerald','disc-iris'];
+      return colors[hash % 8];
+    },
+
+    addTag() {
+      const t = this.tagInput.trim().toLowerCase();
+      if (t && !this.form.tags.includes(t)) this.form.tags.push(t);
+      this.tagInput = '';
+    },
+
+    setSortColumn(field) {
+      if (this.activeSortColumn === field) {
+        this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.activeSortColumn = field;
+        this.sortDir = 'asc';
+      }
+      this.sortBy = field + '-' + this.sortDir;
+    },
+
+    toggleGroup(label) {
+      this.groupExpanded[label] = !(this.groupExpanded[label] !== false);
     },
 
     // Lifecycle
@@ -423,6 +597,7 @@ function discApp() {
         turn:  this.form.turn  !== '' && this.form.turn  != null ? Number(this.form.turn)  : null,
         fade:  this.form.fade  !== '' && this.form.fade  != null ? Number(this.form.fade)  : null,
         notes: this.form.notes.trim(),
+        tags: this.form.tags || [],
         user_photo_url: id ? (this.discs.find(x => x.id === id) || {}).user_photo_url || null : null,
         added: id ? (this.discs.find(x => x.id === id) || {}).added || Date.now() : Date.now(),
       };
@@ -485,7 +660,7 @@ function discApp() {
     // Modal helpers
     openAddModal() {
       this.formId = '';
-      this.form = { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '' };
+      this.form = { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '', tags: [] };
       this.formInvalid = { name: false, type: false };
       this.showAddModal = true;
       this.$nextTick(() => {
@@ -509,6 +684,7 @@ function discApp() {
         turn:  disc.turn  != null && disc.turn  !== '' ? disc.turn  : '',
         fade:  disc.fade  != null && disc.fade  !== '' ? disc.fade  : '',
         notes: disc.notes || '',
+        tags: disc.tags || [],
       };
       this.formInvalid = { name: false, type: false };
       this.showAddModal = true;

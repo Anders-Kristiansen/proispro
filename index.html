@@ -68,24 +68,99 @@
           aria-label="Search discs"
           x-model="search"
         />
-        <select class="select-input" aria-label="Filter by type" x-model="filterType">
-          <option value="">All types</option>
-          <option value="putter">Putter</option>
-          <option value="midrange">Midrange</option>
-          <option value="fairway">Fairway Driver</option>
-          <option value="distance">Distance Driver</option>
+        
+        <!-- View toggle -->
+        <div class="view-toggle">
+          <button type="button" class="view-toggle-btn" :class="{ 'view-toggle-btn--active': viewMode === 'grid' }" @click="viewMode = 'grid'" title="Grid view">⊞</button>
+          <button type="button" class="view-toggle-btn" :class="{ 'view-toggle-btn--active': viewMode === 'list' }" @click="viewMode = 'list'" title="List view">☰</button>
+          <button type="button" class="view-toggle-btn" :class="{ 'view-toggle-btn--active': viewMode === 'compact' }" @click="viewMode = 'compact'" title="Compact view">≡</button>
+        </div>
+        
+        <!-- Group by -->
+        <select class="select-input" aria-label="Group by" x-model="groupBy">
+          <option value="none">No grouping</option>
+          <option value="type">Group by Type</option>
+          <option value="brand">Group by Brand</option>
+          <option value="bag">Group by Bag</option>
         </select>
+        
+        <!-- Sort -->
         <select class="select-input" aria-label="Sort by" x-model="sortBy">
-          <option value="name">Sort: Name</option>
-          <option value="type">Sort: Type</option>
-          <option value="weight">Sort: Weight</option>
-          <option value="added">Sort: Date Added</option>
+          <option value="name-asc">Name (A→Z)</option>
+          <option value="name-desc">Name (Z→A)</option>
+          <option value="type-asc">Type (Putter→Distance)</option>
+          <option value="type-desc">Type (Distance→Putter)</option>
+          <option value="speed-asc">Speed (Low→High)</option>
+          <option value="speed-desc">Speed (High→Low)</option>
+          <option value="glide-asc">Glide (Low→High)</option>
+          <option value="glide-desc">Glide (High→Low)</option>
+          <option value="turn-asc">Turn (Understable→Overstable)</option>
+          <option value="turn-desc">Turn (Overstable→Understable)</option>
+          <option value="fade-asc">Fade (Low→High)</option>
+          <option value="fade-desc">Fade (High→Low)</option>
+          <option value="weight-asc">Weight (Low→High)</option>
+          <option value="weight-desc">Weight (High→Low)</option>
+          <option value="condition-asc">Condition (Best→Worst)</option>
+          <option value="condition-desc">Condition (Worst→Best)</option>
+          <option value="added-desc">Date Added (Newest)</option>
+          <option value="added-asc">Date Added (Oldest)</option>
         </select>
+        
+        <!-- Advanced filters popover -->
+        <div class="advanced-popover-wrap">
+          <button type="button" class="btn btn-secondary" @click="showAdvancedPopover = !showAdvancedPopover">⚙️ Advanced</button>
+          <div class="advanced-popover" x-show="showAdvancedPopover" @click.outside="showAdvancedPopover = false">
+            <div class="advanced-popover-row">
+              <label class="advanced-popover-label">Brand</label>
+              <input type="text" placeholder="Filter by brand…" x-model="filterBrand" />
+            </div>
+            <div class="advanced-popover-row">
+              <label class="advanced-popover-label">Bag</label>
+              <select x-model="filterBag">
+                <option value="">All bags</option>
+                <template x-for="bag in bags" :key="bag.id">
+                  <option :value="bag.id" x-text="bag.name"></option>
+                </template>
+              </select>
+            </div>
+            <div class="advanced-popover-row">
+              <label class="advanced-popover-label">Condition</label>
+              <select x-model="filterCondition">
+                <option value="">All conditions</option>
+                <option value="new">New / Mint</option>
+                <option value="good">Good</option>
+                <option value="used">Used</option>
+                <option value="beat">Beat-in</option>
+              </select>
+            </div>
+            <div class="advanced-popover-row">
+              <label class="advanced-popover-label">Weight Range (g)</label>
+              <div style="display:flex;gap:.4rem;">
+                <input type="number" placeholder="Min" x-model="filterWeightMin" style="flex:1;" />
+                <input type="number" placeholder="Max" x-model="filterWeightMax" style="flex:1;" />
+              </div>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" style="width:100%;" 
+                    @click="filterBrand=''; filterBag=''; filterCondition=''; filterWeightMin=null; filterWeightMax=null;">
+              Clear all filters
+            </button>
+          </div>
+        </div>
+        
         <span class="disc-count" x-text="discCount"></span>
       </div>
 
-      <!-- ── Grid ── -->
-      <main class="disc-grid">
+      <!-- ── Filter Chips ── -->
+      <div class="toolbar-filter-chips">
+        <button type="button" class="filter-chip" :class="{ 'filter-chip--active': filterType === '' }" @click="filterType = ''">All</button>
+        <button type="button" class="filter-chip" :class="{ 'filter-chip--active': filterType === 'putter' }" @click="filterType = 'putter'">Putter</button>
+        <button type="button" class="filter-chip" :class="{ 'filter-chip--active': filterType === 'midrange' }" @click="filterType = 'midrange'">Midrange</button>
+        <button type="button" class="filter-chip" :class="{ 'filter-chip--active': filterType === 'fairway' }" @click="filterType = 'fairway'">Fairway Driver</button>
+        <button type="button" class="filter-chip" :class="{ 'filter-chip--active': filterType === 'distance' }" @click="filterType = 'distance'">Distance Driver</button>
+      </div>
+
+      <!-- ── Main View Container ── -->
+      <main :class="{ 'disc-grid': viewMode === 'grid', 'disc-list': viewMode === 'list', 'disc-compact': viewMode === 'compact' }">
         <!-- Empty state -->
         <div class="empty-state" x-show="filteredSorted.length === 0">
           <div class="empty-icon">🥏</div>
@@ -93,71 +168,207 @@
           <p>Click <strong>+ Add Disc</strong> to start building your bag!</p>
         </div>
 
-        <!-- Disc cards -->
-        <template x-for="disc in filteredSorted" :key="disc.id">
-          <div class="disc-card">
-            <!-- Round avatar: photo → color circle with initial → generic fallback -->
-            <div class="card-photo-wrap"
-                 :class="disc.user_photo_url ? '' : 'card-photo-fallback'"
-                 :style="!disc.user_photo_url ? (disc.color ? 'background:var(--disc-' + colorSlug(disc.color) + ')' : 'background:var(--' + (disc.type || 'putter') + ')') : ''">
-              <template x-if="disc.user_photo_url">
-                <img class="card-photo-thumb" :src="disc.user_photo_url" :alt="disc.name + ' photo'" loading="lazy"/>
-              </template>
-              <template x-if="!disc.user_photo_url">
-                <span class="card-photo-fallback-label" :aria-label="disc.name"
-                      x-text="disc.name ? disc.name[0].toUpperCase() : '🥏'"></span>
-              </template>
-            </div>
-            <div class="card-header">
-              <div>
-                <div class="card-name" x-text="disc.name"></div>
-                <div class="card-manufacturer" x-show="disc.manufacturer" x-text="disc.manufacturer"></div>
+        <!-- Render groups or flat list -->
+        <template x-for="group in groupedDiscs" :key="group.label || 'main'">
+          <div class="group-section">
+            <!-- Group header (only if groupBy !== 'none') -->
+            <template x-if="group.label">
+              <div class="group-header" @click="toggleGroup(group.label)">
+                <span class="group-header-label" x-text="group.label + ' (' + group.count + ')'"></span>
+                <span class="group-header-icon" x-text="groupExpanded[group.label] !== false ? '▼' : '▶'"></span>
               </div>
-            </div>
+            </template>
 
-            <div class="card-details" x-show="disc.weight || disc.plastic || disc.color || disc.condition">
-              <span x-show="disc.weight">⚖️ <span x-text="disc.weight + 'g'"></span></span>
-              <span x-show="disc.plastic">🧪 <span x-text="disc.plastic"></span></span>
-              <span x-show="disc.color"><span class="disc-color-dot" :style="'background:var(--disc-' + colorSlug(disc.color) + ')'"></span><span x-text="disc.color"></span></span>
-              <span x-show="disc.condition"><span class="condition-dot" :class="'cond-' + safeCond(disc.condition)" :title="condLabel(safeCond(disc.condition))"></span><span x-text="condLabel(safeCond(disc.condition))"></span></span>
-            </div>
+            <!-- Group content -->
+            <div x-show="!group.label || groupExpanded[group.label] !== false">
 
-            <div class="card-flight" x-show="hasFlightNumbers(disc)">
-              <span class="fn-icon">✈️</span>
-              <span class="fn-pill fp-speed" x-text="disc.speed" title="Speed"></span>
-              <span class="fn-sep">/</span>
-              <span class="fn-pill fp-glide" x-text="disc.glide" title="Glide"></span>
-              <span class="fn-sep">/</span>
-              <span class="fn-pill" :class="disc.turn < 0 ? 'fp-under' : 'fp-neutral'" x-text="formatTurn(disc.turn)" title="Turn"></span>
-              <span class="fn-sep">/</span>
-              <span class="fn-pill fp-fade" x-text="disc.fade" title="Fade"></span>
-              <span class="fn-stability" x-text="stabilityLabel(disc.turn, disc.fade)"></span>
-            </div>
-            <div class="card-bag-badges" x-show="getBagsForDisc(disc.id).length > 0">
-              <span class="bag-badge" x-text="'In ' + getBagsForDisc(disc.id).length + ' bag' + (getBagsForDisc(disc.id).length !== 1 ? 's' : '')"></span>
-            </div>
-            <div class="card-notes" x-show="disc.notes" x-text="disc.notes"></div>
+              <!-- GRID VIEW -->
+              <template x-if="viewMode === 'grid'">
+                <div style="display:contents;">
+                  <template x-for="disc in group.discs" :key="disc.id">
+                    <div class="disc-card">
+                      <!-- Round avatar: photo → color circle with initial → generic fallback -->
+                      <div class="card-photo-wrap"
+                           :class="disc.user_photo_url ? '' : 'card-photo-fallback'"
+                           :style="!disc.user_photo_url ? (disc.color ? 'background:var(--disc-' + colorSlug(disc.color) + ')' : 'background:var(--' + (disc.type || 'putter') + ')') : ''">
+                        <template x-if="disc.user_photo_url">
+                          <img class="card-photo-thumb" :src="disc.user_photo_url" :alt="disc.name + ' photo'" loading="lazy"/>
+                        </template>
+                        <template x-if="!disc.user_photo_url">
+                          <span class="card-photo-fallback-label" :aria-label="disc.name"
+                                x-text="disc.name ? disc.name[0].toUpperCase() : '🥏'"></span>
+                        </template>
+                      </div>
+                      <div class="card-header">
+                        <div>
+                          <div class="card-name" x-text="disc.name"></div>
+                          <div class="card-manufacturer" x-show="disc.manufacturer" x-text="disc.manufacturer"></div>
+                        </div>
+                      </div>
 
-            <div class="card-actions">
-              <button class="btn btn-secondary edit-btn" @click="openEditModal(disc)">✏️ Edit</button>
-              <div class="bag-quick-action" x-data="{ open: false }" x-show="bags.length > 0">
-                <button class="btn btn-secondary btn-sm bag-quick-btn"
-                        @click.stop="open = !open"
-                        :title="getBagsForDisc(disc.id).map(b => b.name).join(', ') || 'Add to bag'">
-                  👜<template x-if="getBagsForDisc(disc.id).length > 0"><span x-text="' ' + getBagsForDisc(disc.id).length"></span></template>
-                </button>
-                <div class="bag-dropdown" x-show="open" @click.outside="open = false">
-                  <template x-for="bag in bags" :key="bag.id">
-                    <label class="bag-dropdown-item">
-                      <input type="checkbox"
-                             :checked="isDiscInBag(bag.id, disc.id)"
-                             @change.stop="toggleDiscInBag(bag.id, disc.id)" />
-                      <span x-text="bag.name"></span>
-                    </label>
+                      <div class="card-details" x-show="disc.weight || disc.plastic || disc.color || disc.condition">
+                        <span x-show="disc.weight">⚖️ <span x-text="disc.weight + 'g'"></span></span>
+                        <span x-show="disc.plastic">🧪 <span x-text="disc.plastic"></span></span>
+                        <span x-show="disc.color"><span class="disc-color-dot" :style="'background:var(--disc-' + colorSlug(disc.color) + ')'"></span><span x-text="disc.color"></span></span>
+                        <span x-show="disc.condition"><span class="condition-dot" :class="'cond-' + safeCond(disc.condition)" :title="condLabel(safeCond(disc.condition))"></span><span x-text="condLabel(safeCond(disc.condition))"></span></span>
+                      </div>
+
+                      <div class="card-flight" x-show="hasFlightNumbers(disc)">
+                        <span class="fn-icon">✈️</span>
+                        <span class="fn-pill fp-speed" x-text="disc.speed" title="Speed"></span>
+                        <span class="fn-sep">/</span>
+                        <span class="fn-pill fp-glide" x-text="disc.glide" title="Glide"></span>
+                        <span class="fn-sep">/</span>
+                        <span class="fn-pill" :class="disc.turn < 0 ? 'fp-under' : 'fp-neutral'" x-text="formatTurn(disc.turn)" title="Turn"></span>
+                        <span class="fn-sep">/</span>
+                        <span class="fn-pill fp-fade" x-text="disc.fade" title="Fade"></span>
+                        <span class="fn-stability" x-text="stabilityLabel(disc.turn, disc.fade)"></span>
+                      </div>
+                      <div class="card-bag-badges" x-show="getBagsForDisc(disc.id).length > 0">
+                        <span class="bag-badge" x-text="'In ' + getBagsForDisc(disc.id).length + ' bag' + (getBagsForDisc(disc.id).length !== 1 ? 's' : '')"></span>
+                      </div>
+                      
+                      <!-- Tags in grid view -->
+                      <div class="tags-container" x-show="(disc.tags || []).length > 0" style="margin-top:.4rem;">
+                        <template x-for="tag in (disc.tags || [])" :key="tag">
+                          <span class="tag-chip tag-chip--clickable" 
+                                @click="activeTagFilter = activeTagFilter === tag ? '' : tag"
+                                :style="'background: oklch(from var(--' + tagColor(tag) + ') l c h / 0.2); color: var(--' + tagColor(tag) + ')'">
+                            <span x-text="tag"></span>
+                          </span>
+                        </template>
+                      </div>
+                      
+                      <div class="card-notes" x-show="disc.notes" x-text="disc.notes"></div>
+
+                      <div class="card-actions">
+                        <button class="btn btn-secondary edit-btn" @click="openEditModal(disc)">✏️ Edit</button>
+                        <div class="bag-quick-action" x-data="{ open: false }" x-show="bags.length > 0">
+                          <button class="btn btn-secondary btn-sm bag-quick-btn"
+                                  @click.stop="open = !open"
+                                  :title="getBagsForDisc(disc.id).map(b => b.name).join(', ') || 'Add to bag'">
+                            👜<template x-if="getBagsForDisc(disc.id).length > 0"><span x-text="' ' + getBagsForDisc(disc.id).length"></span></template>
+                          </button>
+                          <div class="bag-dropdown" x-show="open" @click.outside="open = false">
+                            <template x-for="bag in bags" :key="bag.id">
+                              <label class="bag-dropdown-item">
+                                <input type="checkbox"
+                                       :checked="isDiscInBag(bag.id, disc.id)"
+                                       @change.stop="toggleDiscInBag(bag.id, disc.id)" />
+                                <span x-text="bag.name"></span>
+                              </label>
+                            </template>
+                          </div>
+                        </div>
+                        <button class="btn btn-danger delete-btn" @click="openDeleteModal(disc)">🗑 Remove</button>
+                      </div>
+                    </div>
                   </template>
                 </div>
-              </div>
-              <button class="btn btn-danger delete-btn" @click="openDeleteModal(disc)">🗑 Remove</button>
+              </template>
+
+              <!-- LIST VIEW -->
+              <template x-if="viewMode === 'list'">
+                <div class="list-view-wrapper" style="display:contents;">
+                  <!-- List header (only show for first group) -->
+                  <template x-if="groupedDiscs.indexOf(group) === 0">
+                    <div class="list-header">
+                      <div class="list-header-cell list-col-color">Color</div>
+                      <div class="list-header-cell list-col-type" @click="setSortColumn('type')">Type <span x-text="activeSortColumn === 'type' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></div>
+                      <div class="list-header-cell list-col-name" @click="setSortColumn('name')">Name <span x-text="activeSortColumn === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></div>
+                      <div class="list-header-cell list-col-flight">Flight</div>
+                      <div class="list-header-cell list-col-weight" @click="setSortColumn('weight')">Weight <span x-text="activeSortColumn === 'weight' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></div>
+                      <div class="list-header-cell list-col-condition" @click="setSortColumn('condition')">Cond <span x-text="activeSortColumn === 'condition' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></div>
+                      <div class="list-header-cell list-col-bags">Bags</div>
+                      <div class="list-header-cell list-col-tags">Tags</div>
+                      <div class="list-header-cell list-col-actions"></div>
+                    </div>
+                  </template>
+                  
+                  <!-- List rows -->
+                  <template x-for="disc in group.discs" :key="disc.id">
+                    <div class="list-row">
+                      <div class="list-col-color">
+                        <span class="disc-color-dot" :style="'background:var(--disc-' + colorSlug(disc.color) + ')'"></span>
+                      </div>
+                      <div class="list-col-type">
+                        <span class="type-badge" :class="'type-' + (disc.type || 'putter')" x-text="disc.type === 'putter' ? 'P' : disc.type === 'midrange' ? 'M' : disc.type === 'fairway' ? 'F' : 'D'"></span>
+                      </div>
+                      <div class="list-col-name">
+                        <div class="list-name" x-text="disc.name"></div>
+                        <div class="list-brand" x-text="disc.manufacturer"></div>
+                      </div>
+                      <div class="list-col-flight">
+                        <template x-if="hasFlightNumbers(disc)">
+                          <div style="display:flex;gap:.15rem;align-items:center;">
+                            <span class="fn-pill fp-speed" style="font-size:.7rem;padding:.15rem .3rem;" x-text="disc.speed" title="Speed"></span>
+                            <span class="fn-pill fp-glide" style="font-size:.7rem;padding:.15rem .3rem;" x-text="disc.glide" title="Glide"></span>
+                            <span class="fn-pill" style="font-size:.7rem;padding:.15rem .3rem;" :class="disc.turn < 0 ? 'fp-under' : 'fp-neutral'" x-text="formatTurn(disc.turn)" title="Turn"></span>
+                            <span class="fn-pill fp-fade" style="font-size:.7rem;padding:.15rem .3rem;" x-text="disc.fade" title="Fade"></span>
+                          </div>
+                        </template>
+                      </div>
+                      <div class="list-col-weight" x-text="disc.weight ? disc.weight + 'g' : '—'"></div>
+                      <div class="list-col-condition">
+                        <template x-if="disc.condition">
+                          <div style="display:flex;align-items:center;gap:.2rem;justify-content:center;">
+                            <span class="condition-dot" :class="'cond-' + safeCond(disc.condition)"></span>
+                            <span style="font-size:.75rem;" x-text="condLabel(safeCond(disc.condition))[0]"></span>
+                          </div>
+                        </template>
+                      </div>
+                      <div class="list-col-bags" x-text="getBagsForDisc(disc.id).length || '—'"></div>
+                      <div class="list-col-tags">
+                        <div class="tags-container">
+                          <template x-for="tag in (disc.tags || [])" :key="tag">
+                            <span class="tag-chip tag-chip--clickable" 
+                                  @click="activeTagFilter = activeTagFilter === tag ? '' : tag"
+                                  :style="'background: oklch(from var(--' + tagColor(tag) + ') l c h / 0.2); color: var(--' + tagColor(tag) + ')'">
+                              <span x-text="tag"></span>
+                            </span>
+                          </template>
+                        </div>
+                      </div>
+                      <div class="list-col-actions">
+                        <button class="btn-icon" @click="openEditModal(disc)" title="Edit">✏️</button>
+                        <button class="btn-icon" @click="openDeleteModal(disc)" title="Delete">🗑</button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
+              <!-- COMPACT VIEW -->
+              <template x-if="viewMode === 'compact'">
+                <div style="display:contents;">
+                  <template x-for="disc in group.discs" :key="disc.id">
+                    <div class="compact-row">
+                      <span class="type-badge" style="flex-shrink:0;" :class="'type-' + (disc.type || 'putter')" x-text="disc.type === 'putter' ? 'P' : disc.type === 'midrange' ? 'M' : disc.type === 'fairway' ? 'F' : 'D'"></span>
+                      <div class="compact-name-brand">
+                        <span x-text="disc.name"></span>
+                        <template x-if="disc.manufacturer">
+                          <span style="color:var(--clr-muted);" x-text="' – ' + disc.manufacturer"></span>
+                        </template>
+                      </div>
+                      <div class="compact-flight" x-show="hasFlightNumbers(disc)" x-text="'(' + disc.speed + '/' + disc.glide + '/' + formatTurn(disc.turn) + '/' + disc.fade + ')'"></div>
+                      <div class="compact-tags">
+                        <template x-for="tag in (disc.tags || [])" :key="tag">
+                          <span class="tag-chip tag-chip--clickable" 
+                                @click="activeTagFilter = activeTagFilter === tag ? '' : tag"
+                                :style="'background: oklch(from var(--' + tagColor(tag) + ') l c h / 0.2); color: var(--' + tagColor(tag) + ')'">
+                            <span x-text="tag"></span>
+                          </span>
+                        </template>
+                      </div>
+                      <div class="compact-actions">
+                        <button class="btn-icon" @click="openEditModal(disc)" title="Edit">✏️</button>
+                        <button class="btn-icon" @click="openDeleteModal(disc)" title="Delete">🗑</button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
             </div>
           </div>
         </template>
@@ -425,6 +636,29 @@
               <label for="discNotes">Notes</label>
               <textarea id="discNotes" rows="2" placeholder="Favorite hyzer flip disc…"
                         x-model="form.notes"></textarea>
+            </div>
+
+            <!-- Tags -->
+            <div class="form-group full-width">
+              <label>Tags</label>
+              <div class="tags-container" style="min-height: 32px; flex-wrap: wrap; display: flex; gap: .35rem; margin-bottom: .4rem;">
+                <template x-for="tag in form.tags" :key="tag">
+                  <span class="tag-chip" 
+                        :style="'background: oklch(from var(--' + tagColor(tag) + ') l c h / 0.2); color: var(--' + tagColor(tag) + ')'">
+                    <span x-text="tag"></span>
+                    <button type="button" @click="form.tags = form.tags.filter(t => t !== tag)">×</button>
+                  </span>
+                </template>
+              </div>
+              <div style="display:flex; gap:.4rem;">
+                <input type="text" class="form-input" placeholder="Add tag…" x-model="tagInput"
+                       @keydown.enter.prevent="addTag()"
+                       list="tag-suggestions" />
+                <datalist id="tag-suggestions">
+                  <template x-for="t in allTags" :key="t"><option :value="t"></option></template>
+                </datalist>
+                <button type="button" class="btn btn-secondary btn-sm" @click="addTag()">Add</button>
+              </div>
             </div>
 
             <!-- Photo upload -->
