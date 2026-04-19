@@ -18,13 +18,11 @@ serve(async (req) => {
     const apiKey = Deno.env.get('GEMINI_API_KEY');
     if (!apiKey) return json({ error: 'GEMINI_API_KEY not configured on server' });
 
-    // Try models in order — newer ones first, then fallbacks
+    // Model IDs from https://ai.google.dev/gemini-api/docs/models (updated 2025)
+    // gemini-1.5-* and gemini-2.0-flash are deprecated; use gemini-2.5-flash (stable)
     const candidates = [
-      { model: 'gemini-2.0-flash', api: 'v1beta' },
-      { model: 'gemini-2.0-flash-lite', api: 'v1beta' },
-      { model: 'gemini-1.5-flash', api: 'v1beta' },
-      { model: 'gemini-1.5-flash', api: 'v1' },
-      { model: 'gemini-1.5-pro', api: 'v1' },
+      { model: 'gemini-2.5-flash', api: 'v1beta' },
+      { model: 'gemini-2.5-pro',   api: 'v1beta' },
     ];
     let lastError = '';
 
