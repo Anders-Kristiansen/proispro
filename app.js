@@ -170,8 +170,6 @@ function discApp() {
     discSuggestions: [],
     discSuggestionsLoading: false,
     _discTimer: null,
-    geminiKey: localStorage.getItem('proispro_gemini_key') || '',
-    showAiKeyPrompt: false,
     aiIdentifying: false,
     aiIdentifyMsg: '',
 
@@ -498,7 +496,6 @@ function discApp() {
       this.discSuggestions = [];
       if (this._discTimer) { clearTimeout(this._discTimer); this._discTimer = null; }
       this.aiIdentifyMsg = '';
-      this.showAiKeyPrompt = false;
     },
 
     // Color picker
@@ -506,71 +503,38 @@ function discApp() {
       this.form.color = colorName;
     },
 
-    // AI key management
-    saveAiKey() {
-      const key = this.geminiKey.trim();
-      if (key) localStorage.setItem('proispro_gemini_key', key);
-      else localStorage.removeItem('proispro_gemini_key');
-      this.geminiKey = key;
-      this.showAiKeyPrompt = false;
-      showToast(key ? '🤖 Gemini key saved' : '🤖 Gemini key removed');
-    },
-
-    // Identify disc from photo via Google Gemini 1.5 Pro vision
+    // Identify disc from photo via Supabase Edge Function → Gemini 1.5 Pro (key stored server-side)
     async identifyDiscFromPhoto() {
-      const key = (this.geminiKey || '').trim();
-      if (!key) { this.showAiKeyPrompt = true; return; }
       if (!this.photoFile) return;
 
       this.aiIdentifying = true;
       this.aiIdentifyMsg = '';
       try {
-        // Read file as base64 (strip the data URL prefix, keep only the raw b64 data)
         const { b64, mimeType } = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = e => {
             const dataUrl = e.target.result;
             const comma = dataUrl.indexOf(',');
-            const mime = dataUrl.slice(5, dataUrl.indexOf(';'));
-            resolve({ b64: dataUrl.slice(comma + 1), mimeType: mime });
+            resolve({ b64: dataUrl.slice(comma + 1), mimeType: dataUrl.slice(5, dataUrl.indexOf(';')) });
           };
           reader.onerror = reject;
           reader.readAsDataURL(this.photoFile);
         });
 
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${key}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { inline_data: { mime_type: mimeType, data: b64 } },
-                  { text: 'Identify this disc golf disc. Reply ONLY with valid JSON: {"name":"<disc model name>","brand":"<manufacturer>","type":"<putter|midrange|fairway|distance>"}. If you cannot identify it, set each field to null.' },
-                ],
-              }],
-              generationConfig: { maxOutputTokens: 100 },
-            }),
-          }
-        );
+        const sb = getSupabase();
+        const { data, error } = await sb.functions.invoke('identify-disc', {
+          body: { imageBase64: b64, mimeType },
+        });
 
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error?.message || `Gemini API error ${res.status}`);
-        }
+        if (error) throw new Error(error.message);
+        if (data?.error) throw new Error(data.error);
 
-        const data = await res.json();
-        const raw = (data.candidates?.[0]?.content?.parts?.[0]?.text || '{}')
-          .trim().replace(/^```json?\n?|```$/g, '').trim();
-        const result = JSON.parse(raw);
-
-        if (!result.name) {
+        const result = data;
+        if (!result?.name) {
           this.aiIdentifyMsg = '❓ Could not identify — try a clearer photo';
           return;
         }
 
-        // Match against DiscIt catalog and auto-fill form
         const catalog = await loadCatalog();
         const matches = searchDiscs(catalog, result.name);
         if (matches.length > 0) {
