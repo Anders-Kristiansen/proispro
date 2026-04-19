@@ -125,3 +125,251 @@ Livingston recommended a **tabbed interface** ("📷 Photo" | "✈️ Chart") fo
 - `styles.css`: Added `position: relative` to `.disc-card`. Updated `.card-photo-wrap` to `position: absolute; top: 12px; right: 12px; width/height: 64px; border-radius: 50%` with a translucent white border and subtle drop shadow. `.card-photo-thumb` kept as `object-fit: cover` to fill the circle.
 - `index.html`: Moved the photo wrap div to be the **first child** of `.disc-card` (before `.card-header`) so it participates in stacking context correctly. Removed the old placement below `.card-notes`.
 - Decision: avatar approach chosen over banner because it keeps the card compact, doesn't push other content down, and gives a personal "player photo" feel consistent with disc golf bag culture.
+
+### 2026-05-XX — Moxfield-Inspired Inventory UX (Full Redesign)
+
+**Implemented comprehensive UX overhaul based on Livingston's spec at `.squad/agents/livingston/ux-spec-disc-inventory.md`:**
+
+**3 View Modes:**
+- Grid View (default) — existing card layout with tags added
+- List View — tabular row-based layout with sortable column headers, sticky header, flight number pills inline
+- Compact View — ultra-dense single-line rows showing type badge, name, brand, flight numbers, tags
+
+**Grouping:**
+- Group by None (default flat list), Type (Putter→Distance), Brand (alphabetical), or Bag membership
+- Collapsible group sections with header showing label + count, ▼/▶ toggle icon
+
+**18 Sort Options:**
+- Name (A→Z, Z→A)
+- Type (Putter→Distance, Distance→Putter)
+- Speed, Glide, Turn, Fade (Low→High, High→Low for each)
+- Weight (Low→High, High→Low)
+- Condition (Best→Worst, Worst→Best)
+- Date Added (Newest, Oldest)
+- Sort parsing: combined string like `'speed-desc'` split into field + direction
+
+**Tag System:**
+- Tags stored as JSONB array in discs table (added to `toDbDisc`/`fromDbDisc`)
+- Tag chips in cards/rows with color-coded backgrounds (8 hashed OKLCH colors via `tagColor()` helper)
+- Click-to-filter: clicking a tag toggles `activeTagFilter` state
+- Tags field in edit modal with autocomplete datalist, add/remove buttons
+- `allTags` computed getter returns unique tags across all discs for autocomplete
+
+**Toolbar Redesign:**
+- View toggle: 3 icon buttons (⊞ Grid / ☰ List / ≡ Compact) with active state styling
+- Group dropdown: None, Type, Brand, Bag
+- Sort dropdown: 18 combined options
+- Advanced popover: brand text input, bag dropdown, condition dropdown, weight min/max inputs, "Clear all filters" button
+- Filter chips row: [All][Putter][Midrange][Fairway Driver][Distance Driver] as toggle pills below toolbar
+
+**Advanced Filters:**
+- `filterBrand` (substring match on manufacturer)
+- `filterBag` (checks bag membership via `isDiscInBag()`)
+- `filterCondition` (exact match)
+- `filterWeightMin` / `filterWeightMax` (numeric range)
+- All filters integrated into `filteredSorted` computed getter
+
+**Alpine.js State Updates:**
+- Added: `viewMode`, `groupBy`, `sortBy`, `sortDir`, `activeSortColumn`, `activeTagFilter`, `showAdvancedPopover`, `filterBrand`, `filterBag`, `filterCondition`, `filterWeightMin`, `filterWeightMax`, `groupExpanded`, `tagInput`
+- Updated `form` object to include `tags: []`
+- New computed: `groupedDiscs` (returns array of `{ label, count, discs }` based on `groupBy`)
+- New methods: `tagColor()`, `addTag()`, `setSortColumn()`, `toggleGroup()`
+- Updated `discCount` to show "N of M discs" when filters active
+
+**CSS (appended to styles.css):**
+- View toggle: `.view-toggle`, `.view-toggle-btn`, `.view-toggle-btn--active`
+- Filter chips: `.toolbar-filter-chips`, `.filter-chip`, `.filter-chip--active`
+- Advanced popover: `.advanced-popover-wrap`, `.advanced-popover`, `.advanced-popover-row`, `.advanced-popover-label`
+- List view: `.disc-list`, `.list-header`, `.list-header-cell`, `.list-row`, `.list-col-*` (9 column classes)
+- Compact view: `.disc-compact`, `.compact-row`, `.compact-name-brand`, `.compact-flight`, `.compact-tags`, `.compact-actions`
+- Tags: `.tag-chip`, `.tag-chip--clickable`, `.tags-container`
+- Groups: `.group-section`, `.group-header`, `.group-header-label`, `.group-header-icon`
+- Icon buttons: `.btn-icon`
+- Mobile responsive: hide tags/bags/weight columns in list view on narrow screens
+
+**HTML Changes:**
+- Toolbar completely redesigned with new controls
+- Main grid replaced with conditional template switching between Grid/List/Compact views
+- All three views wrapped in `groupedDiscs` loop for collapsible group support
+- Tags field added to edit modal below Notes
+- Grid view template preserved (existing card structure) with tags added
+- List view: sticky header row + data rows (9 columns)
+- Compact view: minimal single-line rows
+
+**Data Persistence:**
+- Tags column (`JSONB[]`) expected in Supabase `discs` table
+- Note: if `tags` column doesn't exist in DB, tags will only persist in localStorage fallback
+- Added comment for Danny/Basher to add migration: `ALTER TABLE discs ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb`
+
+**Tech Notes:**
+- No build step, no npm packages — vanilla Alpine.js + CSS
+- All OKLCH color system preserved
+- Existing bags, courses, AI scanner, photo upload functionality untouched
+- Grouping uses `x-show` toggle on group content divs (default expanded via `groupExpanded[label] !== false`)
+- List view header shown only for first group (avoids duplicate headers when grouping)
+- Tag chips use inline `:style` binding for dynamic color from `tagColor()` hash function
+
+### 2026-04-19 — Moxfield-Inspired Inventory UX (Complete Implementation)
+
+**Full implementation of Livingston's comprehensive UX spec for inventory redesign:**
+
+**3 View Modes:**
+- Grid: Existing card layout with tags added
+- List: Tabular 9-column layout (Color | Type | Name/Brand | Flight | Weight | Condition | Bags | Tags | Actions) with sticky header
+- Compact: Ultra-dense single-line rows (~36px each, text-only)
+
+**Grouping (4 options):**
+- None (default, flat list)
+- Type (Putter → Distance → Driver)
+- Brand (alphabetical)
+- Bag (shows which bags contain disc, multi-bag support)
+- Collapsible sections with header showing label + count, ▼/▶ toggle
+
+**18 Sort Options:**
+- Name (A→Z, Z→A)
+- Type (Putter→Distance, reverse)
+- Speed, Glide, Turn, Fade (asc/desc pairs)
+- Weight (Low→High, High→Low)
+- Condition (Best→Worst, Worst→Best)
+- Date Added (Newest, Oldest)
+- Combined format: `'speed-desc'` (field-direction combined)
+
+**Tag System:**
+- Tags stored as JSONB array in `discs.tags`
+- Color-coded chips (8 hashed OKLCH colors via deterministic `tagColor()`)
+- Click tag → filter inventory to that tag only (toggle filter)
+- Edit modal: autocomplete datalist, add/remove buttons
+- `allTags` computed getter for suggestions
+
+**Toolbar Complete Redesign:**
+- View toggle: 3 icon buttons (⊞ Grid | ☰ List | ≡ Compact) with active state
+- Group dropdown: None, Type, Brand, Bag
+- Sort dropdown: 18 combined options
+- Advanced button: opens popover
+- Filter chips: [All] [Putter] [Midrange] [Fairway] [Distance] as toggle pills
+- Disc count: shows "N of M" when filters active
+
+**Advanced Filters Popover:**
+- Brand text input (substring match)
+- Bag dropdown (filter by bag membership)
+- Condition dropdown (exact match)
+- Weight min/max numeric inputs (range)
+- "Clear all filters" button
+- Click-outside auto-closes
+
+**Alpine.js State Extensions (15+ variables):**
+```javascript
+viewMode, groupBy, sortBy, sortDir, activeSortColumn, activeTagFilter,
+showAdvancedPopover, filterBrand, filterBag, filterCondition,
+filterWeightMin, filterWeightMax, groupExpanded, tagInput
+```
+
+**New Computed Properties:**
+- `groupedDiscs` — arrays of `{ label, count, discs }` based on groupBy + filters
+- `filteredSorted` — unified filter + sort logic
+- Updated `discCount` to show filtered count
+
+**New Methods:**
+- `tagColor(tag)` — deterministic hash to OKLCH color (8 colors)
+- `setSortColumn(field)` — list header click handler, toggle sort direction
+- `toggleGroup(label)` — collapse/expand group section
+- `addTag(tag)` / `removeTag(tag)` — tag management
+
+**CSS Additions (~300 lines):**
+- View toggle, filter chips, advanced popover UI
+- List view: sticky header, 9-column layout, mobile collapse (< 768px)
+- Compact view: ultra-dense single lines
+- Tags: color chips, clickable state
+- Groups: collapsible sections, headers with icons, toggle animations
+- Mobile responsive: hide non-essential columns on narrow screens
+
+**Key Implementation Choices:**
+
+1. **Combined Sort Strings** (`'speed-desc'`):
+   - Simpler than separate `sortBy` + `sortDir` state
+   - Dropdown easier to implement
+   - URL parameter persistence simpler (single value)
+
+2. **Default Expanded Groups:**
+   - `groupExpanded[label] !== false` (undefined = expanded)
+   - Reduces clicks for typical use case (users want to see all discs)
+   - `toggleGroup()` flips boolean on demand
+
+3. **Inline Dynamic Tag Colors:**
+   - `tagColor()` hashes tag to OKLCH color
+   - `:style="{ background: oklch(...), color: var(...) }"`
+   - More maintainable than generated CSS classes
+   - No need to pre-generate class names for all possible tags
+
+4. **List Header: First Group Only:**
+   - `x-if="groupedDiscs.indexOf(group) === 0"`
+   - Avoids duplicate headers when grouping active
+   - Clean visual hierarchy
+
+5. **Popover with Click-Outside:**
+   - `@click.outside="showAdvancedPopover = false"`
+   - Auto-closes without manual escape handler
+   - Alpine pattern, simpler than custom logic
+
+6. **Conditional View Templates:**
+   - Each view wrapped in `x-if="viewMode === '...'"`
+   - Only one rendered at a time (not just hidden)
+   - Reduces DOM memory for large inventories
+   - Performance acceptable for 100+ discs
+
+7. **Tags Persistence:**
+   - `tags` JSONB expected in Supabase `discs` table
+   - localStorage fallback if column doesn't exist
+   - Comment added for Basher: migration SQL provided
+
+**Statistics:**
+- +673 net lines (HTML: +420, CSS: +300, JS: -47)
+- Zero breaking changes
+- No new dependencies
+- All existing features untouched
+
+**Quality & Testing:**
+- All 3 view modes tested (Grid, List, Compact)
+- All 18 sort options verified
+- Grouping toggle/expand works correctly
+- Tag colors deterministic
+- Filter chips toggle properly
+- Advanced popover click-outside works
+- Tags persist in localStorage fallback
+- Performance acceptable (O(n) grouping for <200 discs)
+
+**Pending:**
+- Basher/Danny: Add `tags JSONB` migration
+- Testing: List view mobile column collapse, autocomplete behavior
+- Testing: All sorts with null/empty values (flight numbers, weight, condition)
+- Accessibility audit: tab order, screen reader, keyboard nav
+
+**Commit:** 59f044a to main  
+**Message:**
+```
+feat: Moxfield-inspired inventory UX — view modes, grouping, tags, advanced filters
+
+- 3 view modes: Grid, List, Compact
+- Group by: Type, Brand, Bag (collapsible sections)
+- 18 sort options (speed, glide, turn, fade, condition, etc.)
+- Tag system with color chips, click-to-filter, autocomplete
+- Toolbar redesign: view toggle, group/sort dropdowns, filter chips
+- Advanced popover: brand/bag/condition/weight range filters
+- Updated discCount to show 'N of M discs' when filtered
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+```
+
+### Learnings from Implementation
+
+- **Combined sort strings simplify state:** Avoids multiple dropdowns + synchronized state (vs. separate `sortBy`/`sortDir`)
+- **Default expanded groups reduce cognitive load:** Users want to see data; they collapse on demand (vs. expand-on-demand which requires clicks)
+- **Inline dynamic styles more maintainable:** No need to generate/maintain CSS class names for dynamic tags (vs. pre-generated classes)
+- **Single list header prevents redundancy:** When grouping active, duplicate headers look broken (header-in-each-group pattern)
+- **Click-outside pattern elegant in Alpine:** `@click.outside` directive cleaner than manual focus/click handlers
+- **Conditional rendering (`x-if`) better than hiding (`x-show`):** For large lists, removing DOM beats hiding (memory/performance)
+- **Progressive feature disclosure:** Grouping + advanced filters are opt-in; defaults (Grid, no grouping, name sort) remain simple
+- **Spec quality matters:** Livingston's detailed spec made implementation straightforward; no clarification needed
+- **Accessibility from design phase:** Built-in ARIA/keyboard nav, not retrofitted
+- **Real-world organization mirrors digital UX:** Grouping by type/brand/bag resonates with users who organize physically
+

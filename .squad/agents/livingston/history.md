@@ -73,3 +73,89 @@ Photo aspect ratio handling. Users upload 16:9 or 4:3 photos, modal column is 1:
 - **Photo cropping is UX, not just CSS:** `object-fit: cover` prevents aspect ratio bugs that make disc photos unusable
 - **Catalog photos need differentiation:** "Stock photo" badge prevents confusion between user's photo and generic stock image
 - **ARIA tabs pattern is robust:** Handles keyboard nav (arrow keys), screen readers, and focus management elegantly
+
+---
+
+## Moxfield-Inspired Disc Inventory Redesign
+**Date:** 2026-04-19  
+**Output:** `.squad/agents/livingston/ux-spec-disc-inventory.md` (37KB comprehensive spec)
+
+### Context
+Anders asked for inventory redesign inspired by Moxfield's card collection manager. Current inventory (single grid view, basic filters) doesn't scale for users with 30+ discs.
+
+### UX Specification Delivered
+
+**Problem Identified:**
+- One-size-fits-all Grid view too sparse for large collections (30+ discs = excessive scrolling)
+- Users organize discs by type/brand/bag in real life, but app shows flat list
+- No support for personalization (favorites, for sale, loaner discs)
+- Type filter buried in dropdown (2 clicks to toggle)
+- Sort options limited to 4; no column-based sorting for tabular layouts
+
+**Solution Design:**
+
+1. **Progressive Density via View Modes:**
+   - Grid: Card layout (photo-first, current)
+   - List: Tabular rows (9 columns for detailed comparison)
+   - Compact: Ultra-dense single lines (20+ discs on screen at once)
+   - Users choose density based on workflow (browsing vs. scanning vs. maximum info)
+
+2. **Grouping for Organization:**
+   - Group by Type, Brand, Bag (mirrors real-world organization)
+   - Collapsible sections with count headers
+   - Default expanded (reduces clicks)
+
+3. **Expanded Sorting:**
+   - 18 options (vs. 4): name, type, flight attributes, weight, condition, date
+   - Each with asc/desc toggle
+   - List view: click column headers for sorting (spreadsheet pattern)
+
+4. **Tags System:**
+   - Free-form tags for personalization (vs. predefined enum)
+   - Low-friction: users tag discs (favorites, for sale, loaner, retired, practice)
+   - One-click tag filtering faster than Advanced filters
+   - Autocomplete suggestions reduce typos
+
+5. **Toolbar Redesign:**
+   - View toggle: 3 icon buttons (more discoverable than dropdown)
+   - Filter chips: Putter/Midrange/Fairway/Distance as visible one-click toggles
+   - Advanced popover: brand/bag/condition/weight range for power users
+   - Filter chips + advanced filters = flexible discovery (quick + deep)
+
+**Key Design Decisions:**
+
+- **View Icons vs. Tabs:** Icons (⊞ ☰ ≡) more compact than tabs, suitable for view mode toggle
+- **Free-Form Tags > Predefined:** Users have diverse workflows; autocomplete mitigates sprawl
+- **Filter Chips Visible:** One-click toggles more discoverable than dropdown-nested filters
+- **Column Sorting:** Spreadsheet pattern (click headers) more intuitive in tabular layouts than dropdown for grid view
+- **Grouping Defaults:** Expand by default, users collapse on demand (reduce clicks for typical use)
+
+**Mobile Considerations:**
+
+- List view drops non-essential columns on < 768px (Tags, Bags, Weight)
+- Shows only: Color | Type | Name | Flight | Actions
+- Tags still accessible in detail view
+
+**Accessibility Built In:**
+
+- Icon buttons: `aria-label` for screen readers
+- Column headers: `aria-sort="ascending|descending"`
+- Group sections: `aria-expanded="true|false"`
+- Filter chips: `role="button"` + `aria-pressed="true|false"`
+- Keyboard navigation: arrow keys for tabs, enter for buttons
+
+**Dependencies Identified:**
+
+- **Rusty (Frontend):** Implement 5-phase rollout (View Modes → Sorting → Grouping → Tags → Advanced)
+- **Basher (Data):** Add `tags` JSONB column to `discs` table
+- **Saul (Color):** No new colors needed (reuse 8 OKLCH colors for tag hashing)
+
+### Learnings
+
+- **Multi-view approach beats single-view toggles:** When users have different needs (browsing vs. scanning vs. dense info), give them true choice, not compromise
+- **Mirror real-world organization:** Users already organize discs by type/brand/bag physically; digital grouping resonates
+- **Free-form data > predefined lists:** When workflows vary across users, allow flexibility (tags beat enums)
+- **Make filters discoverable:** Visible chips + one-click better than nested dropdowns + multi-step interaction
+- **Design for scale from the start:** Think about 30+ items from day 1, not 5. Density matters.
+- **Accessibility is design, not QA:** Include ARIA/keyboard nav in spec upfront, not as afterthought
+- **Rationale matters in specs:** Document "why" alongside "what" — helps implementer make informed trade-off decisions

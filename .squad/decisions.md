@@ -961,6 +961,93 @@ Replace banner layout with **64×64px circular avatar** absolutely positioned in
 
 ---
 
+### Moxfield-Inspired Inventory UX — Full Redesign
+**By:** Livingston (UX Designer) + Rusty (Frontend Dev) | **Date:** 2026-04-19 | **Status:** Implemented
+
+Comprehensive redesign of disc inventory inspired by Moxfield's card collection manager. Full UX specification at `.squad/agents/livingston/ux-spec-disc-inventory.md`.
+
+**Problem:** Current single-grid view with basic filtering doesn't scale for users with 30+ discs. Excessive scrolling, limited organization, no personalization.
+
+**Solution:** Three view modes (Grid, List, Compact), grouping (Type/Brand/Bag), expanded sorting (18 options), tag system, and redesigned toolbar.
+
+**Key Components:**
+
+1. **View Modes (3)**
+   - Grid: Card layout (existing), photo-first
+   - List: Tabular rows with 9 columns (Color | Type | Name | Flight | Weight | Condition | Bags | Tags | Actions)
+   - Compact: Ultra-dense single-line rows
+
+2. **Grouping (4 options)**
+   - None (flat), Type (Putter→Distance), Brand (alphabetical), Bag (membership)
+   - Collapsible sections with count labels, default expanded
+
+3. **Sorting (18 options)**
+   - Name (A→Z, Z→A), Type (Putter→Distance, reverse)
+   - Speed, Glide, Turn, Fade (asc/desc pairs)
+   - Weight (Low→High, High→Low), Condition (Best→Worst, reverse)
+   - Date Added (Newest, Oldest)
+   - Combined format: `'speed-desc'` (field-direction)
+
+4. **Tags System**
+   - Free-form tags stored as JSONB array in `discs.tags`
+   - Color-coded chips (8 hashed OKLCH colors via deterministic hash)
+   - Click tag → filter inventory to that tag
+   - Autocomplete in edit modal, add/remove buttons
+
+5. **Toolbar Redesign**
+   - **Top row:** Search | View toggle (⊞ ☰ ≡) | Group dropdown | Sort dropdown | Advanced button | Count
+   - **Filter chips:** [All] [Putter] [Midrange] [Fairway] [Distance] as toggle pills
+   - **Advanced popover:** Brand text search, Bag filter, Condition filter, Weight range, Clear all
+
+6. **Empty States**
+   - Context-aware: "No [Type] discs", "No discs matching [query]", "No tags yet"
+
+**Rationale:**
+
+- **Progressive Density:** Three view modes let users choose density (Grid = browsing, List = scanning, Compact = maximum info)
+- **Grouping for Organization:** Mirrors real-world disc categorization (type, brand, bag)
+- **Tags for Personalization:** Free-form tags support diverse workflows (favorites, for sale, loaner, retired)
+- **Filter Chips Discoverability:** One-click toggles more discoverable than dropdown-buried filters
+- **Column Sorting:** Spreadsheet pattern (clickable headers) faster than dropdown for tabular layouts
+
+**Trade-Offs:**
+
+- **Complexity vs. Flexibility:** Mitigated with sane defaults (Grid, no grouping, name sort) → advanced features opt-in
+- **Mobile Responsiveness:** List view drops Tags/Bags/Weight columns on < 768px
+- **Performance:** `filteredSorted` runs on state change; O(n) grouping acceptable for single-user inventory
+
+**Implementation Details:**
+
+- **Alpine.js State:** 15+ new variables (viewMode, groupBy, sortBy, filters, groupExpanded, tagInput, etc.)
+- **Computed Properties:** `groupedDiscs`, `filteredSorted`, `discCount` (shows "N of M" when filtered)
+- **Methods:** `tagColor()` (hash tag to color), `setSortColumn()`, `toggleGroup()`, `addTag()`, `removeTag()`
+- **CSS:** ~300 lines for list/compact/tags/groups/filters/mobile
+- **HTML:** Toolbar redesign, conditional view templates, tags field in modal
+- **Database:** `tags` JSONB column expected in `discs` table (migration: `ALTER TABLE discs ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]'::jsonb`)
+
+**Key Decisions:**
+
+- **Combined sort strings** (`'speed-desc'`): Simpler than separate field/direction state
+- **Default expanded groups:** Reduces clicks for typical use case (view all discs)
+- **Inline dynamic tag colors:** More maintainable than generated CSS classes
+- **List header in first group only:** Prevents duplicate headers when grouping active
+- **Popover with click-outside:** `@click.outside` auto-closes without manual handling
+
+**Status & Next Steps:**
+
+- ✅ UX spec complete (Livingston)
+- ✅ Frontend implementation complete, pushed to main (Rusty, commit 59f044a)
+- ⏳ Pending: Basher/Danny to add `tags` JSONB column migration
+- 🧪 Testing needed: All 18 sorts (especially nulls), list view mobile collapse, tags autocomplete, accessibility audit
+- 🎯 Future: Save viewMode/groupBy to localStorage, upgrade datalist → custom dropdown for mobile
+
+**Success Criteria (Post-Launch):**
+- View mode adoption: 40%+ of users try List/Compact within 1 week
+- Tag adoption: 20%+ of users create 3+ tags within 2 weeks
+- Grouping usage: 50%+ of sessions with 15+ discs use Group by Type
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
