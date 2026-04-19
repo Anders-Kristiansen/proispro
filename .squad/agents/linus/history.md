@@ -39,6 +39,45 @@ Azure resources were manually deleted from the portal (nothing was ever provisio
 - Net Azure cost for proispro: **$0** (nothing was provisioned). Deleting the empty RG incurs no additional cleanup complexity.
 - Decision logged to `.squad/decisions/inbox/linus-azure-teardown.md`.
 
+### 2026-04-19: Gemini 2.5 Flash Edge Function Deployment & Configuration
+
+**Problem:** Edge function disc detection failing due to token truncation and prompt clarity issues.
+
+**Root Cause Analysis (3 Issues Fixed):**
+
+1. **Token Truncation:**
+   - Gemini 2.5 Flash with `thinkingBudget` enabled uses "thinking" tokens against the `maxOutputTokens` budget
+   - Thinking tokens exhaust budget before JSON output emitted → truncated responses
+   - Fix: Set `thinkingBudget: 0`, raise `maxOutputTokens` from 300 → 1024
+
+2. **Prompt Reading Wrong Text:**
+   - Flight discs have many text elements (mold name, plastic type, player endorsements, series labels, weight, handedness)
+   - Prompt too generic → model read plastic names or player names instead of mold name
+   - Fix: Rewritten prompt with explicit ignore list + "LARGEST text on face" guidance
+
+3. **Fuzzy Catalog Matching:**
+   - Exact substring matching failed when model output differed from catalog format
+   - New `findBestCatalogMatch()` function (multi-criteria scoring, normalized names)
+
+**Deployment Command:**
+```bash
+npx supabase functions deploy identify-disc --no-verify-jwt --project-ref odqhusmmqgipvazusrxs
+```
+
+**Related Decisions:**
+- Use Gemini training knowledge for disc specs; don't call external APIs
+- Always use `gemini-2.5-flash` (v1beta) as primary, `gemini-2.5-pro` as fallback
+- Commit: 533c4cb, ee732fb
+
+**Configuration Best Practice:**
+```typescript
+thinkingConfig: {
+  thinkingBudget: 0  // Disable thinking mode to preserve output token budget
+},
+maxOutputTokens: 1024,
+model: "gemini-2.5-flash"
+```
+
 ### 2026-04-13 — GitHub Pages deployment setup
 - Created CNAME with proispro.com for custom domain binding.
 - Created .github/workflows/deploy.yml using the modern GitHub Pages Actions trio: configure-pages, upload-pages-artifact, deploy-pages.

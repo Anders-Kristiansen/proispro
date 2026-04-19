@@ -60,6 +60,27 @@
 
 **Auth model:** GitHub OAuth via Azure SWA built-in auth. SWA issues a session cookie post-login. DAB validates session via `StaticWebApps` provider and enforces `authenticated` role on all Disc entity operations.
 
+### 2026-04-19: Disc Catalog Fuzzy Matching — findBestCatalogMatch Pattern
+
+**Problem:** AI disc detection returns mold name (e.g., "Destroyer"), but catalog lookup fails due to exact substring matching against full catalog entries (e.g., "Innova Destroyer 12/5/-1/3").
+
+**Solution:** New `findBestCatalogMatch(moldName, manufacturerName)` function in `disc-catalog.js`:
+- **Normalization:** Both input and catalog entries normalized (lowercase, non-alphanumeric removed, whitespace stripped)
+- **Multi-criteria scoring:**
+  - Exact name match: +10 points
+  - Partial name match (first word, key terms): +5 points
+  - Brand/manufacturer match: +3 points
+  - Score-based ranking: returns top 3 candidates with confidence
+- **Fallback:** If no manufacturer provided, find closest alphabetic match
+- **Result:** Robust matching that handles name variations, punctuation differences, descriptor text (e.g., "Destroyer" ← "Destroyer 12/5/-1/3")
+
+**Implementation:** `disc-catalog.js` lines ~150–220. Called from `app.js` in AI identify handler.
+
+**Pattern Applicability:** Useful for any catalog lookup where:
+- Input names vary in format/verbosity (user input, OCR, model output)
+- Catalog entries have descriptive metadata mixed with canonical names
+- Fuzzy matching with manual scoring is preferred over Levenshtein/Jaro-Winkler (simpler, transparent scoring logic)
+
 ### 2026-04-14: Disc Golf Catalog Schema & Data API Builder Configuration
 
 **Disc Schema Design:**

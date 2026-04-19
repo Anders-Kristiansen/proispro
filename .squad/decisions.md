@@ -849,3 +849,120 @@ Use a tabbed interface ("📷 Photo" | "✈️ Chart") in the disc detail modal 
 - All meaningful changes require team consensus
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
+
+---
+
+### No External Disc APIs in Edge Function
+**By:** Copilot (Coding Agent) | **Date:** 2026-04-19 | **Status:** Active
+
+Use Gemini's own training knowledge for disc flight specs instead of calling external APIs (PDGA, manufacturer APIs) from the edge function.
+
+**Rationale:**
+- User directive: "don't make us rely on too much other API"
+- Disc mold names + types form a small, stable corpus (~400 discs)
+- Gemini has sufficient training knowledge to return flight specs from mold name alone
+- Reduces infrastructure complexity and external dependencies
+- Faster response time (fewer network hops)
+
+**Implementation:**
+- Edge function (`identify-disc`) returns mold name + any flight numbers visible in image
+- Client-side `findBestCatalogMatch()` in `disc-catalog.js` enriches with specs from local catalog
+- Catalog is authoritative source of truth for flight numbers and disc metadata
+
+---
+
+### Gemini 2.5 Flash — Always Set thinkingBudget: 0
+**By:** Copilot (Coding Agent) | **Date:** 2026-04-19 | **Status:** Active
+
+When using Gemini 2.5 Flash for disc detection, always disable thinking mode by setting `thinkingBudget: 0` in the `thinkingConfig`.
+
+**Rationale:**
+- Gemini 2.5 Flash with thinking enabled consumes "thinking" tokens against the `maxOutputTokens` budget
+- Thinking tokens exhaust the budget before the actual JSON output is emitted
+- Result: Truncated/incomplete JSON responses (e.g., `"Clash Dis."` instead of `"Clash Disc"`)
+- Disc detection task is straightforward classification (not reasoning-heavy) — thinking adds no value
+
+**Configuration:**
+```typescript
+thinkingConfig: {
+  thinkingBudget: 0
+},
+maxOutputTokens: 1024
+```
+
+---
+
+### Gemini Model Selection — 2.5 Flash Primary, 2.5 Pro Fallback
+**By:** Copilot (Coding Agent) | **Date:** 2026-04-19 | **Status:** Active
+
+Primary model for disc detection: `gemini-2.5-flash` (v1beta). Fallback if quota/limits: `gemini-2.5-pro` (v1beta).
+
+**Rationale:**
+- Flash: Fast + cheap, sufficient for image classification task
+- Pro: Fallback for rate limits or quota exhaustion
+- Deprecated models: Older `gemini-1.5-*` versions should never be used — always target 2.5 series
+
+**Model Configuration:**
+```typescript
+model: "gemini-2.5-flash"  // primary
+model: "gemini-2.5-pro"    // fallback
+```
+
+---
+
+### Disc Catalog Fuzzy Matching — findBestCatalogMatch Pattern
+**By:** Copilot (Coding Agent via Basher) | **Date:** 2026-04-19 | **Status:** Active
+
+New `findBestCatalogMatch(moldName, manufacturerName)` function in `disc-catalog.js` for robust catalog lookups when input names vary in format/verbosity.
+
+**Problem:** AI disc detection returns mold name (e.g., "Destroyer"), but exact substring matching fails against full catalog entries (e.g., "Innova Destroyer 12/5/-1/3").
+
+**Solution:**
+- **Normalization:** Both input and catalog entries normalized (lowercase, non-alphanumeric removed, whitespace stripped)
+- **Multi-criteria scoring:**
+  - Exact name match: +10 points
+  - Partial name match (first word, key terms): +5 points
+  - Brand/manufacturer match: +3 points
+  - Score-based ranking: returns top 3 candidates with confidence
+- **Fallback:** If no manufacturer provided, find closest alphabetic match
+- **Result:** Robust matching that handles name variations, punctuation differences, descriptor text
+
+**Pattern Applicability:** Useful for any catalog lookup where:
+- Input names vary in format/verbosity (user input, OCR, model output)
+- Catalog entries have descriptive metadata mixed with canonical names
+- Fuzzy matching with manual scoring is preferred over Levenshtein/Jaro-Winkler
+
+---
+
+### Disc Photo Upload — Moved to Bag Edit Modal
+**By:** Rusty (Frontend Dev) | **Date:** 2026-05 | **Status:** Implemented
+
+Photo upload functionality moved from Flight Guide catalog to Bag Edit modal exclusively.
+
+**Rationale:**
+Flight Guide is a **public catalog browser** — it shows discs from the shared catalog, not discs the user owns. Adding photo upload there was architecturally wrong: users shouldn't be able to tag photos onto catalog discs they might not own.
+
+Photos only make sense for **owned discs** in the user's personal bag.
+
+**Storage Key:** `{user_id}/{disc_id}.{ext}` in the `disc-photos` Supabase Storage bucket.
+
+---
+
+### Disc Card Photo — Circular Avatar Instead of Banner
+**By:** Rusty (Frontend Dev) | **Date:** 2026-05 | **Status:** Implemented (commit addfd5e)
+
+Replace banner layout with **64×64px circular avatar** absolutely positioned in **top-right corner** of each disc card.
+
+**Rationale:**
+- Keeps card height consistent regardless of whether a photo is present
+- Avatar feel is more personal and compact — matches "my disc bag" mental model
+- No layout reflow: other card content completely unaffected
+- Creates layered look without collision with type badge
+
+---
+
+## Governance
+
+- All meaningful changes require team consensus
+- Document architectural decisions here
+- Keep history focused on work, decisions focused on direction
