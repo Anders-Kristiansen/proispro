@@ -96,14 +96,16 @@
         <!-- Disc cards -->
         <template x-for="disc in filteredSorted" :key="disc.id">
           <div class="disc-card">
-            <!-- Round avatar: photo when available, otherwise generic disc icon -->
+            <!-- Round avatar: photo → color circle with initial → generic fallback -->
             <div class="card-photo-wrap"
-                 :class="disc.user_photo_url ? '' : 'card-photo-fallback'">
+                 :class="disc.user_photo_url ? '' : 'card-photo-fallback'"
+                 :style="!disc.user_photo_url ? (disc.color ? 'background:var(--disc-' + colorSlug(disc.color) + ')' : 'background:var(--' + (disc.type || 'putter') + ')') : ''">
               <template x-if="disc.user_photo_url">
                 <img class="card-photo-thumb" :src="disc.user_photo_url" :alt="disc.name + ' photo'" loading="lazy"/>
               </template>
               <template x-if="!disc.user_photo_url">
-                <span class="card-photo-fallback-label" role="img" aria-label="Disc photo unavailable">🥏</span>
+                <span class="card-photo-fallback-label" :aria-label="disc.name"
+                      x-text="disc.name ? disc.name[0].toUpperCase() : '🥏'"></span>
               </template>
             </div>
             <div class="card-header">

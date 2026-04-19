@@ -619,8 +619,13 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   background: var(--clr-surface2);
 }
 .card-photo-fallback-label {
-  font-size: 1.5rem;
+  font-size: 1.7rem;
+  font-weight: 800;
   line-height: 1;
+  color: oklch(100% 0 0 / .92);
+  text-shadow: 0 1px 4px oklch(0% 0 0 / .35);
+  letter-spacing: -0.02em;
+  user-select: none;
 }
 .bag-photo-current {
   display: flex;
