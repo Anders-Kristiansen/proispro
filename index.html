@@ -494,10 +494,10 @@
                 <button type="button"
                         @click="showAiKeyPrompt = !showAiKeyPrompt"
                         style="background:none;border:none;color:var(--clr-muted);cursor:pointer;padding:0;font-size:.75rem">
-                  ⚙ <span x-text="openAiKey ? 'AI key configured ✓ — click to change' : 'Set OpenAI key for AI disc identification'"></span>
+                  ⚙ <span x-text="geminiKey ? 'Gemini key configured ✓ — click to change' : 'Set Gemini key for AI disc identification'"></span>
                 </button>
                 <div x-show="showAiKeyPrompt" style="margin-top:.4rem;display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
-                  <input type="password" x-model="openAiKey" placeholder="sk-…"
+                  <input type="password" x-model="geminiKey" placeholder="AIza…"
                          style="flex:1;min-width:180px;padding:.3rem .5rem;border-radius:6px;border:1px solid var(--clr-border);background:var(--clr-surface);color:var(--clr-text);font-size:.8rem"
                          @keydown.enter.prevent="saveAiKey()"/>
                   <button type="button" class="btn btn-primary btn-sm" @click="saveAiKey()">Save key</button>
