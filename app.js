@@ -10,12 +10,32 @@ const BAGS_KEY    = 'proispro_bags';
 const PINS_KEY    = 'proispro_course_pins';
 
 // ── Supabase Client ─────────────────────────────────────────
+//
+// Edge (and Safari) block localStorage/Web Locks for cross-site content.
+// Supabase's auth client uses navigator.locks internally; when storage is
+// blocked those locks time out after 5 s and get "stolen", flooding the
+// console. Fix: give the client a synchronous in-memory storage adapter so
+// lock acquire/release is instant and never depends on browser storage.
+// Auth sessions won't survive page reload in that environment, but the app
+// falls back to localStorage-data anyway once Supabase is unavailable.
+const _authStorage = (() => {
+  const mem = Object.create(null);
+  const safe = (fn) => { try { return fn(); } catch { return null; } };
+  return {
+    getItem(k)      { return safe(() => localStorage.getItem(k)) ?? mem[k] ?? null; },
+    setItem(k, v)   { safe(() => localStorage.setItem(k, v)); mem[k] = v; },
+    removeItem(k)   { safe(() => localStorage.removeItem(k)); delete mem[k]; },
+  };
+})();
+
 let _supabase = null;
 function getSupabase() {
   if (_supabase) return _supabase;
   if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON === 'YOUR_SUPABASE_ANON_KEY') return null;
   try {
-    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: { storage: _authStorage },
+    });
     return _supabase;
   } catch {
     return null;
