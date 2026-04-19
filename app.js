@@ -521,12 +521,14 @@ function discApp() {
           reader.readAsDataURL(this.photoFile);
         });
 
-        const sb = getSupabase();
-        const { data, error } = await sb.functions.invoke('identify-disc', {
-          body: { imageBase64: b64, mimeType },
+        // Call Edge Function — use raw fetch (no auth needed, works even if Supabase client is unavailable)
+        const resp = await fetch(`${SUPABASE_URL}/functions/v1/identify-disc`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+          body: JSON.stringify({ imageBase64: b64, mimeType }),
         });
-
-        if (error) throw new Error(error.message);
+        if (!resp.ok && resp.status !== 200) throw new Error(`Server error ${resp.status}`);
+        const data = await resp.json();
         if (data?.error) throw new Error(data.error);
 
         const result = data;
