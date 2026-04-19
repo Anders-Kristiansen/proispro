@@ -36,24 +36,35 @@ serve(async (req) => {
             contents: [{
               parts: [
                 { inline_data: { mime_type: mimeType, data: imageBase64 } },
-                { text: `You are identifying a disc golf disc from a photo.
+                { text: `Identify this disc golf disc.
 
-Look carefully for:
-1. TEXT printed or hot-stamped on the disc face or rim — this will show the brand (e.g. Innova, Discraft, Latitude 64, Dynamic Discs, MVP, Axiom, Prodigy, Westside) and mold name (e.g. Wraith, Buzzz, Destroyer, Leopard3, Saint Pro)
-2. FLIGHT NUMBERS printed as 4 values like "12 | 5 | -1 | 3" or "Speed: 12 Glide: 5 Turn: -1 Fade: 3" — they are Speed, Glide, Turn, Fade
-3. Disc SHAPE — drivers are thin/sharp-edged, putters are blunt/rounded edge, midranges are in between
+BRAND: The manufacturer name — usually in a logo at the top (e.g. Innova, Discmania, Discraft, Dynamic Discs, Latitude 64, MVP, Axiom, Prodigy, Westside, Kastaplast, Clash Discs, Streamline).
 
-Reply ONLY with valid JSON (no markdown, no explanation):
-{"name":"mold name","brand":"manufacturer name","type":"putter OR midrange OR fairway OR distance","speed":null,"glide":null,"turn":null,"fade":null}
+MOLD NAME: The specific disc model — usually the LARGEST text on the face (e.g. Wraith, Buzzz, Destroyer, Cloud Breaker 2, Stratosphere, Cosmic Fury 2, Pig, Wild Honey).
+IGNORE these — they are NOT the mold name:
+- Plastic types: Star, Champion, DX, Metal Flake, Swirly, Horizon, Lucid, Fuzion, S-Line, C-Line, Lumen, Burst
+- Series labels: "Signature Series", "Tour Series", "Eagle McMahon", "Bradley Williams", "Kyle Klein", or any player name
+- Disc category text: "Disc Golf", "Distance Driver"
 
-Rules:
-- name and brand: read directly from text visible on the disc — do NOT guess if nothing is legible
-- type: infer from shape if text is unclear
-- speed/glide/turn/fade: integer or null — read from numbers on disc if visible
-- If nothing is legible at all, use null for every field` },
+DISC TYPE from rim shape:
+- distance: thin sharp-edged wide rim
+- fairway: moderate rim depth  
+- midrange: blunt rim, flat
+- putter: deep rounded blunt rim
+
+FLIGHT RATINGS: Use your knowledge of this specific mold (Speed 1-14, Glide 1-7, Turn -5 to +1, Fade 0-5). Only null if you truly don't know the mold.
+
+Output ONLY this JSON, nothing else:
+{"name":"mold name","brand":"manufacturer","type":"distance OR fairway OR midrange OR putter","speed":9,"glide":5,"turn":-1,"fade":2}
+
+Unidentifiable disc: {"name":null,"brand":null,"type":null,"speed":null,"glide":null,"turn":null,"fade":null}` },
               ],
             }],
-            generationConfig: { maxOutputTokens: 300, temperature: 0.1 },
+            generationConfig: {
+              maxOutputTokens: 1024,
+              temperature: 0.1,
+              thinkingConfig: { thinkingBudget: 0 },
+            },
           }),
         }
       );
@@ -70,12 +81,17 @@ Rules:
       // Strip markdown fences and extract JSON
       const cleaned = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
 
-      // Try to extract JSON object if there's extra text around it
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return json({ error: `Could not parse response: ${rawText.slice(0, 100)}` });
+      // Extract the JSON object — handle partial truncation by trying to close it
+      let jsonStr = (cleaned.match(/\{[\s\S]*\}/) || [])[0];
+      if (!jsonStr) {
+        // Try to recover a truncated object by closing it
+        const partial = cleaned.match(/\{[\s\S]*/);
+        if (partial) jsonStr = partial[0].replace(/,?\s*"[^"]*"?\s*:?\s*[^,}\n]*$/, '') + '}';
+      }
+      if (!jsonStr) return json({ error: `Could not parse response: ${rawText.slice(0, 120)}` });
 
       try {
-        const result = JSON.parse(jsonMatch[0]);
+        const result = JSON.parse(jsonStr);
         return json(result);
       } catch {
         return json({ error: `Invalid JSON from AI: ${cleaned.slice(0, 100)}` });

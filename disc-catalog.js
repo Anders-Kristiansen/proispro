@@ -79,6 +79,41 @@ function searchDiscs(discs, query) {
   );
 }
 
+/* ── Fuzzy catalog match (brand + name scored) ───────────────────────────── */
+function findBestCatalogMatch(catalog, name, brand) {
+  if (!name) return null;
+
+  // Normalise: lowercase, strip non-alphanumeric, collapse spaces
+  const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const nName  = norm(name);
+  const nBrand = norm(brand);
+
+  const score = d => {
+    const dn = norm(d.name);
+    const db = norm(d.brand);
+    let s = 0;
+
+    if (dn === nName)              s += 100;  // exact name
+    else if (dn.includes(nName))   s += 60;   // catalog name contains query
+    else if (nName.includes(dn))   s += 40;   // query contains catalog name (e.g. "Roc3"⊃"Roc")
+    else return 0;                             // no name overlap → skip
+
+    if (nBrand) {
+      if (db === nBrand)             s += 30;  // exact brand
+      else if (db.includes(nBrand))  s += 15;  // partial brand match
+      else if (nBrand.includes(db))  s += 10;
+    }
+    return s;
+  };
+
+  let best = null, bestScore = 0;
+  for (const d of catalog) {
+    const s = score(d);
+    if (s > bestScore) { bestScore = s; best = d; }
+  }
+  return best;
+}
+
 /* ── Filter ──────────────────────────────────────────────────────────────── */
 function filterDiscs(discs, { brand, type, stability } = {}) {
   return discs.filter(d => {

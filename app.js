@@ -575,7 +575,7 @@ function discApp() {
         if (data?.error) throw new Error(data.error);
 
         const result = data;
-        // Helper: apply flight numbers from AI result (only if not already filled by catalog)
+        // Apply flight numbers from AI (only fills empty fields)
         const applyFlightNumbers = (src) => {
           if (src?.speed != null && !this.form.speed) this.form.speed = String(src.speed);
           if (src?.glide != null && !this.form.glide) this.form.glide = String(src.glide);
@@ -589,22 +589,20 @@ function discApp() {
         }
 
         const catalog = await loadCatalog();
-        const matches = result.name ? searchDiscs(catalog, result.name) : [];
-        if (matches.length > 0) {
-          const best = result.brand
-            ? (matches.find(m => (m.brand || '').toLowerCase().includes(result.brand.toLowerCase())) || matches[0])
-            : matches[0];
+        const best = findBestCatalogMatch(catalog, result.name, result.brand);
+        if (best) {
           this.selectDiscFromCatalog(best);
-          applyFlightNumbers(result); // use AI-read numbers if catalog didn't fill them
+          applyFlightNumbers(result); // AI-recalled numbers fill any gaps catalog left
           this.aiIdentifyMsg = `✅ ${best.name} by ${best.brand}`;
         } else {
+          // No catalog match — use everything Gemini returned
           if (result.name)  this.form.name = result.name;
           if (result.brand) this.form.manufacturer = result.brand;
           if (['putter', 'midrange', 'fairway', 'distance'].includes(result.type)) this.form.type = result.type;
           applyFlightNumbers(result);
-          const flightStr = [result.speed, result.glide, result.turn, result.fade].every(v => v == null)
-            ? '' : ` · ${result.speed}/${result.glide}/${result.turn}/${result.fade}`;
-          this.aiIdentifyMsg = `✅ ${result.name || result.brand}${result.brand && result.name ? ' by ' + result.brand : ''}${flightStr} (no catalog match)`;
+          const flightStr = [result.speed, result.glide, result.turn, result.fade].some(v => v != null)
+            ? ` · ${result.speed ?? '?'}/${result.glide ?? '?'}/${result.turn ?? '?'}/${result.fade ?? '?'}` : '';
+          this.aiIdentifyMsg = `✅ ${result.name || result.brand}${result.brand && result.name ? ' by ' + result.brand : ''}${flightStr}`;
         }
       } catch (err) {
         this.aiIdentifyMsg = `❌ ${err.message || 'AI identification failed'}`;
