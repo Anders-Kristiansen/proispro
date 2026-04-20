@@ -398,3 +398,18 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 - **Accessibility from design phase:** Built-in ARIA/keyboard nav, not retrofitted
 - **Real-world organization mirrors digital UX:** Grouping by type/brand/bag resonates with users who organize physically
 
+
+### 2026-04-20 — Draggable/Resizable Circle Crop Overlay for Disc Photos
+
+- **Context:** Users often upload disc photos where the disc is off-center. Added a canvas-based crop tool so users can position a circle precisely over the disc before uploading.
+- **Implementation:** Replaced <img> preview with <canvas> element using Alpine.js x-ref="cropCanvas". Canvas draws the image, a semi-transparent overlay with circular cutout (even-odd fill rule), dashed white circle border, and two drag handles (center dot for moving, edge dot for resizing).
+- **Interaction:** Pointer events (@pointerdown, @pointermove, @pointerup) handle drag/resize with setPointerCapture(). Hit detection uses distance from center (≤18px = center handle, within ±18px of radius = edge handle). Cursor changes on hover (move/grab/default).
+- **Cropping:** _getCroppedBlob() creates an offscreen canvas, scales crop coordinates from display to natural image size, clips to circle using ctx.clip(), draws the region, and exports as JPEG blob (0.92 quality). Upload method now sends cropped blob instead of raw file.
+- **State:** Added photoCropCircle: { cx, cy, r }, _cropImg, _cropInteraction, _cropDragOffset to Alpine state. Crop circle initialized at 40% of canvas dimensions on photo load.
+- **CSS:** .crop-canvas uses 	ouch-action: none to prevent scroll interference. .crop-hint text provides brief instructions below canvas.
+- **Key decisions:**
+  - AI identification still uses 	his.photoFile directly (full original image) — not the crop. The AI needs to see the entire context to identify text/graphics.
+  - Canvas replaces <img> entirely in preview — no toggle between modes. Crop is always available when a photo is selected.
+  - Default crop circle is centered and sized to 80% diameter of the shorter dimension — usually captures the disc even if slightly off-center.
+- **Files modified:** index.html (canvas markup), styles.css (+26 lines), pp.js (+203 lines: 7 new methods, 4 state vars, 3 method updates).
+- **Tech notes:** All vanilla JS + Alpine.js reactivity. No external crop libraries. Canvas 2D API with evenodd fill for cutout, pointer events for modern touch/mouse/pen handling. Blob created via canvas.toBlob() for efficient memory usage.

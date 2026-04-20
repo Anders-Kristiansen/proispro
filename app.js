@@ -199,6 +199,10 @@ function discApp() {
     photoPreview:    null,
     photoFile:       null,
     photoUploading:  false,
+    photoCropCircle: null,
+    _cropImg:        null,
+    _cropInteraction: null,
+    _cropDragOffset: null,
 
     // Bag + Course state
     bags: [],
@@ -1014,13 +1018,19 @@ function discApp() {
         return;
       }
       this.photoFile = file;
-      this.photoPreview = URL.createObjectURL(file);
+      const url = URL.createObjectURL(file);
+      this.photoPreview = url;
+      this.$nextTick(() => this._initCropCanvas(url));
     },
 
     cancelPhotoUpload() {
       if (this.photoPreview) URL.revokeObjectURL(this.photoPreview);
       this.photoPreview = null;
       this.photoFile = null;
+      this.photoCropCircle = null;
+      this._cropImg = null;
+      this._cropInteraction = null;
+      this._cropDragOffset = null;
       const inp = document.getElementById('bagPhotoInput');
       if (inp) inp.value = '';
     },
@@ -1036,12 +1046,13 @@ function discApp() {
 
       this.photoUploading = true;
       try {
-        const ext = this.photoFile.name.split('.').pop().toLowerCase() || 'jpg';
+        const croppedBlob = await this._getCroppedBlob();
+        const ext = 'jpg';
         const path = `${user.id}/${targetId}.${ext}`;
 
         const { error: uploadError } = await sb.storage
           .from('disc-photos')
-          .upload(path, this.photoFile, { upsert: true });
+          .upload(path, croppedBlob, { upsert: true, contentType: 'image/jpeg' });
         if (uploadError) throw uploadError;
 
         const TEN_YEARS = 60 * 60 * 24 * 365 * 10;
@@ -1101,6 +1112,197 @@ function discApp() {
         if (idx !== -1) this.discs[idx] = { ...this.discs[idx], user_photo_url: null };
         showToast('🗑 Photo removed');
       }
+    },
+
+    _initCropCanvas(url) {
+      const canvas = this.$refs.cropCanvas;
+      if (!canvas) return;
+      const img = new Image();
+      img.onload = () => {
+        this._cropImg = img;
+        const maxW = canvas.parentElement.clientWidth || 320;
+        const maxH = 300;
+        const ar = img.naturalWidth / img.naturalHeight;
+        let cw, ch;
+        if (ar >= maxW / maxH) {
+          cw = maxW;
+          ch = Math.round(maxW / ar);
+        } else {
+          ch = maxH;
+          cw = Math.round(maxH * ar);
+        }
+        canvas.width = cw;
+        canvas.height = ch;
+        // Initial circle: centered, r = 40% of shorter dimension
+        const r = Math.round(Math.min(cw, ch) * 0.4);
+        this.photoCropCircle = { cx: cw / 2, cy: ch / 2, r };
+        this._cropDraw();
+      };
+      img.src = url;
+    },
+
+    _cropDraw() {
+      const canvas = this.$refs.cropCanvas;
+      if (!canvas || !this._cropImg || !this.photoCropCircle) return;
+      const ctx = canvas.getContext('2d');
+      const { cx, cy, r } = this.photoCropCircle;
+      const W = canvas.width, H = canvas.height;
+
+      // 1. Draw image scaled to fill canvas
+      ctx.drawImage(this._cropImg, 0, 0, W, H);
+
+      // 2. Dim overlay with circular cutout (even-odd fill rule)
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.52)';
+      ctx.beginPath();
+      ctx.rect(0, 0, W, H);          // outer rect (clockwise)
+      ctx.arc(cx, cy, r, 0, Math.PI * 2, true); // inner circle (counter-clockwise = hole)
+      ctx.fill('evenodd');
+      ctx.restore();
+
+      // 3. Circle border — dashed white ring
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // 4. Center drag handle (filled white dot)
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // 5. Edge resize handle (dot at right of circle)
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx + r, cy, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    },
+
+    _cropGetPoint(e) {
+      const canvas = this.$refs.cropCanvas;
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+        y: (e.clientY - rect.top) * (canvas.height / rect.height),
+      };
+    },
+
+    cropPointerDown(e) {
+      if (!this.photoCropCircle) return;
+      const pt = this._cropGetPoint(e);
+      const { cx, cy, r } = this.photoCropCircle;
+      const dx = pt.x - cx;
+      const dy = pt.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist <= 18) {
+        // Hit center handle — drag
+        this._cropInteraction = 'move';
+        this._cropDragOffset = { dx, dy };
+        e.currentTarget.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      } else if (Math.abs(dist - r) <= 18) {
+        // Hit circle edge — resize
+        this._cropInteraction = 'resize';
+        e.currentTarget.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      }
+    },
+
+    cropPointerMove(e) {
+      const canvas = this.$refs.cropCanvas;
+      if (!this.photoCropCircle || !canvas) return;
+      const pt = this._cropGetPoint(e);
+      const { cx, cy, r } = this.photoCropCircle;
+
+      if (this._cropInteraction === 'move') {
+        const newCx = Math.max(r, Math.min(canvas.width - r, pt.x - this._cropDragOffset.dx));
+        const newCy = Math.max(r, Math.min(canvas.height - r, pt.y - this._cropDragOffset.dy));
+        this.photoCropCircle = { ...this.photoCropCircle, cx: newCx, cy: newCy };
+        this._cropDraw();
+        e.preventDefault();
+      } else if (this._cropInteraction === 'resize') {
+        const dx = pt.x - cx;
+        const dy = pt.y - cy;
+        const maxR = Math.min(cx, cy, canvas.width - cx, canvas.height - cy);
+        const newR = Math.max(20, Math.min(maxR, Math.sqrt(dx * dx + dy * dy)));
+        this.photoCropCircle = { ...this.photoCropCircle, r: newR };
+        this._cropDraw();
+        e.preventDefault();
+      } else {
+        // Update cursor based on hover position
+        const dx = pt.x - cx, dy = pt.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= 18) {
+          canvas.style.cursor = 'move';
+        } else if (Math.abs(dist - r) <= 18) {
+          canvas.style.cursor = 'grab';
+        } else {
+          canvas.style.cursor = 'default';
+        }
+      }
+    },
+
+    cropPointerUp(e) {
+      if (this._cropInteraction === 'resize') {
+        const canvas = this.$refs.cropCanvas;
+        if (canvas) canvas.style.cursor = 'default';
+      }
+      this._cropInteraction = null;
+      this._cropDragOffset = null;
+    },
+
+    async _getCroppedBlob() {
+      if (!this._cropImg || !this.photoCropCircle || !this.$refs.cropCanvas) {
+        return this.photoFile;
+      }
+      const canvas = this.$refs.cropCanvas;
+      const { cx, cy, r } = this.photoCropCircle;
+
+      // Scale from canvas display coords to natural image coords
+      const scaleX = this._cropImg.naturalWidth / canvas.width;
+      const scaleY = this._cropImg.naturalHeight / canvas.height;
+      const ncx = cx * scaleX;
+      const ncy = cy * scaleY;
+      const nr = r * Math.min(scaleX, scaleY);
+
+      // Create square output canvas (diameter × diameter)
+      const size = Math.max(1, Math.round(nr * 2));
+      const off = document.createElement('canvas');
+      off.width = size;
+      off.height = size;
+      const ctx = off.getContext('2d');
+
+      // Clip to circle
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.clip();
+
+      // Draw the image region
+      ctx.drawImage(
+        this._cropImg,
+        ncx - nr, ncy - nr, nr * 2, nr * 2,   // source rect
+        0, 0, size, size                        // dest rect
+      );
+
+      return new Promise(resolve => {
+        off.toBlob(blob => resolve(blob || this.photoFile), 'image/jpeg', 0.92);
+      });
     },
 
     // ── Bag Management ───────────────────────────────────────

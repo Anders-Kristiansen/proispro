@@ -1,0 +1,10 @@
+feat: draggable circle crop overlay on photo preview
+
+Add canvas-based circle crop tool to disc photo upload:
+- Replace flat img preview with interactive canvas
+- Drag center dot to reposition circle over disc
+- Drag circle edge to resize
+- Crops to circle region (JPEG) before Supabase upload
+- AI Identify still uses original full photo
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
