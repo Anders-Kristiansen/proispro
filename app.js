@@ -75,7 +75,7 @@ function toDbDisc(disc) {
     glide: disc.glide !== '' && disc.glide != null ? Number(disc.glide) : null,
     turn:  disc.turn  !== '' && disc.turn  != null ? Number(disc.turn)  : null,
     fade:  disc.fade  !== '' && disc.fade  != null ? Number(disc.fade)  : null,
-    notes: disc.notes || null,
+    notes: disc.notes !== '' && disc.notes != null ? disc.notes : null,
     user_photo_url: disc.user_photo_url || null,
     added_at: disc.added ? new Date(disc.added).toISOString() : new Date().toISOString(),
   };
