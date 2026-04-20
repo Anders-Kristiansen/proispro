@@ -71,7 +71,7 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS collection_discs (
   collection_id UUID        NOT NULL REFERENCES collections ON DELETE CASCADE,
-  disc_id       UUID        NOT NULL REFERENCES discs       ON DELETE CASCADE,
+  disc_id       TEXT        NOT NULL REFERENCES discs       ON DELETE CASCADE,
   sort_order    INTEGER     DEFAULT 0,
   added_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (collection_id, disc_id)

@@ -18,7 +18,7 @@
 CREATE TABLE IF NOT EXISTS forsale_listings (
   id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id        UUID         NOT NULL REFERENCES auth.users ON DELETE CASCADE,
-  disc_id        UUID         NOT NULL REFERENCES discs      ON DELETE CASCADE,
+  disc_id        TEXT         NOT NULL REFERENCES discs      ON DELETE CASCADE,
   price          NUMERIC(8,2),
   currency       TEXT         DEFAULT 'SEK',
   contact_method TEXT,
