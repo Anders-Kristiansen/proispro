@@ -10,6 +10,18 @@
 
 <!-- Append learnings below -->
 
+### 2026-06-13 — Collections, Wishlist, For Sale (Phases 1–3)
+
+- Added 3 new tabs: 📚 Collections, ✨ Wishlist, 🏷 For Sale — all follow existing bag/courses tab patterns.
+- **Collections** use a `collections` array + `_collectionDiscs` non-reactive join cache (mirrors Supabase `collection_discs` join table). Getter `getDiscsForCollection(coll)` resolves disc objects from the cache.
+- **Wishlist** items carry a `priority` field (0=low, 1=med, 2=high) and `acquired` boolean. The UI splits the list into "wanted" and "acquired (strikethrough)" sections.
+- **For Sale** listings link to a disc via `disc_id`. `forsaleDiscPickerFiltered` computed getter excludes already-listed (non-sold) discs from the picker. Status machine: available → pending → sold (with relist path).
+- All CRUD methods follow: optimistic local state update → Supabase write (fire-and-forget style). 🟢 Good fit task — no review needed.
+- Pattern: computed getters (`get discCollectionPickerFiltered()`, `get forsaleDiscPickerFiltered()`) work as Alpine.js reactive computed properties using ES6 getter syntax — consistent with existing `filteredSorted`, `discPickerFiltered`, etc.
+- `closeModals()` extended with all 7 new modal flags — Escape key handler auto-closes all of them.
+- New CSS classes: `.collection-card`, `.wishlist-item`, `.wishlist-item.acquired`, `.priority-badge` (high/med/low variants), `.forsale-card`, `.forsale-card-right`, `.price-display`, `.status-badge` (available/pending/sold), `.forsale-actions` — all use existing OKLCH CSS vars.
+- Mobile responsive: forsale-card and wishlist-item stack to column below 600px.
+
 ### 2026-04-15 — Remove GitHub Sync Feature
 
 - Removed all GitHub integration code from `app.js`: constants (`GH_TOKEN_KEY`, `GH_OWNER_KEY`, `GH_REPO_KEY`, `GH_PATH_KEY`), state variables (`ghSha`, `lastSyncTime`, `syncAgoTimer`), the `settingsOverlay` DOM ref, and all functions (`toBase64`, `fromBase64`, `getGitHubConfig`, `githubLoad`, `githubSave`, `triggerGitHubSync`, `timeSince`, `setSyncStatus`, `openSettingsModal`, `closeSettingsModal`, `saveSettingsHandler`, `testConnectionHandler`).

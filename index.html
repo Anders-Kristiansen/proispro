@@ -46,6 +46,9 @@
           <button class="btn btn-primary" x-show="activeTab === 'inventory'" @click="openAddModal()">+ Add Disc</button>
           <button class="btn btn-primary" x-show="activeTab === 'bags'" @click="openCreateBagModal()">+ Create Bag</button>
           <button class="btn btn-primary" x-show="activeTab === 'courses'" @click="openPinModal()">📍 Pin a Course</button>
+          <button class="btn btn-primary" x-show="activeTab === 'collections'" @click="openCreateCollectionModal()">+ New Collection</button>
+          <button class="btn btn-primary" x-show="activeTab === 'wishlist'" @click="openAddWishlistModal()">+ Add to Wishlist</button>
+          <button class="btn btn-primary" x-show="activeTab === 'forsale'" @click="openListForSaleModal(null)">+ List for Sale</button>
         </div>
       </header>
 
@@ -54,6 +57,9 @@
         <button class="tab-btn" :class="{active: activeTab==='inventory'}" @click="activeTab='inventory'">🥏 Inventory</button>
         <button class="tab-btn" :class="{active: activeTab==='bags'}" @click="activeTab='bags'">👜 Bags</button>
         <button class="tab-btn" :class="{active: activeTab==='courses'}" @click="activeTab='courses'">🗺 Courses</button>
+        <button class="tab-btn" :class="{active: activeTab==='collections'}" @click="activeTab='collections'">📚 Collections</button>
+        <button class="tab-btn" :class="{active: activeTab==='wishlist'}" @click="activeTab='wishlist'">✨ Wishlist</button>
+        <button class="tab-btn" :class="{active: activeTab==='forsale'}" @click="activeTab='forsale'">🏷 For Sale</button>
       </nav>
 
       <!-- ── Inventory Tab ── -->
@@ -475,6 +481,176 @@
         </div>
       </div><!-- /courses tab -->
 
+      <!-- ── Collections Tab ── -->
+      <div x-show="activeTab === 'collections'">
+        <div class="bags-panel">
+          <div class="bags-header">
+            <span x-text="collections.length + ' collection' + (collections.length !== 1 ? 's' : '')"></span>
+          </div>
+
+          <div class="empty-state" x-show="collections.length === 0">
+            <div class="empty-icon">📚</div>
+            <h2>No collections yet</h2>
+            <p>Click <strong>+ New Collection</strong> to organize your discs into named groups!</p>
+          </div>
+
+          <template x-for="coll in collections" :key="coll.id">
+            <div class="collection-card">
+              <div class="bag-card-header" @click="activeCollectionId = (activeCollectionId === coll.id ? null : coll.id)">
+                <div class="bag-card-info">
+                  <span class="bag-name" x-text="coll.name"></span>
+                  <span class="bag-count" x-text="getDiscsForCollection(coll).length + ' disc' + (getDiscsForCollection(coll).length !== 1 ? 's' : '')"></span>
+                </div>
+                <div class="bag-card-actions">
+                  <button class="btn btn-secondary btn-sm" @click.stop="openEditCollectionModal(coll)" title="Edit">✏️</button>
+                  <button class="btn btn-danger btn-sm" @click.stop="openDeleteCollectionModal(coll)" title="Delete">🗑</button>
+                  <span class="bag-chevron" x-text="activeCollectionId === coll.id ? '▲' : '▼'"></span>
+                </div>
+              </div>
+
+              <div class="bag-detail" x-show="activeCollectionId === coll.id">
+                <p x-show="coll.description" x-text="coll.description" style="font-size:.85rem;color:var(--clr-muted);margin-bottom:.75rem;"></p>
+                <div class="bag-detail-actions">
+                  <button class="btn btn-secondary btn-sm" @click="openDiscCollectionPicker(coll.id)">+ Add / Remove Discs</button>
+                </div>
+
+                <div class="bag-discs-empty" x-show="getDiscsForCollection(coll).length === 0">
+                  No discs in this collection yet — add some!
+                </div>
+
+                <div class="bag-discs-list" x-show="getDiscsForCollection(coll).length > 0">
+                  <template x-for="disc in getDiscsForCollection(coll)" :key="disc.id">
+                    <div class="bag-disc-row">
+                      <span class="bag-disc-name" x-text="disc.name"></span>
+                      <span class="bag-disc-mfr" x-show="disc.manufacturer" x-text="disc.manufacturer"></span>
+                      <span class="type-badge" :class="'type-' + safeType(disc.type)" x-text="typeLabel(safeType(disc.type))"></span>
+                      <button class="btn btn-danger btn-sm" @click="toggleDiscInCollection(coll.id, disc.id)" title="Remove from collection">✕</button>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div><!-- /collections tab -->
+
+      <!-- ── Wishlist Tab ── -->
+      <div x-show="activeTab === 'wishlist'">
+        <div class="bags-panel">
+          <div class="bags-header">
+            <span x-text="wishlistItems.filter(i => !i.acquired).length + ' wanted · ' + wishlistItems.filter(i => i.acquired).length + ' acquired'"></span>
+          </div>
+
+          <div class="empty-state" x-show="wishlistItems.length === 0">
+            <div class="empty-icon">✨</div>
+            <h2>Wishlist is empty</h2>
+            <p>Click <strong>+ Add to Wishlist</strong> to track discs you want to buy!</p>
+          </div>
+
+          <!-- Wanted items -->
+          <template x-for="item in wishlistItems.filter(i => !i.acquired)" :key="item.id">
+            <div class="wishlist-item">
+              <div class="wishlist-item-info">
+                <div class="wishlist-disc-name" x-text="item.disc_name"></div>
+                <div class="wishlist-meta">
+                  <span x-show="item.manufacturer" x-text="item.manufacturer"></span>
+                  <span x-show="item.plastic_pref" x-text="'· ' + item.plastic_pref"></span>
+                  <span x-show="item.weight_min || item.weight_max"
+                        x-text="'· ' + (item.weight_min || '?') + '–' + (item.weight_max || '?') + 'g'"></span>
+                </div>
+                <div x-show="item.notes" x-text="item.notes" class="wishlist-notes"></div>
+              </div>
+              <div class="wishlist-item-actions">
+                <span class="priority-badge"
+                      :class="item.priority === 2 ? 'priority-high' : item.priority === 1 ? 'priority-med' : 'priority-low'"
+                      x-text="item.priority === 2 ? '🔴 High' : item.priority === 1 ? '🟡 Medium' : '🟢 Low'"></span>
+                <button class="btn btn-secondary btn-sm" @click="toggleWishlistAcquired(item)" title="Mark acquired">✓ Got it</button>
+                <button class="btn btn-secondary btn-sm" @click="openEditWishlistModal(item)" title="Edit">✏️</button>
+                <button class="btn btn-danger btn-sm" @click="openDeleteWishlistModal(item)" title="Remove">🗑</button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Acquired section -->
+          <template x-if="wishlistItems.filter(i => i.acquired).length > 0">
+            <div style="margin-top:1.5rem;">
+              <div style="font-size:.8rem;font-weight:700;color:var(--clr-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem;">✅ Acquired</div>
+              <template x-for="item in wishlistItems.filter(i => i.acquired)" :key="item.id">
+                <div class="wishlist-item acquired">
+                  <div class="wishlist-item-info">
+                    <div class="wishlist-disc-name" x-text="item.disc_name"></div>
+                    <div class="wishlist-meta">
+                      <span x-show="item.manufacturer" x-text="item.manufacturer"></span>
+                    </div>
+                  </div>
+                  <div class="wishlist-item-actions">
+                    <button class="btn btn-secondary btn-sm" @click="toggleWishlistAcquired(item)" title="Move back">↩ Undo</button>
+                    <button class="btn btn-danger btn-sm" @click="openDeleteWishlistModal(item)" title="Remove">🗑</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div><!-- /wishlist tab -->
+
+      <!-- ── For Sale Tab ── -->
+      <div x-show="activeTab === 'forsale'">
+        <div class="bags-panel">
+          <div class="bags-header">
+            <span x-text="forsaleListings.filter(l => l.status !== 'sold').length + ' active · ' + forsaleListings.filter(l => l.status === 'sold').length + ' sold'"></span>
+          </div>
+
+          <div class="empty-state" x-show="forsaleListings.length === 0">
+            <div class="empty-icon">🏷</div>
+            <h2>No listings yet</h2>
+            <p>Click <strong>+ List for Sale</strong> to sell a disc from your inventory!</p>
+          </div>
+
+          <template x-for="listing in forsaleListings" :key="listing.id">
+            <div class="forsale-card">
+              <div class="forsale-disc-info">
+                <div class="forsale-disc-name" x-text="getDiscForListing(listing)?.name || '(disc removed)'"></div>
+                <div class="forsale-disc-meta">
+                  <span x-show="getDiscForListing(listing)?.manufacturer" x-text="getDiscForListing(listing)?.manufacturer"></span>
+                  <span x-show="getDiscForListing(listing)?.plastic" x-text="'· ' + getDiscForListing(listing)?.plastic"></span>
+                  <span x-show="getDiscForListing(listing)?.condition" x-text="'· ' + condLabel(safeCond(getDiscForListing(listing)?.condition))"></span>
+                </div>
+                <div x-show="listing.notes" x-text="listing.notes" class="wishlist-notes"></div>
+                <div x-show="listing.contact_info" style="font-size:.78rem;color:var(--clr-muted);margin-top:.2rem;">
+                  <span x-text="(listing.contact_method || 'contact') + ': '"></span><span x-text="listing.contact_info" style="color:var(--clr-text);"></span>
+                </div>
+              </div>
+              <div class="forsale-card-right">
+                <div class="price-display" x-show="listing.price != null">
+                  <span x-text="listing.price"></span> <span class="price-currency" x-text="listing.currency || 'SEK'"></span>
+                </div>
+                <div x-show="listing.price == null" style="color:var(--clr-muted);font-size:.85rem;margin-bottom:.3rem;">Price on request</div>
+                <span class="status-badge"
+                      :class="listing.status === 'available' ? 'status-available' : listing.status === 'pending' ? 'status-pending' : 'status-sold'"
+                      x-text="listing.status === 'available' ? '🟢 Available' : listing.status === 'pending' ? '🟡 Pending' : '✅ Sold'"></span>
+                <div class="forsale-actions">
+                  <template x-if="listing.status === 'available'">
+                    <button class="btn btn-secondary btn-sm" @click="updateForSaleStatus(listing, 'pending')">Mark Pending</button>
+                  </template>
+                  <template x-if="listing.status === 'pending'">
+                    <div style="display:flex;gap:.3rem;flex-wrap:wrap;">
+                      <button class="btn btn-secondary btn-sm" @click="updateForSaleStatus(listing, 'available')">↩ Back</button>
+                      <button class="btn btn-primary btn-sm" @click="updateForSaleStatus(listing, 'sold')">✅ Sold</button>
+                    </div>
+                  </template>
+                  <template x-if="listing.status === 'sold'">
+                    <button class="btn btn-secondary btn-sm" @click="updateForSaleStatus(listing, 'available')">Relist</button>
+                  </template>
+                  <button class="btn btn-secondary btn-sm" @click="openEditForSaleModal(listing)" title="Edit">✏️</button>
+                  <button class="btn btn-danger btn-sm" @click="openDeleteForSaleModal(listing)" title="Remove">🗑</button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div><!-- /forsale tab -->
+
       <!-- ── Add / Edit Modal ── -->
       <div class="modal-overlay"
            x-show="showAddModal"
@@ -890,6 +1066,279 @@
               <button type="submit" class="btn btn-primary">Save Pin</button>
             </div>
           </form>
+        </div>
+      </div>
+
+      <!-- ── Collection Create / Edit Modal ── -->
+      <div class="modal-overlay"
+           x-show="showCollectionModal"
+           x-transition.opacity
+           @click.self="showCollectionModal = false"
+           role="dialog" aria-modal="true" aria-labelledby="collectionModalTitle">
+        <div class="modal modal-sm">
+          <div class="modal-header">
+            <h2 class="modal-title" id="collectionModalTitle" x-text="collectionForm.id ? 'Edit Collection' : 'New Collection'"></h2>
+            <button class="modal-close" @click="showCollectionModal = false" aria-label="Close">✕</button>
+          </div>
+          <form @submit.prevent="saveCollection()" novalidate>
+            <div class="form-group" style="margin-bottom:.8rem;">
+              <label for="collectionNameInput">Collection Name *</label>
+              <input type="text" id="collectionNameInput" placeholder="e.g. Tournament Discs"
+                     x-model="collectionForm.name" required />
+            </div>
+            <div class="form-group" style="margin-bottom:.8rem;">
+              <label for="collectionDesc">Description</label>
+              <textarea id="collectionDesc" rows="2" placeholder="Optional description…"
+                        x-model="collectionForm.description"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" @click="showCollectionModal = false">Cancel</button>
+              <button type="submit" class="btn btn-primary" x-text="collectionForm.id ? 'Update' : 'Create'"></button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Delete Collection Confirm Modal ── -->
+      <div class="modal-overlay"
+           x-show="showDeleteCollectionModal"
+           x-transition.opacity
+           @click.self="showDeleteCollectionModal = false"
+           role="dialog" aria-modal="true" aria-labelledby="deleteCollectionTitle">
+        <div class="modal modal-sm">
+          <div class="modal-header">
+            <h2 class="modal-title" id="deleteCollectionTitle">Delete Collection</h2>
+            <button class="modal-close" @click="showDeleteCollectionModal = false" aria-label="Close">✕</button>
+          </div>
+          <p x-text="pendingDeleteCollection ? 'Delete &quot;' + pendingDeleteCollection.name + '&quot;? Discs stay in your inventory.' : ''"></p>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @click="showDeleteCollectionModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @click="confirmDeleteCollection()">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Disc Collection Picker Modal ── -->
+      <div class="modal-overlay"
+           x-show="showDiscCollectionPickerModal"
+           x-transition.opacity
+           @click.self="showDiscCollectionPickerModal = false"
+           role="dialog" aria-modal="true" aria-labelledby="discCollectionPickerTitle">
+        <div class="modal modal-lg">
+          <div class="modal-header">
+            <h2 class="modal-title" id="discCollectionPickerTitle">Add / Remove Discs</h2>
+            <button class="modal-close" @click="showDiscCollectionPickerModal = false" aria-label="Close">✕</button>
+          </div>
+          <div class="form-group">
+            <input type="search" placeholder="Search inventory…"
+                   aria-label="Search discs"
+                   x-model="discCollectionPickerSearch" />
+          </div>
+          <div class="disc-picker-list" role="list">
+            <template x-for="disc in discCollectionPickerFiltered" :key="disc.id">
+              <label class="disc-picker-item" :class="{ selected: isDiscInCollection(discCollectionPickerCollectionId, disc.id) }" role="listitem">
+                <input type="checkbox"
+                       :checked="isDiscInCollection(discCollectionPickerCollectionId, disc.id)"
+                       @change="toggleDiscInCollection(discCollectionPickerCollectionId, disc.id)" />
+                <span class="disc-picker-name" x-text="disc.name"></span>
+                <span class="disc-picker-mfr" x-show="disc.manufacturer" x-text="disc.manufacturer"></span>
+                <span class="type-badge" :class="'type-' + safeType(disc.type)" x-text="typeLabel(safeType(disc.type))"></span>
+              </label>
+            </template>
+            <div class="bag-discs-empty" x-show="discCollectionPickerFiltered.length === 0">No discs found</div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-primary" @click="showDiscCollectionPickerModal = false">Done</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Wishlist Item Create / Edit Modal ── -->
+      <div class="modal-overlay"
+           x-show="showWishlistModal"
+           x-transition.opacity
+           @click.self="showWishlistModal = false"
+           role="dialog" aria-modal="true" aria-labelledby="wishlistModalTitle">
+        <div class="modal">
+          <div class="modal-header">
+            <h2 class="modal-title" id="wishlistModalTitle" x-text="wishlistForm.id ? 'Edit Wishlist Item' : 'Add to Wishlist'"></h2>
+            <button class="modal-close" @click="showWishlistModal = false" aria-label="Close">✕</button>
+          </div>
+          <form @submit.prevent="saveWishlistItem()" novalidate>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="wishlistDiscName">Disc Name *</label>
+                <input type="text" id="wishlistDiscName" placeholder="e.g. Destroyer"
+                       x-model="wishlistForm.disc_name" required />
+              </div>
+              <div class="form-group">
+                <label for="wishlistMfr">Manufacturer</label>
+                <input type="text" id="wishlistMfr" placeholder="e.g. Innova"
+                       x-model="wishlistForm.manufacturer" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="wishlistPlastic">Plastic Preference</label>
+                <input type="text" id="wishlistPlastic" placeholder="e.g. Star, Champion…"
+                       x-model="wishlistForm.plastic_pref" />
+              </div>
+              <div class="form-group">
+                <label>Priority</label>
+                <select x-model="wishlistForm.priority">
+                  <option value="0">🟢 Low</option>
+                  <option value="1">🟡 Medium</option>
+                  <option value="2">🔴 High</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="wishlistWeightMin">Weight Min (g)</label>
+                <input type="number" id="wishlistWeightMin" placeholder="165"
+                       x-model="wishlistForm.weight_min" />
+              </div>
+              <div class="form-group">
+                <label for="wishlistWeightMax">Weight Max (g)</label>
+                <input type="number" id="wishlistWeightMax" placeholder="175"
+                       x-model="wishlistForm.weight_max" />
+              </div>
+            </div>
+            <div class="form-group full-width" style="margin-bottom:.8rem;">
+              <label for="wishlistNotes">Notes</label>
+              <textarea id="wishlistNotes" rows="2" placeholder="Any notes…"
+                        x-model="wishlistForm.notes"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" @click="showWishlistModal = false">Cancel</button>
+              <button type="submit" class="btn btn-primary" x-text="wishlistForm.id ? 'Update' : 'Add to Wishlist'"></button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Delete Wishlist Item Confirm Modal ── -->
+      <div class="modal-overlay"
+           x-show="showDeleteWishlistModal"
+           x-transition.opacity
+           @click.self="showDeleteWishlistModal = false"
+           role="dialog" aria-modal="true" aria-labelledby="deleteWishlistTitle">
+        <div class="modal modal-sm">
+          <div class="modal-header">
+            <h2 class="modal-title" id="deleteWishlistTitle">Remove from Wishlist</h2>
+            <button class="modal-close" @click="showDeleteWishlistModal = false" aria-label="Close">✕</button>
+          </div>
+          <p x-text="pendingDeleteWishlistItem ? 'Remove &quot;' + pendingDeleteWishlistItem.disc_name + '&quot; from your wishlist?' : ''"></p>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @click="showDeleteWishlistModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @click="confirmDeleteWishlistItem()">Remove</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── For Sale Listing Create / Edit Modal ── -->
+      <div class="modal-overlay"
+           x-show="showForSaleModal"
+           x-transition.opacity
+           @click.self="showForSaleModal = false"
+           role="dialog" aria-modal="true" aria-labelledby="forsaleModalTitle">
+        <div class="modal">
+          <div class="modal-header">
+            <h2 class="modal-title" id="forsaleModalTitle" x-text="forsaleForm.id ? 'Edit Listing' : 'List for Sale'"></h2>
+            <button class="modal-close" @click="showForSaleModal = false" aria-label="Close">✕</button>
+          </div>
+          <form @submit.prevent="saveForSaleListing()" novalidate>
+            <!-- Disc selector (new listings) -->
+            <div class="form-group" style="margin-bottom:.8rem;" x-show="!forsaleForm.id">
+              <label>Disc *</label>
+              <input type="search" placeholder="Search your inventory…"
+                     x-model="forsaleDiscSearch"
+                     x-show="!forsaleForm.disc_id || forsaleDiscSearch" />
+              <div x-show="forsaleForm.disc_id && !forsaleDiscSearch" style="display:flex;align-items:center;gap:.6rem;margin-top:.3rem;">
+                <span style="font-weight:600;" x-text="discs.find(d => d.id === forsaleForm.disc_id)?.name || 'Selected disc'"></span>
+                <button type="button" class="btn btn-secondary btn-sm" @click="forsaleForm.disc_id = ''; forsaleDiscSearch = ''">Change</button>
+              </div>
+              <div class="disc-picker-list" x-show="!forsaleForm.disc_id || forsaleDiscSearch" style="max-height:200px;margin-top:.4rem;">
+                <template x-for="disc in forsaleDiscPickerFiltered" :key="disc.id">
+                  <div class="disc-picker-item" @click="forsaleForm.disc_id = disc.id; forsaleDiscSearch = ''" style="cursor:pointer;">
+                    <span class="disc-picker-name" x-text="disc.name"></span>
+                    <span class="disc-picker-mfr" x-show="disc.manufacturer" x-text="disc.manufacturer"></span>
+                    <span class="type-badge" :class="'type-' + safeType(disc.type)" x-text="typeLabel(safeType(disc.type))"></span>
+                  </div>
+                </template>
+                <div class="bag-discs-empty" x-show="forsaleDiscPickerFiltered.length === 0">No available discs</div>
+              </div>
+            </div>
+            <!-- Edit mode: show disc name as read-only -->
+            <div x-show="forsaleForm.id" class="form-group" style="margin-bottom:.8rem;">
+              <label>Disc</label>
+              <div style="font-weight:600;padding:.5rem .75rem;background:var(--clr-surface2);border-radius:var(--radius);font-size:.92rem;"
+                   x-text="discs.find(d => d.id === forsaleForm.disc_id)?.name || '(disc removed)'"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="forsalePrice">Price</label>
+                <input type="number" id="forsalePrice" placeholder="0" min="0" step="0.01"
+                       x-model="forsaleForm.price" />
+              </div>
+              <div class="form-group">
+                <label for="forsaleCurrency">Currency</label>
+                <select id="forsaleCurrency" x-model="forsaleForm.currency">
+                  <option value="SEK">SEK</option>
+                  <option value="NOK">NOK</option>
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                  <option value="GBP">GBP</option>
+                  <option value="DKK">DKK</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="forsaleContactMethod">Contact via</label>
+                <select id="forsaleContactMethod" x-model="forsaleForm.contact_method">
+                  <option value="email">Email</option>
+                  <option value="phone">Phone</option>
+                  <option value="discord">Discord</option>
+                  <option value="facebook">Facebook</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="forsaleContactInfo">Contact Info</label>
+                <input type="text" id="forsaleContactInfo" placeholder="your@email.com"
+                       x-model="forsaleForm.contact_info" />
+              </div>
+            </div>
+            <div class="form-group full-width" style="margin-bottom:.8rem;">
+              <label for="forsaleNotes">Notes</label>
+              <textarea id="forsaleNotes" rows="2" placeholder="Condition details, trades considered…"
+                        x-model="forsaleForm.notes"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" @click="showForSaleModal = false">Cancel</button>
+              <button type="submit" class="btn btn-primary" x-text="forsaleForm.id ? 'Update Listing' : 'List for Sale'"></button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ── Delete For Sale Confirm Modal ── -->
+      <div class="modal-overlay"
+           x-show="showDeleteForSaleModal"
+           x-transition.opacity
+           @click.self="showDeleteForSaleModal = false"
+           role="dialog" aria-modal="true" aria-labelledby="deleteForSaleTitle">
+        <div class="modal modal-sm">
+          <div class="modal-header">
+            <h2 class="modal-title" id="deleteForSaleTitle">Remove Listing</h2>
+            <button class="modal-close" @click="showDeleteForSaleModal = false" aria-label="Close">✕</button>
+          </div>
+          <p x-text="pendingDeleteForSale ? 'Remove listing for &quot;' + (getDiscForListing(pendingDeleteForSale)?.name || 'this disc') + '&quot;?' : ''"></p>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @click="showDeleteForSaleModal = false">Cancel</button>
+            <button type="button" class="btn btn-danger" @click="confirmDeleteForSale()">Remove</button>
+          </div>
         </div>
       </div>
 

@@ -225,6 +225,33 @@ function discApp() {
     aiIdentifying: false,
     aiIdentifyMsg: '',
 
+    // Collections state
+    _collectionDiscs: [],
+    collections: [],
+    activeCollectionId: null,
+    showCollectionModal: false,
+    showDeleteCollectionModal: false,
+    pendingDeleteCollection: null,
+    collectionForm: { id: '', name: '', description: '' },
+    showDiscCollectionPickerModal: false,
+    discCollectionPickerCollectionId: null,
+    discCollectionPickerSearch: '',
+
+    // Wishlist state
+    wishlistItems: [],
+    showWishlistModal: false,
+    showDeleteWishlistModal: false,
+    pendingDeleteWishlistItem: null,
+    wishlistForm: { id: '', disc_name: '', manufacturer: '', plastic_pref: '', weight_min: '', weight_max: '', priority: 0, notes: '' },
+
+    // For Sale state
+    forsaleListings: [],
+    showForSaleModal: false,
+    showDeleteForSaleModal: false,
+    pendingDeleteForSale: null,
+    forsaleForm: { id: '', disc_id: '', price: '', currency: 'SEK', contact_method: 'email', contact_info: '', notes: '' },
+    forsaleDiscSearch: '',
+
     // Computed
     get filteredSorted() {
       const q = this.search.toLowerCase().trim();
@@ -398,6 +425,26 @@ function discApp() {
       return [...tagSet].sort();
     },
 
+    get discCollectionPickerFiltered() {
+      const q = this.discCollectionPickerSearch.toLowerCase().trim();
+      if (!q) return this.discs;
+      return this.discs.filter(d =>
+        (d.name || '').toLowerCase().includes(q) ||
+        (d.manufacturer || '').toLowerCase().includes(q)
+      );
+    },
+
+    get forsaleDiscPickerFiltered() {
+      const q = this.forsaleDiscSearch.toLowerCase().trim();
+      const listedIds = new Set(this.forsaleListings.filter(l => l.status !== 'sold').map(l => l.disc_id));
+      const available = this.discs.filter(d => !listedIds.has(d.id));
+      if (!q) return available;
+      return available.filter(d =>
+        (d.name || '').toLowerCase().includes(q) ||
+        (d.manufacturer || '').toLowerCase().includes(q)
+      );
+    },
+
     // Tag helpers
     tagColor(tag) {
       const hash = tag.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -440,10 +487,16 @@ function discApp() {
             await this.loadDiscs();
             await this.loadBags();
             await this.loadCoursePins();
+            await this.loadCollections();
+            await this.loadWishlist();
+            await this.loadForSaleListings();
           } else {
             this.discs = [];
             this.bags = [];
             this.coursePins = [];
+            this.collections = [];
+            this.wishlistItems = [];
+            this.forsaleListings = [];
             this.loading = false;
           }
         });
@@ -498,6 +551,9 @@ function discApp() {
           await this.loadDiscs();
           await this.loadBags();
           await this.loadCoursePins();
+          await this.loadCollections();
+          await this.loadWishlist();
+          await this.loadForSaleListings();
         }
       } catch {
         this.loadFromLocalStorage();
@@ -705,6 +761,13 @@ function discApp() {
       this.showDeleteBagModal = false;
       this.showDiscPickerModal = false;
       this.showPinModal = false;
+      this.showCollectionModal = false;
+      this.showDeleteCollectionModal = false;
+      this.showDiscCollectionPickerModal = false;
+      this.showWishlistModal = false;
+      this.showDeleteWishlistModal = false;
+      this.showForSaleModal = false;
+      this.showDeleteForSaleModal = false;
       this.formInvalid = { name: false, type: false };
       if (this.photoPreview) URL.revokeObjectURL(this.photoPreview);
       this.photoPreview = null;
@@ -1456,6 +1519,332 @@ function discApp() {
       } finally {
         this.pdgaLoading = false;
       }
+    },
+
+    // ── Collections ──────────────────────────────────────────────
+    async loadCollections() {
+      const sb = getSupabase();
+      if (sb && this.user?.id !== 'local') {
+        try {
+          const { data, error } = await sb.from('collections').select('*').order('created_at');
+          if (error) throw error;
+          this.collections = (data || []);
+          const { data: cds } = await sb.from('collection_discs').select('*');
+          this._collectionDiscs = cds || [];
+          return;
+        } catch { /* fall through */ }
+      }
+      this.collections = [];
+      this._collectionDiscs = [];
+    },
+
+    isDiscInCollection(collectionId, discId) {
+      return (this._collectionDiscs || []).some(cd => cd.collection_id === collectionId && cd.disc_id === discId);
+    },
+
+    getDiscsForCollection(collection) {
+      const cds = (this._collectionDiscs || []).filter(cd => cd.collection_id === collection.id);
+      return cds.map(cd => this.discs.find(d => d.id === cd.disc_id)).filter(Boolean);
+    },
+
+    openCreateCollectionModal() {
+      this.collectionForm = { id: '', name: '', description: '' };
+      this.showCollectionModal = true;
+      this.$nextTick(() => { const el = document.getElementById('collectionNameInput'); if (el) el.focus(); });
+    },
+
+    openEditCollectionModal(collection) {
+      this.collectionForm = { id: collection.id, name: collection.name, description: collection.description || '' };
+      this.showCollectionModal = true;
+      this.$nextTick(() => { const el = document.getElementById('collectionNameInput'); if (el) el.focus(); });
+    },
+
+    async saveCollection() {
+      const name = this.collectionForm.name.trim();
+      if (!name) return;
+      const sb = getSupabase();
+      const now = new Date().toISOString();
+      if (this.collectionForm.id) {
+        const idx = this.collections.findIndex(c => c.id === this.collectionForm.id);
+        if (idx !== -1) {
+          this.collections[idx] = { ...this.collections[idx], name, description: this.collectionForm.description, updated_at: now };
+          try {
+            if (sb && this.user?.id !== 'local') {
+              await sb.from('collections').update({ name, description: this.collectionForm.description, updated_at: now }).eq('id', this.collectionForm.id);
+            }
+          } catch { /* ignore */ }
+        }
+        showToast('✏️ Collection updated!');
+      } else {
+        const newColl = { id: uid(), user_id: this.user.id, name, description: this.collectionForm.description, created_at: now, updated_at: now };
+        try {
+          if (sb && this.user?.id !== 'local') {
+            const { data, error } = await sb.from('collections').insert([{ name, description: this.collectionForm.description, user_id: this.user.id }]).select().single();
+            if (!error && data) newColl.id = data.id;
+          }
+        } catch { /* use local id */ }
+        this.collections.push(newColl);
+        showToast('✅ Collection created!');
+      }
+      this.showCollectionModal = false;
+    },
+
+    openDeleteCollectionModal(collection) {
+      this.pendingDeleteCollection = collection;
+      this.showDeleteCollectionModal = true;
+    },
+
+    async confirmDeleteCollection() {
+      if (!this.pendingDeleteCollection) return;
+      const id = this.pendingDeleteCollection.id;
+      this.showDeleteCollectionModal = false;
+      this.pendingDeleteCollection = null;
+      const sb = getSupabase();
+      try {
+        if (sb && this.user?.id !== 'local') {
+          await sb.from('collections').delete().eq('id', id);
+        }
+      } catch { /* ignore */ }
+      this.collections = this.collections.filter(c => c.id !== id);
+      this._collectionDiscs = (this._collectionDiscs || []).filter(cd => cd.collection_id !== id);
+      if (this.activeCollectionId === id) this.activeCollectionId = null;
+      showToast('🗑 Collection deleted');
+    },
+
+    openDiscCollectionPicker(collectionId) {
+      this.discCollectionPickerCollectionId = collectionId;
+      this.discCollectionPickerSearch = '';
+      this.showDiscCollectionPickerModal = true;
+    },
+
+    async toggleDiscInCollection(collectionId, discId) {
+      const sb = getSupabase();
+      const already = this.isDiscInCollection(collectionId, discId);
+      if (already) {
+        this._collectionDiscs = (this._collectionDiscs || []).filter(cd => !(cd.collection_id === collectionId && cd.disc_id === discId));
+        try {
+          if (sb && this.user?.id !== 'local') {
+            await sb.from('collection_discs').delete().eq('collection_id', collectionId).eq('disc_id', discId);
+          }
+        } catch { /* ignore */ }
+      } else {
+        const entry = { collection_id: collectionId, disc_id: discId, sort_order: 0, added_at: new Date().toISOString() };
+        if (!this._collectionDiscs) this._collectionDiscs = [];
+        this._collectionDiscs.push(entry);
+        try {
+          if (sb && this.user?.id !== 'local') {
+            await sb.from('collection_discs').insert([{ collection_id: collectionId, disc_id: discId }]);
+          }
+        } catch { /* ignore */ }
+      }
+    },
+
+    // ── Wishlist ──────────────────────────────────────────────────
+    async loadWishlist() {
+      const sb = getSupabase();
+      if (sb && this.user?.id !== 'local') {
+        try {
+          const { data, error } = await sb.from('wishlist_items').select('*').order('created_at', { ascending: false });
+          if (error) throw error;
+          this.wishlistItems = data || [];
+          return;
+        } catch { /* fall through */ }
+      }
+      this.wishlistItems = [];
+    },
+
+    openAddWishlistModal() {
+      this.wishlistForm = { id: '', disc_name: '', manufacturer: '', plastic_pref: '', weight_min: '', weight_max: '', priority: 0, notes: '' };
+      this.showWishlistModal = true;
+      this.$nextTick(() => { const el = document.getElementById('wishlistDiscName'); if (el) el.focus(); });
+    },
+
+    openEditWishlistModal(item) {
+      this.wishlistForm = {
+        id: item.id, disc_name: item.disc_name, manufacturer: item.manufacturer || '',
+        plastic_pref: item.plastic_pref || '', weight_min: item.weight_min || '',
+        weight_max: item.weight_max || '', priority: item.priority || 0, notes: item.notes || ''
+      };
+      this.showWishlistModal = true;
+    },
+
+    async saveWishlistItem() {
+      const disc_name = this.wishlistForm.disc_name.trim();
+      if (!disc_name) return;
+      const sb = getSupabase();
+      const payload = {
+        disc_name,
+        manufacturer: this.wishlistForm.manufacturer.trim() || null,
+        plastic_pref: this.wishlistForm.plastic_pref.trim() || null,
+        weight_min: this.wishlistForm.weight_min ? Number(this.wishlistForm.weight_min) : null,
+        weight_max: this.wishlistForm.weight_max ? Number(this.wishlistForm.weight_max) : null,
+        priority: Number(this.wishlistForm.priority) || 0,
+        notes: this.wishlistForm.notes.trim() || null,
+      };
+      if (this.wishlistForm.id) {
+        const idx = this.wishlistItems.findIndex(i => i.id === this.wishlistForm.id);
+        if (idx !== -1) this.wishlistItems[idx] = { ...this.wishlistItems[idx], ...payload, updated_at: new Date().toISOString() };
+        try {
+          if (sb && this.user?.id !== 'local') {
+            await sb.from('wishlist_items').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', this.wishlistForm.id);
+          }
+        } catch { /* ignore */ }
+        showToast('✏️ Wishlist updated!');
+      } else {
+        const newItem = { id: uid(), user_id: this.user.id, ...payload, acquired: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+        try {
+          if (sb && this.user?.id !== 'local') {
+            const { data, error } = await sb.from('wishlist_items').insert([{ ...payload, user_id: this.user.id }]).select().single();
+            if (!error && data) { Object.assign(newItem, data); }
+          }
+        } catch { /* use local */ }
+        this.wishlistItems.unshift(newItem);
+        showToast('✅ Added to wishlist!');
+      }
+      this.showWishlistModal = false;
+    },
+
+    async toggleWishlistAcquired(item) {
+      const sb = getSupabase();
+      const acquired = !item.acquired;
+      const idx = this.wishlistItems.findIndex(i => i.id === item.id);
+      if (idx !== -1) this.wishlistItems[idx] = { ...this.wishlistItems[idx], acquired };
+      try {
+        if (sb && this.user?.id !== 'local') {
+          await sb.from('wishlist_items').update({ acquired, updated_at: new Date().toISOString() }).eq('id', item.id);
+        }
+      } catch { /* ignore */ }
+      showToast(acquired ? '✅ Marked as acquired!' : '⬅ Moved back to wishlist');
+    },
+
+    openDeleteWishlistModal(item) {
+      this.pendingDeleteWishlistItem = item;
+      this.showDeleteWishlistModal = true;
+    },
+
+    async confirmDeleteWishlistItem() {
+      if (!this.pendingDeleteWishlistItem) return;
+      const id = this.pendingDeleteWishlistItem.id;
+      this.showDeleteWishlistModal = false;
+      this.pendingDeleteWishlistItem = null;
+      const sb = getSupabase();
+      try {
+        if (sb && this.user?.id !== 'local') {
+          await sb.from('wishlist_items').delete().eq('id', id);
+        }
+      } catch { /* ignore */ }
+      this.wishlistItems = this.wishlistItems.filter(i => i.id !== id);
+      showToast('🗑 Removed from wishlist');
+    },
+
+    // ── For Sale ──────────────────────────────────────────────────
+    async loadForSaleListings() {
+      const sb = getSupabase();
+      if (sb && this.user?.id !== 'local') {
+        try {
+          const { data, error } = await sb.from('forsale_listings').select('*').order('listed_at', { ascending: false });
+          if (error) throw error;
+          this.forsaleListings = data || [];
+          return;
+        } catch { /* fall through */ }
+      }
+      this.forsaleListings = [];
+    },
+
+    openListForSaleModal(disc) {
+      this.forsaleForm = {
+        id: '', disc_id: disc ? disc.id : '',
+        price: '', currency: 'SEK',
+        contact_method: 'email', contact_info: '',
+        notes: ''
+      };
+      this.forsaleDiscSearch = '';
+      this.showForSaleModal = true;
+    },
+
+    openEditForSaleModal(listing) {
+      this.forsaleForm = {
+        id: listing.id, disc_id: listing.disc_id,
+        price: listing.price != null ? String(listing.price) : '',
+        currency: listing.currency || 'SEK',
+        contact_method: listing.contact_method || 'email',
+        contact_info: listing.contact_info || '',
+        notes: listing.notes || ''
+      };
+      this.showForSaleModal = true;
+    },
+
+    async saveForSaleListing() {
+      if (!this.forsaleForm.disc_id) { showToast('❌ Select a disc to sell'); return; }
+      const sb = getSupabase();
+      const payload = {
+        disc_id: this.forsaleForm.disc_id,
+        price: this.forsaleForm.price !== '' ? Number(this.forsaleForm.price) : null,
+        currency: this.forsaleForm.currency || 'SEK',
+        contact_method: this.forsaleForm.contact_method || null,
+        contact_info: this.forsaleForm.contact_info.trim() || null,
+        notes: this.forsaleForm.notes.trim() || null,
+        status: 'available',
+      };
+      if (this.forsaleForm.id) {
+        const idx = this.forsaleListings.findIndex(l => l.id === this.forsaleForm.id);
+        const upd = { price: payload.price, currency: payload.currency, contact_method: payload.contact_method, contact_info: payload.contact_info, notes: payload.notes };
+        if (idx !== -1) this.forsaleListings[idx] = { ...this.forsaleListings[idx], ...upd };
+        try {
+          if (sb && this.user?.id !== 'local') {
+            await sb.from('forsale_listings').update(upd).eq('id', this.forsaleForm.id);
+          }
+        } catch { /* ignore */ }
+        showToast('✏️ Listing updated!');
+      } else {
+        const newListing = { id: uid(), user_id: this.user.id, ...payload, listed_at: new Date().toISOString(), sold_at: null };
+        try {
+          if (sb && this.user?.id !== 'local') {
+            const { data, error } = await sb.from('forsale_listings').insert([{ ...payload, user_id: this.user.id }]).select().single();
+            if (!error && data) Object.assign(newListing, data);
+          }
+        } catch { /* use local */ }
+        this.forsaleListings.unshift(newListing);
+        showToast('🏷 Listed for sale!');
+      }
+      this.showForSaleModal = false;
+    },
+
+    async updateForSaleStatus(listing, newStatus) {
+      const sb = getSupabase();
+      const idx = this.forsaleListings.findIndex(l => l.id === listing.id);
+      const upd = { status: newStatus, sold_at: newStatus === 'sold' ? new Date().toISOString() : null };
+      if (idx !== -1) this.forsaleListings[idx] = { ...this.forsaleListings[idx], ...upd };
+      try {
+        if (sb && this.user?.id !== 'local') {
+          await sb.from('forsale_listings').update(upd).eq('id', listing.id);
+        }
+      } catch { /* ignore */ }
+      showToast(newStatus === 'sold' ? '✅ Marked as sold!' : '↩ Status updated');
+    },
+
+    openDeleteForSaleModal(listing) {
+      this.pendingDeleteForSale = listing;
+      this.showDeleteForSaleModal = true;
+    },
+
+    async confirmDeleteForSale() {
+      if (!this.pendingDeleteForSale) return;
+      const id = this.pendingDeleteForSale.id;
+      this.showDeleteForSaleModal = false;
+      this.pendingDeleteForSale = null;
+      const sb = getSupabase();
+      try {
+        if (sb && this.user?.id !== 'local') {
+          await sb.from('forsale_listings').delete().eq('id', id);
+        }
+      } catch { /* ignore */ }
+      this.forsaleListings = this.forsaleListings.filter(l => l.id !== id);
+      showToast('🗑 Listing removed');
+    },
+
+    getDiscForListing(listing) {
+      return this.discs.find(d => d.id === listing.disc_id) || null;
     },
 
     selectCourse(course) {

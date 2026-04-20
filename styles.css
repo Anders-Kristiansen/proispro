@@ -1242,3 +1242,145 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   .compact-row { flex-wrap: wrap; }
   .compact-name-brand { flex-basis: 100%; }
 }
+
+/* ── Collections ───────────────────────────────────────────── */
+.collection-card {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  margin-bottom: .75rem;
+  overflow: hidden;
+  transition: border-color .15s;
+}
+.collection-card:hover { border-color: var(--clr-accent2); }
+
+/* ── Wishlist ───────────────────────────────────────────────── */
+.wishlist-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .85rem 1rem;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  margin-bottom: .6rem;
+  transition: border-color .15s;
+}
+.wishlist-item:hover { border-color: var(--clr-accent2); }
+.wishlist-item.acquired {
+  opacity: .55;
+}
+.wishlist-item.acquired .wishlist-disc-name {
+  text-decoration: line-through;
+  color: var(--clr-muted);
+}
+
+.wishlist-item-info { flex: 1; min-width: 0; }
+.wishlist-disc-name { font-weight: 600; font-size: 1rem; color: var(--clr-text); margin-bottom: .2rem; }
+.wishlist-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem .5rem;
+  font-size: .82rem;
+  color: var(--clr-muted);
+}
+.wishlist-notes {
+  font-size: .8rem;
+  color: var(--clr-muted);
+  font-style: italic;
+  margin-top: .3rem;
+}
+
+.wishlist-item-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .4rem;
+  flex-shrink: 0;
+}
+
+.priority-badge {
+  display: inline-block;
+  font-size: .72rem;
+  font-weight: 700;
+  padding: .18rem .5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.priority-high { background: rgba(239,68,68,.15); color: var(--clr-danger); border: 1px solid rgba(239,68,68,.3); }
+.priority-med  { background: rgba(251,191,36,.15); color: oklch(0.82 0.18 80); border: 1px solid rgba(251,191,36,.3); }
+.priority-low  { background: rgba(34,197,94,.12);  color: oklch(0.75 0.18 155); border: 1px solid rgba(34,197,94,.25); }
+
+/* ── For Sale ───────────────────────────────────────────────── */
+.forsale-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .85rem 1rem;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  margin-bottom: .75rem;
+  transition: border-color .15s;
+}
+.forsale-card:hover { border-color: var(--clr-accent2); }
+
+.forsale-disc-info { flex: 1; min-width: 0; }
+.forsale-disc-name { font-weight: 600; font-size: 1rem; color: var(--clr-text); margin-bottom: .2rem; }
+.forsale-disc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .25rem .5rem;
+  font-size: .82rem;
+  color: var(--clr-muted);
+}
+
+.forsale-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .45rem;
+  flex-shrink: 0;
+}
+
+.price-display {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--clr-accent);
+  line-height: 1;
+  white-space: nowrap;
+}
+.price-currency {
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--clr-muted);
+  margin-left: .15rem;
+}
+
+.status-badge {
+  display: inline-block;
+  font-size: .75rem;
+  font-weight: 700;
+  padding: .2rem .6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.status-available { background: rgba(34,197,94,.12);  color: oklch(0.75 0.18 155); border: 1px solid rgba(34,197,94,.25); }
+.status-pending   { background: rgba(251,191,36,.15); color: oklch(0.82 0.18 80); border: 1px solid rgba(251,191,36,.3); }
+.status-sold      { background: var(--clr-surface2);  color: var(--clr-muted);    border: 1px solid var(--clr-border); }
+
+.forsale-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  justify-content: flex-end;
+}
+
+@media (max-width: 600px) {
+  .forsale-card { flex-direction: column; }
+  .forsale-card-right { align-items: flex-start; }
+  .wishlist-item { flex-direction: column; }
+  .wishlist-item-actions { flex-direction: row; flex-wrap: wrap; align-items: center; }
+}

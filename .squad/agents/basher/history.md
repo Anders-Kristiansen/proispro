@@ -10,6 +10,25 @@
 
 <!-- Append learnings below -->
 
+### 2026-04-20: Phase 1–3 Supabase Migrations (Collections, Wishlist, For Sale)
+
+**Tables created:**
+- `collections` — named disc groupings (distinct from `bags`, which are round loadouts). UUID PK, user_id FK to auth.users, name, description, created_at, updated_at. Updated_at maintained via trigger.
+- `collection_discs` — many-to-many junction (collections ↔ discs). Composite PK (collection_id, disc_id), sort_order INTEGER, added_at TIMESTAMPTZ. No updated_at (inserts only, rows deleted/re-inserted for reordering).
+- `wishlist_items` — disc acquisition wishlist. UUID PK, user_id FK, disc_name, manufacturer, plastic_pref, weight_min/max (INTEGER), priority (SMALLINT 0/1/2), notes, acquired BOOLEAN, timestamps. Updated_at trigger.
+- `forsale_listings` — marketplace listings. UUID PK, user_id + disc_id FKs, price NUMERIC(8,2), currency TEXT DEFAULT 'SEK', contact_method TEXT, contact_info TEXT, status TEXT with CHECK constraint, listed_at, sold_at. No updated_at (status transitions cover lifecycle).
+
+**RLS patterns used:**
+- Direct ownership (`auth.uid() = user_id`): collections, wishlist_items, forsale_listings — all four ops (SELECT/INSERT/UPDATE/DELETE).
+- Indirect ownership via JOIN: collection_discs has no user_id column; ownership checked by `EXISTS (SELECT 1 FROM collections c WHERE c.id = collection_id AND c.user_id = auth.uid())` — avoids denormalized user_id on junction table.
+- UPDATE policies include both USING (row filter) and WITH CHECK (new-value guard).
+
+**Idempotency strategy:**
+- `CREATE TABLE IF NOT EXISTS` for all tables.
+- `CREATE OR REPLACE FUNCTION` for the shared `update_updated_at_column()` trigger function (re-declared in each migration so each file is self-contained).
+- `DROP TRIGGER IF EXISTS` + `CREATE TRIGGER` for updated_at triggers (DROP+CREATE is idempotent; no native IF NOT EXISTS for triggers in PG 15/16).
+- `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN NULL; END $$` guards for all RLS policies (CREATE POLICY IF NOT EXISTS requires PG 17, Supabase runs 15/16).
+
 ### 2026-04-14: Disc Golf Catalog Schema & Data API Builder Configuration
 
 **Disc Schema Design:**
