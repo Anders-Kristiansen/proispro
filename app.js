@@ -203,6 +203,7 @@ function discApp() {
     photoUploading:  false,
     photoCropCircle: null,
     _cropImg:        null,
+    _cropCanvas:     null,
     _cropInteraction: null,
     _cropDragOffset: null,
 
@@ -1055,7 +1056,8 @@ function discApp() {
       this.photoFile = file;
       const url = URL.createObjectURL(file);
       this.photoPreview = url;
-      this.$nextTick(() => this._initCropCanvas(url));
+      // setTimeout after $nextTick ensures Alpine.js has fully registered x-ref inside x-if
+      this.$nextTick(() => setTimeout(() => this._initCropCanvas(url), 0));
     },
 
     cancelPhotoUpload() {
@@ -1064,6 +1066,7 @@ function discApp() {
       this.photoFile = null;
       this.photoCropCircle = null;
       this._cropImg = null;
+      this._cropCanvas = null;
       this._cropInteraction = null;
       this._cropDragOffset = null;
       const inp = document.getElementById('bagPhotoInput');
@@ -1150,34 +1153,42 @@ function discApp() {
     },
 
     _initCropCanvas(url) {
-      const canvas = this.$refs.cropCanvas;
+      // Fallback to querySelector in case x-ref isn't registered yet
+      const canvas = this.$refs.cropCanvas || document.querySelector('.crop-canvas');
       if (!canvas) return;
+      this._cropCanvas = canvas;
       const img = new Image();
       img.onload = () => {
         this._cropImg = img;
-        const maxW = canvas.parentElement.clientWidth || 320;
-        const maxH = 300;
-        const ar = img.naturalWidth / img.naturalHeight;
-        let cw, ch;
-        if (ar >= maxW / maxH) {
-          cw = maxW;
-          ch = Math.round(maxW / ar);
-        } else {
-          ch = maxH;
-          cw = Math.round(maxH * ar);
-        }
-        canvas.width = cw;
-        canvas.height = ch;
-        // Initial circle: centered, r = 40% of shorter dimension
-        const r = Math.round(Math.min(cw, ch) * 0.4);
-        this.photoCropCircle = { cx: cw / 2, cy: ch / 2, r };
-        this._cropDraw();
+        // rAF ensures the canvas has been laid out so clientWidth is valid
+        requestAnimationFrame(() => {
+          const c = this._cropCanvas;
+          if (!c) return;
+          const maxW = (c.parentElement && c.parentElement.clientWidth) || c.offsetWidth || 320;
+          const maxH = 300;
+          const ar = img.naturalWidth / img.naturalHeight;
+          let cw, ch;
+          if (ar >= maxW / maxH) {
+            cw = maxW;
+            ch = Math.round(maxW / ar);
+          } else {
+            ch = maxH;
+            cw = Math.round(maxH * ar);
+          }
+          if (!cw || !ch) { cw = 320; ch = Math.round(320 / ar); }
+          c.width = cw;
+          c.height = ch;
+          // Initial circle: centered, r = 40% of shorter dimension
+          const r = Math.round(Math.min(cw, ch) * 0.4);
+          this.photoCropCircle = { cx: cw / 2, cy: ch / 2, r };
+          this._cropDraw();
+        });
       };
       img.src = url;
     },
 
     _cropDraw() {
-      const canvas = this.$refs.cropCanvas;
+      const canvas = this._cropCanvas || this.$refs.cropCanvas;
       if (!canvas || !this._cropImg || !this.photoCropCircle) return;
       const ctx = canvas.getContext('2d');
       const { cx, cy, r } = this.photoCropCircle;
@@ -1229,7 +1240,7 @@ function discApp() {
     },
 
     _cropGetPoint(e) {
-      const canvas = this.$refs.cropCanvas;
+      const canvas = this._cropCanvas || this.$refs.cropCanvas;
       const rect = canvas.getBoundingClientRect();
       return {
         x: (e.clientX - rect.left) * (canvas.width / rect.width),
@@ -1260,7 +1271,7 @@ function discApp() {
     },
 
     cropPointerMove(e) {
-      const canvas = this.$refs.cropCanvas;
+      const canvas = this._cropCanvas || this.$refs.cropCanvas;
       if (!this.photoCropCircle || !canvas) return;
       const pt = this._cropGetPoint(e);
       const { cx, cy, r } = this.photoCropCircle;
@@ -1295,7 +1306,7 @@ function discApp() {
 
     cropPointerUp(e) {
       if (this._cropInteraction === 'resize') {
-        const canvas = this.$refs.cropCanvas;
+        const canvas = this._cropCanvas || this.$refs.cropCanvas;
         if (canvas) canvas.style.cursor = 'default';
       }
       this._cropInteraction = null;
@@ -1303,10 +1314,11 @@ function discApp() {
     },
 
     async _getCroppedBlob() {
-      if (!this._cropImg || !this.photoCropCircle || !this.$refs.cropCanvas) {
+      if (!this._cropImg || !this.photoCropCircle) {
         return this.photoFile;
       }
-      const canvas = this.$refs.cropCanvas;
+      const canvas = this._cropCanvas || this.$refs.cropCanvas;
+      if (!canvas) return this.photoFile;
       const { cx, cy, r } = this.photoCropCircle;
 
       // Scale from canvas display coords to natural image coords
