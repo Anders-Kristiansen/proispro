@@ -266,7 +266,6 @@
                             </template>
                           </div>
                         </div>
-                        <button class="btn btn-secondary delete-btn" @click="addDiscToSale(disc)" title="List for sale">🏷 Sell</button>
                         <button class="btn btn-danger delete-btn" @click="openDeleteModal(disc)">🗑 Remove</button>
                       </div>
                     </div>
@@ -929,6 +928,9 @@
 
             <div class="form-actions">
               <button type="button" class="btn btn-secondary" @click="closeModals()">Cancel</button>
+              <template x-if="formId">
+                <button type="button" class="btn btn-secondary" @click="addDiscToSale(discs.find(d => d.id === formId)); closeModals()">🏷 Sell</button>
+              </template>
               <button type="submit" class="btn btn-primary" x-text="formId ? 'Update Disc' : 'Save Disc'"></button>
             </div>
           </form>
