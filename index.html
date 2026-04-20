@@ -247,6 +247,13 @@
                       
                       <div class="card-notes" x-show="disc.notes" x-text="disc.notes"></div>
 
+                      <!-- Quantity stepper (Moxfield style) -->
+                      <div class="card-qty">
+                        <button class="qty-btn" @click.stop="decrementQty(disc)" :disabled="(disc.quantity || 1) <= 1" title="Remove a copy">−</button>
+                        <span class="qty-value" x-text="'×' + (disc.quantity || 1)"></span>
+                        <button class="qty-btn" @click.stop="incrementQty(disc)" title="Add a copy">+</button>
+                      </div>
+
                       <div class="card-actions">
                         <button class="btn btn-secondary edit-btn" @click="openEditModal(disc)">✏️ Edit</button>
                         <div class="bag-quick-action" x-data="{ open: false }" x-show="bags.length > 0">
@@ -286,6 +293,7 @@
                       <div class="list-header-cell list-col-weight" @click="setSortColumn('weight')">Weight <span x-text="activeSortColumn === 'weight' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></div>
                       <div class="list-header-cell list-col-condition" @click="setSortColumn('condition')">Cond <span x-text="activeSortColumn === 'condition' ? (sortDir === 'asc' ? '▲' : '▼') : ''"></span></div>
                       <div class="list-header-cell list-col-bags">Bags</div>
+                      <div class="list-header-cell list-col-qty">Qty</div>
                       <div class="list-header-cell list-col-tags">Tags</div>
                       <div class="list-header-cell list-col-actions"></div>
                     </div>
@@ -324,6 +332,13 @@
                         </template>
                       </div>
                       <div class="list-col-bags" x-text="getBagsForDisc(disc.id).length || '—'"></div>
+                      <div class="list-col-qty">
+                        <div class="list-qty-stepper">
+                          <button class="qty-btn qty-btn-sm" @click.stop="decrementQty(disc)" :disabled="(disc.quantity || 1) <= 1">−</button>
+                          <span x-text="disc.quantity || 1"></span>
+                          <button class="qty-btn qty-btn-sm" @click.stop="incrementQty(disc)">+</button>
+                        </div>
+                      </div>
                       <div class="list-col-tags">
                         <div class="tags-container">
                           <template x-for="tag in (disc.tags || [])" :key="tag">
@@ -355,6 +370,9 @@
                         <span x-text="disc.name"></span>
                         <template x-if="disc.manufacturer">
                           <span style="color:var(--clr-muted);" x-text="' – ' + disc.manufacturer"></span>
+                        </template>
+                        <template x-if="(disc.quantity || 1) > 1">
+                          <span class="qty-badge" x-text="'×' + disc.quantity"></span>
                         </template>
                       </div>
                       <div class="compact-flight" x-show="hasFlightNumbers(disc)" x-text="'(' + disc.speed + '/' + disc.glide + '/' + formatTurn(disc.turn) + '/' + disc.fade + ')'"></div>
@@ -733,6 +751,17 @@
                        x-model="form.weight" />
               </div>
               <div class="form-group">
+                <label for="discQuantity">Copies</label>
+                <div class="qty-stepper-input">
+                  <button type="button" class="qty-btn" @click="form.quantity = Math.max(1, (form.quantity || 1) - 1)" :disabled="(form.quantity || 1) <= 1">−</button>
+                  <input type="number" id="discQuantity" min="1" x-model.number="form.quantity" style="width:3rem;text-align:center;" />
+                  <button type="button" class="qty-btn" @click="form.quantity = (form.quantity || 1) + 1">+</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group full-width">
                 <label>Color</label>
                 <div class="color-picker" role="group" aria-label="Choose disc color">
                   <button type="button" class="color-swatch color-none"

@@ -78,6 +78,7 @@ function toDbDisc(disc) {
     notes: disc.notes || null,
     user_photo_url: disc.user_photo_url || null,
     added_at: disc.added ? new Date(disc.added).toISOString() : new Date().toISOString(),
+    quantity: disc.quantity != null ? Math.max(1, Number(disc.quantity)) : 1,
   };
 }
 
@@ -112,6 +113,7 @@ function fromDbDisc(d) {
     user_photo_url: d.user_photo_url || null,
     added: d.added_at ? new Date(d.added_at).getTime() : Date.now(),
     addedAt: d.added_at ? new Date(d.added_at).getTime() : Date.now(),
+    quantity: d.quantity != null ? Math.max(1, Number(d.quantity)) : 1,
   };
 }
 
@@ -353,10 +355,16 @@ function discApp() {
     get discCount() {
       const n = this.filteredSorted.length;
       const total = this.discs.length;
+      const totalQty = this.discs.reduce((s, d) => s + (d.quantity || 1), 0);
+      const filteredQty = this.filteredSorted.reduce((s, d) => s + (d.quantity || 1), 0);
       if (n === total) {
-        return `${n} disc${n !== 1 ? 's' : ''}`;
+        return totalQty === total
+          ? `${total} disc${total !== 1 ? 's' : ''}`
+          : `${totalQty} disc${totalQty !== 1 ? 's' : ''} (${total} model${total !== 1 ? 's' : ''})`;
       }
-      return `${n} of ${total} disc${total !== 1 ? 's' : ''}`;
+      return filteredQty === n
+        ? `${n} of ${total} model${total !== 1 ? 's' : ''}`
+        : `${filteredQty} of ${totalQty} disc${totalQty !== 1 ? 's' : ''}`;
     },
 
     get discPickerFiltered() {
@@ -669,6 +677,7 @@ function discApp() {
         tags: this.form.tags || [],
         user_photo_url: id ? (this.discs.find(x => x.id === id) || {}).user_photo_url || null : null,
         added: id ? (this.discs.find(x => x.id === id) || {}).added || Date.now() : Date.now(),
+        quantity: this.form.quantity != null && this.form.quantity !== '' ? Math.max(1, Number(this.form.quantity)) : 1,
       };
 
       const sb = getSupabase();
@@ -729,7 +738,7 @@ function discApp() {
     // Modal helpers
     openAddModal() {
       this.formId = '';
-      this.form = { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '', tags: [] };
+      this.form = { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '', tags: [], quantity: 1 };
       this.formInvalid = { name: false, type: false };
       this.showAddModal = true;
       this.$nextTick(() => {
@@ -754,6 +763,7 @@ function discApp() {
         fade:  disc.fade  != null && disc.fade  !== '' ? disc.fade  : '',
         notes: disc.notes || '',
         tags: disc.tags || [],
+        quantity: disc.quantity || 1,
       };
       this.formInvalid = { name: false, type: false };
       this.showAddModal = true;
@@ -766,6 +776,31 @@ function discApp() {
     openDeleteModal(disc) {
       this.pendingDeleteDisc = disc;
       this.showDeleteModal = true;
+    },
+
+    async incrementQty(disc) {
+      await this._setDiscQty(disc, (disc.quantity || 1) + 1);
+    },
+
+    async decrementQty(disc) {
+      const newQty = Math.max(1, (disc.quantity || 1) - 1);
+      await this._setDiscQty(disc, newQty);
+    },
+
+    async _setDiscQty(disc, qty) {
+      const idx = this.discs.findIndex(d => d.id === disc.id);
+      if (idx !== -1) this.discs[idx] = { ...this.discs[idx], quantity: qty };
+      const sb = getSupabase();
+      try {
+        if (sb && this.user && this.user.id !== 'local') {
+          const { error } = await sb.from('discs').update({ quantity: qty }).eq('id', disc.id);
+          if (error) throw error;
+        }
+        this.saveToLocalStorage();
+      } catch (err) {
+        showToast('❌ Update failed: ' + err.message);
+        if (idx !== -1) this.discs[idx] = { ...this.discs[idx], quantity: disc.quantity };
+      }
     },
 
     closeModals() {
