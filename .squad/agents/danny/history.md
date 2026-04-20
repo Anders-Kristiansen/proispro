@@ -8,6 +8,46 @@
 
 ## Learnings
 
+### 2026-04-20: Moxfield-Inspired Features Phase 1–3 — Collections, Wishlist, For Sale
+
+**Completed architecture guidance for three feature sets:**
+
+1. **Collections** — named disc groupings (vs. bags = operational round loadouts)
+   - Flat schema: `collections` + `collection_discs` junction table
+   - RLS strategy: Indirect ownership (NO denormalized user_id on junction) — ownership resolved by EXISTS check to collections table
+   - Sort_order column enables user-defined ordering
+   - Added_at timestamp for audit trail
+   - Rationale: Avoids junction table update anomalies, keeps schema clean
+
+2. **Wishlist** — disc acquisition intent capture
+   - Priority as SMALLINT 0/1/2 (not ENUM — avoids migrations for label changes)
+   - Acquired BOOLEAN flag (never delete rows) — preserves history
+   - Weight range (min/max INTEGER) for flexible shopping
+   - Rationale: Non-destructive soft flags enable future "recently acquired" views
+
+3. **For Sale** — marketplace listings with status lifecycle
+   - Price NUMERIC(8,2), currency TEXT DEFAULT 'SEK' (locale-aware default)
+   - Status as TEXT + CHECK constraint (not ENUM) — allows zero-downtime constraint updates via ALTER TABLE
+   - Disc_id FK to discs (ON DELETE CASCADE) — listing auto-disappears if disc deleted
+   - No updated_at trigger — status transitions (available → pending → sold) cover lifecycle
+   - Rationale: Text status pattern enables operational agility for future feature changes
+
+**UI/Idempotency Patterns:**
+- Non-reactive `_collectionDiscs` cache on Alpine state (not deep nesting) — mirrors bags' `discIds[]` pattern
+- Computed getters for filtering (e.g., `forsaleDiscPickerFiltered` excludes already-listed discs)
+- All modal flags wired into `closeModals()` for reliable Escape key handling
+- Supabase-only features (no localStorage fallback) — design constraint for account-bound features
+
+**Build Order Validated:**
+- Basher: Database schema first (migrations self-contained, idempotent)
+- Rusty: UI implementation follows (Supabase loaders, CRUD methods, computed getters)
+- Minimal cross-team friction; schema stable for immediate frontend iteration
+
+**Key Design Insights:**
+- Indirect RLS on junction tables cleaner than denormalization (single source of truth for ownership)
+- Text status with CHECK constraints + soft deletes (acquired flag) = operational flexibility
+- Non-reactive caching mitigates Alpine state complexity for join-heavy UX patterns
+
 ### Codespaces devcontainer for zero-build static sites
 
 Set up `.devcontainer/devcontainer.json` for the proispro Alpine.js + Supabase static site (no build step). Key choices: `mcr.microsoft.com/devcontainers/base:ubuntu` image (lightweight, no Node toolchain overhead), Live Server extension on port 5500 for instant static preview, Supabase VS Code extension for schema/query inspection. No `postCreateCommand` — nothing to install. The copilot-setup-steps.yml in `.github/workflows/` is a CI workflow, not a devcontainer, so no conflict.

@@ -10,6 +10,19 @@
 
 <!-- Append learnings below -->
 
+### 2026-04-20 — Collections, Wishlist, For Sale Phases 1–3 (Completed)
+
+- Final implementation of Moxfield-inspired inventory features: Collections, Wishlist, For Sale tabs.
+- **Collections:** Non-reactive `_collectionDiscs` cache mirrors Supabase `collection_discs` join table. `getDiscsForCollection(coll)` resolves disc objects from cache in computed templates.
+- **Wishlist:** Priority field (0/1/2) maps to emoji (🟢/🟡/🔴). `acquired` boolean preserves history (no hard deletes); UI splits into "wanted" and "acquired (strikethrough)" sections.
+- **For Sale:** `forsaleDiscPickerFiltered` computed getter excludes already-listed discs. Status machine: available → pending → sold. Price stored as `NUMERIC(8,2)`, currency defaults to 'SEK'.
+- CRUD pattern: optimistic local state update → Supabase write (fire-and-forget, no error handling blocking UI).
+- `closeModals()` extended to reset all 13 modal flags (6 existing + 7 new). Escape key reliably dismisses any modal.
+- Non-reactive caching simplifies state: collections schema flat, no deep nesting. Join table cached separately, resolved in computed getters — mirrors existing bags pattern.
+- Supabase-only features (no localStorage fallback for Collections/Wishlist/ForSale, unlike bags/discs). All three `load*` methods fall through to empty arrays if auth unavailable.
+- RLS validation: indirect ownership on junction table (via EXISTS check to collections) avoids denormalization.
+- ~280 new lines app.js, 3 tabs + 7 modals index.html, ~140 lines styles.css. **Status:** Implemented, zero test failures.
+
 ### 2026-06-13 — Collections, Wishlist, For Sale (Phases 1–3)
 
 - Added 3 new tabs: 📚 Collections, ✨ Wishlist, 🏷 For Sale — all follow existing bag/courses tab patterns.

@@ -1041,10 +1041,100 @@ Comprehensive redesign of disc inventory inspired by Moxfield's card collection 
 - 🧪 Testing needed: All 18 sorts (especially nulls), list view mobile collapse, tags autocomplete, accessibility audit
 - 🎯 Future: Save viewMode/groupBy to localStorage, upgrade datalist → custom dropdown for mobile
 
-**Success Criteria (Post-Launch):**
-- View mode adoption: 40%+ of users try List/Compact within 1 week
-- Tag adoption: 20%+ of users create 3+ tags within 2 weeks
-- Grouping usage: 50%+ of sessions with 15+ discs use Group by Type
+---
+
+## Decision: Supabase Schema Extensions — Collections, Wishlist, For Sale
+**By:** Basher (Data Wrangler) | **Date:** 2026-04-20 | **Status:** Implemented
+
+Three new feature tables added via Supabase migrations to support Moxfield-inspired inventory features.
+
+### Tables
+
+**`collections` (001_collections.sql)**
+- Named disc groupings distinct from `bags` (bags = operational round loadouts; collections = curated sets like "all Roc variants" or "vintage Innova")
+- UUID PK, `user_id` FK → `auth.users` ON DELETE CASCADE
+- `name TEXT NOT NULL`, `description TEXT` (nullable)
+- `created_at`, `updated_at` TIMESTAMPTZ — updated_at maintained via trigger
+- RLS: owner SELECT/INSERT/UPDATE/DELETE via `auth.uid() = user_id`
+
+**`collection_discs` (001_collections.sql)**
+- Many-to-many junction between collections and discs. No `user_id` column — ownership resolved by joining to `collections`
+- Composite PK: `(collection_id, disc_id)`
+- `sort_order INTEGER DEFAULT 0` — allows user-defined ordering within a collection
+- `added_at TIMESTAMPTZ` — audit trail
+- RLS: all operations check `EXISTS (SELECT 1 FROM collections c WHERE c.id = collection_id AND c.user_id = auth.uid())`
+- **Decision:** Do NOT denormalize `user_id` onto `collection_discs`. Ownership is single-hop away via collections; indirect RLS check is cleaner and avoids update anomalies.
+
+**`wishlist_items` (002_wishlist.sql)**
+- Disc acquisition wishlist. Captures intent to buy before a disc exists in inventory.
+- `priority SMALLINT DEFAULT 0` — 0=low, 1=medium, 2=high (not an enum — avoids migration for priority label changes)
+- `acquired BOOLEAN DEFAULT false` — soft flag; rows kept post-acquisition for history
+- `weight_min`/`weight_max INTEGER` — range preference, both nullable
+- RLS: owner all ops via `auth.uid() = user_id`
+- updated_at trigger
+- **Decision:** Keep `acquired` as boolean rather than deleting rows. Preserves wishlist history and enables "show recently acquired" views without separate table.
+
+**`forsale_listings` (003_forsale.sql)**
+- Marketplace listings for discs the user wants to sell.
+- `disc_id UUID REFERENCES discs ON DELETE CASCADE` — listing disappears if disc deleted from inventory
+- `price NUMERIC(8,2)`, `currency TEXT DEFAULT 'SEK'` — SEK default reflects project owner's locale (AK/Sweden)
+- `status TEXT` with `CHECK (status IN ('available', 'pending', 'sold'))` — text enum pattern
+- `listed_at TIMESTAMPTZ DEFAULT now()`, `sold_at TIMESTAMPTZ` (nullable)
+- No `updated_at` trigger — status transitions (`available` → `pending` → `sold`) cover the lifecycle sufficiently
+- RLS: owner all ops via `auth.uid() = user_id`
+- **Decision:** Use TEXT + CHECK constraint for status rather than PostgreSQL ENUM type. Reason: ENUM type changes require DDL (`ALTER TYPE`) which is more disruptive; CHECK on TEXT allows no-downtime constraint updates via `ALTER TABLE ... DROP CONSTRAINT / ADD CONSTRAINT`.
+
+### Shared Infrastructure
+
+- `update_updated_at_column()` function declared with `CREATE OR REPLACE` in each migration that needs it — self-contained, no cross-migration dependency.
+- RLS policy idempotency: `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN NULL; END $$` guards (not `CREATE POLICY IF NOT EXISTS`, which requires PostgreSQL 17).
+- Trigger idempotency: `DROP TRIGGER IF EXISTS` + `CREATE TRIGGER` pattern.
+
+---
+
+## Decision: Collections, Wishlist, For Sale UI Implementation
+**By:** Rusty (Frontend Dev) | **Date:** 2026-04-20 | **Status:** Implemented
+
+Implemented Phases 1–3 of Moxfield-inspired disc inventory features: Collections, Wishlist, and For Sale. All built as new tabs inside the existing Alpine.js `discApp()` component with zero build step.
+
+### Implementation
+
+**app.js (~280 new lines):**
+- `loadCollections()`, `loadWishlist()`, `loadForsale()` Supabase loaders
+- CRUD functions: `createCollection()`, `addDiscToCollection()`, `deleteCollection()`, `reorderCollectionDiscs()`, `addWishlistItem()`, `updateWishlistItem()`, `markWishlistAcquired()`, `createForsaleListing()`, `updateForsaleStatus()`
+- Filter/getter functions: `forsaleDiscPickerFiltered` excludes already-listed discs; `getDiscsForCollection()` resolves join table
+- State: `collections`, `wishlistItems`, `forsaleListings`, plus 7 modal flags
+
+**index.html (3 new tabs, 7 modals):**
+- **Collections tab:** List/create/delete collections; add/reorder discs within each
+- **Wishlist tab:** Wishlist items with priority flags (🟢/🟡/🔴), acquired tracking
+- **For Sale tab:** Active/pending/sold listings with price display and status editor
+
+**styles.css (~140 new lines):**
+- Tab styling (active state, hover)
+- Modal styling (backdrop, dialog, buttons)
+- Collection/wishlist/forsale item cards
+
+### Key Design Decisions
+
+1. **`_collectionDiscs` as non-reactive cache (not Alpine state)**
+   Collections use a join table pattern (`collection_discs`). Rather than a nested structure, `_collectionDiscs` is initialized as a plain array in state and populated from a second Supabase query in `loadCollections()`. It's manipulated directly (push/filter) without Alpine reactivity — resolved objects are returned by `getDiscsForCollection()` which IS called from reactive templates.
+   **Rationale:** Avoids deep nesting, keeps the Supabase schema flat, and mirrors how bags use `discIds[]` arrays.
+
+2. **For Sale disc picker excludes already-listed discs**
+   `forsaleDiscPickerFiltered` computed getter filters out discs that already have a non-sold listing. This prevents duplicate active listings for the same disc.
+   **Rationale:** User intent — if you're listing Disc A, you shouldn't see Disc A as an option again until the listing is marked sold.
+
+3. **Wishlist priority stored as integer (0/1/2)**
+   Priority stored as `SMALLINT` (0=low, 1=medium, 2=high) matching the Supabase schema. UI maps to emoji labels: 🟢 / 🟡 / 🔴.
+   **Rationale:** Integer comparison is simpler for future sorting. Enum strings would add mapping complexity.
+
+4. **All 7 new modal flags wired into `closeModals()`**
+   The global Escape key handler calls `closeModals()` which now resets all 13 modal flags (6 existing + 7 new). This means Escape reliably dismisses any modal.
+
+5. **Supabase fallback: empty arrays for unauthenticated / local mode**
+   All three `load*` methods fall through to empty arrays if Supabase is unavailable or user is in local mode. Collections/Wishlist/ForSale are Supabase-only features — no localStorage fallback was added (unlike bags/discs which have localStorage resilience).
+   **Rationale:** These features require user accounts by design (shared/social features). No strong offline use case.
 
 ---
 
