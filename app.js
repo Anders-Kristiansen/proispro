@@ -179,7 +179,7 @@ function discApp() {
     sortDir: 'asc',
     activeSortColumn: 'name',
     viewMode: 'grid',
-    groupBy: 'none',
+    groupBy: 'bag',
     activeTagFilter: '',
     showAdvancedPopover: false,
     filterBrand: '',
