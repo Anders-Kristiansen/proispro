@@ -249,8 +249,10 @@ function discApp() {
     showForSaleModal: false,
     showDeleteForSaleModal: false,
     pendingDeleteForSale: null,
-    forsaleForm: { id: '', disc_id: '', price: '', currency: 'SEK', contact_method: 'email', contact_info: '', notes: '' },
+    forsaleForm: { id: '', disc_id: '' },
     forsaleDiscSearch: '',
+    saleToken: null,
+    saleIsPublic: true,
 
     // Computed
     get filteredSorted() {
@@ -445,6 +447,11 @@ function discApp() {
       );
     },
 
+    get publicSaleUrl() {
+      if (!this.saleToken) return '';
+      return `${window.location.origin}/sale.html?token=${this.saleToken}`;
+    },
+
     // Tag helpers
     tagColor(tag) {
       const hash = tag.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -490,6 +497,7 @@ function discApp() {
             await this.loadCollections();
             await this.loadWishlist();
             await this.loadForSaleListings();
+            await this.loadSaleToken();
           } else {
             this.discs = [];
             this.bags = [];
@@ -497,6 +505,7 @@ function discApp() {
             this.collections = [];
             this.wishlistItems = [];
             this.forsaleListings = [];
+            this.saleToken = null;
             this.loading = false;
           }
         });
@@ -554,6 +563,7 @@ function discApp() {
           await this.loadCollections();
           await this.loadWishlist();
           await this.loadForSaleListings();
+          await this.loadSaleToken();
         }
       } catch {
         this.loadFromLocalStorage();
@@ -1751,53 +1761,122 @@ function discApp() {
       this.forsaleListings = [];
     },
 
-    openListForSaleModal(disc) {
-      this.forsaleForm = {
-        id: '', disc_id: disc ? disc.id : '',
-        price: '', currency: 'SEK',
-        contact_method: 'email', contact_info: '',
-        notes: ''
+    async loadSaleToken() {
+      const sb = getSupabase();
+      if (!sb || this.user?.id === 'local') return;
+      try {
+        const { data } = await sb.from('sale_tokens').select('token, is_public').eq('user_id', this.user.id).maybeSingle();
+        if (data) {
+          this.saleToken = data.token;
+          this.saleIsPublic = data.is_public;
+        }
+      } catch { /* no token yet */ }
+    },
+
+    async ensureSaleToken() {
+      const sb = getSupabase();
+      if (!sb || this.user?.id === 'local') return null;
+      if (this.saleToken) return this.saleToken;
+      try {
+        const { data, error } = await sb
+          .from('sale_tokens')
+          .upsert([{ user_id: this.user.id }], { onConflict: 'user_id' })
+          .select('token, is_public')
+          .single();
+        if (!error && data) {
+          this.saleToken = data.token;
+          this.saleIsPublic = data.is_public;
+        }
+      } catch { /* ignore */ }
+      return this.saleToken;
+    },
+
+    async copyPublicLink() {
+      await this.ensureSaleToken();
+      if (!this.saleToken) { showToast('⚠️ Sign in to get a shareable link'); return; }
+      const url = this.publicSaleUrl;
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast('🔗 Link copied!');
+      } catch {
+        prompt('Copy this link:', url);
+      }
+    },
+
+    async toggleSalePublic() {
+      const sb = getSupabase();
+      if (!sb || this.user?.id === 'local') return;
+      await this.ensureSaleToken();
+      const newVal = !this.saleIsPublic;
+      try {
+        await sb.from('sale_tokens').update({ is_public: newVal }).eq('user_id', this.user.id);
+        this.saleIsPublic = newVal;
+        showToast(newVal ? '🌐 Sale list is now public' : '🔒 Sale list is now private');
+      } catch { /* ignore */ }
+    },
+
+    async addDiscToSale(disc) {
+      const alreadyListed = this.forsaleListings.some(l => l.disc_id === disc.id && l.status === 'available');
+      if (alreadyListed) { showToast('ℹ️ Already listed for sale'); return; }
+      await this.ensureSaleToken();
+      const sb = getSupabase();
+      const payload = {
+        disc_id: disc.id,
+        disc_name: disc.name || null,
+        disc_manufacturer: disc.manufacturer || null,
+        disc_type: disc.type || null,
+        disc_plastic: disc.plastic || null,
+        disc_color: disc.color || null,
+        disc_weight: disc.weight || null,
+        disc_condition: disc.condition || null,
+        status: 'available',
       };
+      const newListing = { id: uid(), user_id: this.user.id, ...payload, listed_at: new Date().toISOString() };
+      try {
+        if (sb && this.user?.id !== 'local') {
+          const { data, error } = await sb.from('forsale_listings').insert([{ ...payload, user_id: this.user.id }]).select().single();
+          if (!error && data) Object.assign(newListing, data);
+        }
+      } catch { /* use local */ }
+      this.forsaleListings.unshift(newListing);
+      showToast('🏷 Added to sale list!');
+    },
+
+    openListForSaleModal(disc) {
+      this.forsaleForm = { id: '', disc_id: disc ? disc.id : '' };
       this.forsaleDiscSearch = '';
       this.showForSaleModal = true;
     },
 
     openEditForSaleModal(listing) {
-      this.forsaleForm = {
-        id: listing.id, disc_id: listing.disc_id,
-        price: listing.price != null ? String(listing.price) : '',
-        currency: listing.currency || 'SEK',
-        contact_method: listing.contact_method || 'email',
-        contact_info: listing.contact_info || '',
-        notes: listing.notes || ''
-      };
+      this.forsaleForm = { id: listing.id, disc_id: listing.disc_id };
       this.showForSaleModal = true;
     },
 
     async saveForSaleListing() {
       if (!this.forsaleForm.disc_id) { showToast('❌ Select a disc to sell'); return; }
+      const disc = this.discs.find(d => d.id === this.forsaleForm.disc_id);
+      await this.ensureSaleToken();
       const sb = getSupabase();
-      const payload = {
-        disc_id: this.forsaleForm.disc_id,
-        price: this.forsaleForm.price !== '' ? Number(this.forsaleForm.price) : null,
-        currency: this.forsaleForm.currency || 'SEK',
-        contact_method: this.forsaleForm.contact_method || null,
-        contact_info: this.forsaleForm.contact_info.trim() || null,
-        notes: this.forsaleForm.notes.trim() || null,
-        status: 'available',
+      const discFields = {
+        disc_name: disc?.name || null,
+        disc_manufacturer: disc?.manufacturer || null,
+        disc_type: disc?.type || null,
+        disc_plastic: disc?.plastic || null,
+        disc_color: disc?.color || null,
+        disc_weight: disc?.weight || null,
+        disc_condition: disc?.condition || null,
       };
       if (this.forsaleForm.id) {
         const idx = this.forsaleListings.findIndex(l => l.id === this.forsaleForm.id);
-        const upd = { price: payload.price, currency: payload.currency, contact_method: payload.contact_method, contact_info: payload.contact_info, notes: payload.notes };
-        if (idx !== -1) this.forsaleListings[idx] = { ...this.forsaleListings[idx], ...upd };
+        if (idx !== -1) this.forsaleListings[idx] = { ...this.forsaleListings[idx], ...discFields };
         try {
-          if (sb && this.user?.id !== 'local') {
-            await sb.from('forsale_listings').update(upd).eq('id', this.forsaleForm.id);
-          }
+          if (sb && this.user?.id !== 'local') await sb.from('forsale_listings').update(discFields).eq('id', this.forsaleForm.id);
         } catch { /* ignore */ }
         showToast('✏️ Listing updated!');
       } else {
-        const newListing = { id: uid(), user_id: this.user.id, ...payload, listed_at: new Date().toISOString(), sold_at: null };
+        const payload = { disc_id: this.forsaleForm.disc_id, ...discFields, status: 'available' };
+        const newListing = { id: uid(), user_id: this.user.id, ...payload, listed_at: new Date().toISOString() };
         try {
           if (sb && this.user?.id !== 'local') {
             const { data, error } = await sb.from('forsale_listings').insert([{ ...payload, user_id: this.user.id }]).select().single();
@@ -1813,14 +1892,12 @@ function discApp() {
     async updateForSaleStatus(listing, newStatus) {
       const sb = getSupabase();
       const idx = this.forsaleListings.findIndex(l => l.id === listing.id);
-      const upd = { status: newStatus, sold_at: newStatus === 'sold' ? new Date().toISOString() : null };
+      const upd = { status: newStatus };
       if (idx !== -1) this.forsaleListings[idx] = { ...this.forsaleListings[idx], ...upd };
       try {
-        if (sb && this.user?.id !== 'local') {
-          await sb.from('forsale_listings').update(upd).eq('id', listing.id);
-        }
+        if (sb && this.user?.id !== 'local') await sb.from('forsale_listings').update(upd).eq('id', listing.id);
       } catch { /* ignore */ }
-      showToast(newStatus === 'sold' ? '✅ Marked as sold!' : '↩ Status updated');
+      showToast(newStatus === 'sold' ? '✅ Marked as sold!' : '↩ Relisted');
     },
 
     openDeleteForSaleModal(listing) {
@@ -1835,16 +1912,21 @@ function discApp() {
       this.pendingDeleteForSale = null;
       const sb = getSupabase();
       try {
-        if (sb && this.user?.id !== 'local') {
-          await sb.from('forsale_listings').delete().eq('id', id);
-        }
+        if (sb && this.user?.id !== 'local') await sb.from('forsale_listings').delete().eq('id', id);
       } catch { /* ignore */ }
       this.forsaleListings = this.forsaleListings.filter(l => l.id !== id);
       showToast('🗑 Listing removed');
     },
 
     getDiscForListing(listing) {
-      return this.discs.find(d => d.id === listing.disc_id) || null;
+      const live = this.discs.find(d => d.id === listing.disc_id);
+      if (live) return live;
+      if (listing.disc_name) return {
+        name: listing.disc_name, manufacturer: listing.disc_manufacturer,
+        type: listing.disc_type, plastic: listing.disc_plastic,
+        color: listing.disc_color, weight: listing.disc_weight, condition: listing.disc_condition,
+      };
+      return null;
     },
 
     selectCourse(course) {

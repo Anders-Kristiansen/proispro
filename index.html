@@ -266,6 +266,7 @@
                             </template>
                           </div>
                         </div>
+                        <button class="btn btn-secondary delete-btn" @click="addDiscToSale(disc)" title="List for sale">🏷 Sell</button>
                         <button class="btn btn-danger delete-btn" @click="openDeleteModal(disc)">🗑 Remove</button>
                       </div>
                     </div>
@@ -337,6 +338,7 @@
                       </div>
                       <div class="list-col-actions">
                         <button class="btn-icon" @click="openEditModal(disc)" title="Edit">✏️</button>
+                        <button class="btn-icon" @click="addDiscToSale(disc)" title="List for sale">🏷</button>
                         <button class="btn-icon" @click="openDeleteModal(disc)" title="Delete">🗑</button>
                       </div>
                     </div>
@@ -368,6 +370,7 @@
                       </div>
                       <div class="compact-actions">
                         <button class="btn-icon" @click="openEditModal(disc)" title="Edit">✏️</button>
+                        <button class="btn-icon" @click="addDiscToSale(disc)" title="List for sale">🏷</button>
                         <button class="btn-icon" @click="openDeleteModal(disc)" title="Delete">🗑</button>
                       </div>
                     </div>
@@ -597,14 +600,42 @@
       <!-- ── For Sale Tab ── -->
       <div x-show="activeTab === 'forsale'">
         <div class="bags-panel">
-          <div class="bags-header">
-            <span x-text="forsaleListings.filter(l => l.status !== 'sold').length + ' active · ' + forsaleListings.filter(l => l.status === 'sold').length + ' sold'"></span>
+
+          <!-- Public share link + QR -->
+          <div class="sale-public-section" x-show="user && user.id !== 'local'">
+            <div class="sale-link-card">
+              <div class="sale-qr-wrap" x-show="saleToken">
+                <img class="sale-qr-img"
+                     :src="saleToken ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(publicSaleUrl)}` : ''"
+                     alt="QR code for sale list" loading="lazy" />
+              </div>
+              <div class="sale-link-info">
+                <div class="sale-link-title">🌐 Your Public Sale Page</div>
+                <div class="sale-link-desc">Share this link so others can browse your discs for sale</div>
+                <input class="sale-url-input" readonly :value="saleToken ? publicSaleUrl : 'Add a disc to generate your link'"
+                       @click="$el.select()" />
+                <div class="sale-link-actions">
+                  <button class="btn btn-primary btn-sm" @click="copyPublicLink()">🔗 Copy Link</button>
+                  <a class="btn btn-secondary btn-sm" :href="publicSaleUrl" target="_blank"
+                     x-show="saleToken" rel="noopener">👁 View Page</a>
+                  <button class="btn btn-secondary btn-sm" @click="toggleSalePublic()"
+                          x-text="saleIsPublic ? '🔒 Make Private' : '🌐 Make Public'"></button>
+                </div>
+                <p x-show="!saleIsPublic" class="sale-private-note">
+                  ⚠️ Sale list is private — link won't show discs until made public
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bags-header" style="margin-top:.75rem;">
+            <span x-text="forsaleListings.filter(l => l.status !== 'sold').length + ' available · ' + forsaleListings.filter(l => l.status === 'sold').length + ' sold'"></span>
           </div>
 
           <div class="empty-state" x-show="forsaleListings.length === 0">
             <div class="empty-icon">🏷</div>
-            <h2>No listings yet</h2>
-            <p>Click <strong>+ List for Sale</strong> to sell a disc from your inventory!</p>
+            <h2>No discs for sale yet</h2>
+            <p>Tap <strong>🏷</strong> on any disc in your inventory to list it, or use <strong>+ List for Sale</strong> above.</p>
           </div>
 
           <template x-for="listing in forsaleListings" :key="listing.id">
@@ -616,38 +647,24 @@
                   <span x-show="getDiscForListing(listing)?.plastic" x-text="'· ' + getDiscForListing(listing)?.plastic"></span>
                   <span x-show="getDiscForListing(listing)?.condition" x-text="'· ' + condLabel(safeCond(getDiscForListing(listing)?.condition))"></span>
                 </div>
-                <div x-show="listing.notes" x-text="listing.notes" class="wishlist-notes"></div>
-                <div x-show="listing.contact_info" style="font-size:.78rem;color:var(--clr-muted);margin-top:.2rem;">
-                  <span x-text="(listing.contact_method || 'contact') + ': '"></span><span x-text="listing.contact_info" style="color:var(--clr-text);"></span>
-                </div>
               </div>
               <div class="forsale-card-right">
-                <div class="price-display" x-show="listing.price != null">
-                  <span x-text="listing.price"></span> <span class="price-currency" x-text="listing.currency || 'SEK'"></span>
-                </div>
-                <div x-show="listing.price == null" style="color:var(--clr-muted);font-size:.85rem;margin-bottom:.3rem;">Price on request</div>
                 <span class="status-badge"
-                      :class="listing.status === 'available' ? 'status-available' : listing.status === 'pending' ? 'status-pending' : 'status-sold'"
-                      x-text="listing.status === 'available' ? '🟢 Available' : listing.status === 'pending' ? '🟡 Pending' : '✅ Sold'"></span>
+                      :class="listing.status === 'available' ? 'status-available' : 'status-sold'"
+                      x-text="listing.status === 'available' ? '🟢 Available' : '✅ Sold'"></span>
                 <div class="forsale-actions">
                   <template x-if="listing.status === 'available'">
-                    <button class="btn btn-secondary btn-sm" @click="updateForSaleStatus(listing, 'pending')">Mark Pending</button>
-                  </template>
-                  <template x-if="listing.status === 'pending'">
-                    <div style="display:flex;gap:.3rem;flex-wrap:wrap;">
-                      <button class="btn btn-secondary btn-sm" @click="updateForSaleStatus(listing, 'available')">↩ Back</button>
-                      <button class="btn btn-primary btn-sm" @click="updateForSaleStatus(listing, 'sold')">✅ Sold</button>
-                    </div>
+                    <button class="btn btn-primary btn-sm" @click="updateForSaleStatus(listing, 'sold')">✅ Mark Sold</button>
                   </template>
                   <template x-if="listing.status === 'sold'">
-                    <button class="btn btn-secondary btn-sm" @click="updateForSaleStatus(listing, 'available')">Relist</button>
+                    <button class="btn btn-secondary btn-sm" @click="updateForSaleStatus(listing, 'available')">↩ Relist</button>
                   </template>
-                  <button class="btn btn-secondary btn-sm" @click="openEditForSaleModal(listing)" title="Edit">✏️</button>
                   <button class="btn btn-danger btn-sm" @click="openDeleteForSaleModal(listing)" title="Remove">🗑</button>
                 </div>
               </div>
             </div>
           </template>
+
         </div>
       </div><!-- /forsale tab -->
 
@@ -854,7 +871,15 @@
               <!-- Upload preview -->
               <template x-if="photoPreview">
                 <div class="bag-photo-preview">
-                  <img class="bag-photo-preview-img" :src="photoPreview" alt="Preview"/>
+                  <div class="crop-canvas-wrapper">
+                    <canvas class="crop-canvas"
+                            x-ref="cropCanvas"
+                            @pointerdown="cropPointerDown($event)"
+                            @pointermove="cropPointerMove($event)"
+                            @pointerup="cropPointerUp($event)"
+                            @pointercancel="cropPointerUp($event)"></canvas>
+                    <p class="crop-hint">Drag center dot to move · Drag circle edge to resize</p>
+                  </div>
                   <!-- In Edit mode: manual save/cancel buttons -->
                   <div class="bag-photo-preview-actions" x-show="formId">
                     <button type="button" class="btn btn-primary btn-sm"
@@ -1236,7 +1261,7 @@
         </div>
       </div>
 
-      <!-- ── For Sale Listing Create / Edit Modal ── -->
+      <!-- ── For Sale Listing Modal ── -->
       <div class="modal-overlay"
            x-show="showForSaleModal"
            x-transition.opacity
@@ -1244,11 +1269,11 @@
            role="dialog" aria-modal="true" aria-labelledby="forsaleModalTitle">
         <div class="modal">
           <div class="modal-header">
-            <h2 class="modal-title" id="forsaleModalTitle" x-text="forsaleForm.id ? 'Edit Listing' : 'List for Sale'"></h2>
+            <h2 class="modal-title" id="forsaleModalTitle">List for Sale</h2>
             <button class="modal-close" @click="showForSaleModal = false" aria-label="Close">✕</button>
           </div>
           <form @submit.prevent="saveForSaleListing()" novalidate>
-            <!-- Disc selector (new listings) -->
+            <!-- Disc selector -->
             <div class="form-group" style="margin-bottom:.8rem;" x-show="!forsaleForm.id">
               <label>Disc *</label>
               <input type="search" placeholder="Search your inventory…"
@@ -1269,55 +1294,9 @@
                 <div class="bag-discs-empty" x-show="forsaleDiscPickerFiltered.length === 0">No available discs</div>
               </div>
             </div>
-            <!-- Edit mode: show disc name as read-only -->
-            <div x-show="forsaleForm.id" class="form-group" style="margin-bottom:.8rem;">
-              <label>Disc</label>
-              <div style="font-weight:600;padding:.5rem .75rem;background:var(--clr-surface2);border-radius:var(--radius);font-size:.92rem;"
-                   x-text="discs.find(d => d.id === forsaleForm.disc_id)?.name || '(disc removed)'"></div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="forsalePrice">Price</label>
-                <input type="number" id="forsalePrice" placeholder="0" min="0" step="0.01"
-                       x-model="forsaleForm.price" />
-              </div>
-              <div class="form-group">
-                <label for="forsaleCurrency">Currency</label>
-                <select id="forsaleCurrency" x-model="forsaleForm.currency">
-                  <option value="SEK">SEK</option>
-                  <option value="NOK">NOK</option>
-                  <option value="EUR">EUR</option>
-                  <option value="USD">USD</option>
-                  <option value="GBP">GBP</option>
-                  <option value="DKK">DKK</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="forsaleContactMethod">Contact via</label>
-                <select id="forsaleContactMethod" x-model="forsaleForm.contact_method">
-                  <option value="email">Email</option>
-                  <option value="phone">Phone</option>
-                  <option value="discord">Discord</option>
-                  <option value="facebook">Facebook</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="forsaleContactInfo">Contact Info</label>
-                <input type="text" id="forsaleContactInfo" placeholder="your@email.com"
-                       x-model="forsaleForm.contact_info" />
-              </div>
-            </div>
-            <div class="form-group full-width" style="margin-bottom:.8rem;">
-              <label for="forsaleNotes">Notes</label>
-              <textarea id="forsaleNotes" rows="2" placeholder="Condition details, trades considered…"
-                        x-model="forsaleForm.notes"></textarea>
-            </div>
             <div class="form-actions">
               <button type="button" class="btn btn-secondary" @click="showForSaleModal = false">Cancel</button>
-              <button type="submit" class="btn btn-primary" x-text="forsaleForm.id ? 'Update Listing' : 'List for Sale'"></button>
+              <button type="submit" class="btn btn-primary">List for Sale</button>
             </div>
           </form>
         </div>

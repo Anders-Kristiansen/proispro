@@ -659,6 +659,26 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   display: flex;
   gap: .5rem;
 }
+.crop-canvas-wrapper {
+  position: relative;
+  margin-bottom: .25rem;
+}
+.crop-canvas {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  border-radius: var(--radius);
+  background: var(--clr-surface2);
+  touch-action: none;
+  cursor: default;
+}
+.crop-hint {
+  font-size: .72rem;
+  color: var(--clr-muted);
+  text-align: center;
+  margin-top: .2rem;
+  user-select: none;
+}
 /* ── Tab Navigation ───────────────────────────────────────── */
 .tab-nav {
   display: flex;
@@ -1313,6 +1333,43 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
 .priority-low  { background: rgba(34,197,94,.12);  color: oklch(0.75 0.18 155); border: 1px solid rgba(34,197,94,.25); }
 
 /* ── For Sale ───────────────────────────────────────────────── */
+
+/* Sale public share section */
+.sale-public-section { margin-bottom: .5rem; }
+.sale-link-card {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  background: var(--clr-surface2);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  padding: .9rem 1rem;
+  margin-bottom: .75rem;
+}
+.sale-qr-wrap { flex-shrink: 0; }
+.sale-qr-img { width: 110px; height: 110px; border-radius: 6px; display: block; }
+.sale-link-info { flex: 1; min-width: 0; }
+.sale-link-title { font-weight: 700; font-size: 1rem; margin-bottom: .15rem; }
+.sale-link-desc { font-size: .82rem; color: var(--clr-muted); margin-bottom: .5rem; }
+.sale-url-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: .8rem;
+  padding: .3rem .6rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--clr-border);
+  background: var(--clr-surface);
+  color: var(--clr-text);
+  margin-bottom: .5rem;
+  cursor: text;
+}
+.sale-link-actions { display: flex; gap: .4rem; flex-wrap: wrap; }
+.sale-private-note { font-size: .78rem; color: oklch(75% 0.15 60); margin-top: .35rem; }
+@media (max-width: 500px) {
+  .sale-link-card { flex-direction: column; }
+  .sale-qr-img { width: 90px; height: 90px; }
+}
+
 .forsale-card {
   display: flex;
   align-items: flex-start;
