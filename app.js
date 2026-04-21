@@ -654,6 +654,7 @@ function discApp() {
 
     async saveDisc() {
       if (this.formSaving) return;
+      if (this.aiIdentifying) { showToast('⏳ AI scan in progress — please wait a moment'); return; }
       // Validate
       this.formInvalid = { name: false, type: false };
       let ok = true;
@@ -687,16 +688,21 @@ function discApp() {
         const sb = getSupabase();
         if (sb && this.user && this.user.id !== 'local') {
           if (id) {
-            const { error } = await sb.from('discs').update(toDbDisc(disc)).eq('id', disc.id);
+            const { error } = await Promise.race([
+              sb.from('discs').update(toDbDisc(disc)).eq('id', disc.id),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('Save timed out — check your connection')), 15000)),
+            ]);
             if (error) throw error;
             const idx = this.discs.findIndex(x => x.id === id);
             if (idx !== -1) this.discs[idx] = disc;
           } else {
-            const { data, error } = await sb
-              .from('discs')
-              .insert([{ ...toDbDisc(disc), user_id: this.user.id }])
-              .select()
-              .single();
+            const { data, error } = await Promise.race([
+              sb.from('discs')
+                .insert([{ ...toDbDisc(disc), user_id: this.user.id }])
+                .select()
+                .single(),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('Save timed out — check your connection')), 15000)),
+            ]);
             if (error) throw error;
             this.discs.push(fromDbDisc(data));
 
@@ -851,6 +857,7 @@ function discApp() {
       if (this._pdgaTimer) { clearTimeout(this._pdgaTimer); this._pdgaTimer = null; }
       this.discSuggestions = [];
       if (this._discTimer) { clearTimeout(this._discTimer); this._discTimer = null; }
+      this.aiIdentifying = false;
       this.aiIdentifyMsg = '';
     },
 

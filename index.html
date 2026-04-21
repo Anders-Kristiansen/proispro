@@ -957,8 +957,8 @@
               <template x-if="formId">
                 <button type="button" class="btn btn-secondary" @click="addDiscToSale(discs.find(d => d.id === formId)); closeModals()">🏷 Sell</button>
               </template>
-              <button type="submit" class="btn btn-primary" :disabled="formSaving"
-                      x-text="formSaving ? 'Saving…' : (formId ? 'Update Disc' : 'Save Disc')"></button>
+              <button type="submit" class="btn btn-primary" :disabled="formSaving || aiIdentifying"
+                      x-text="formSaving ? 'Saving…' : aiIdentifying ? 'Scanning…' : (formId ? 'Update Disc' : 'Save Disc')"></button>
             </div>
           </form>
         </div>
