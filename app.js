@@ -661,31 +661,30 @@ function discApp() {
       if (!this.form.type) { this.formInvalid.type = true; ok = false; }
       if (!ok) return;
       this.formSaving = true;
-
-      const id = this.formId;
-      const disc = {
-        id: id || uid(),
-        name: this.form.name.trim(),
-        manufacturer: this.form.manufacturer.trim(),
-        type: this.form.type,
-        plastic: this.form.plastic.trim(),
-        weight: this.form.weight.trim(),
-        color: this.form.color.trim(),
-        condition: this.form.condition,
-        flight: '',
-        speed: this.form.speed !== '' && this.form.speed != null ? Number(this.form.speed) : null,
-        glide: this.form.glide !== '' && this.form.glide != null ? Number(this.form.glide) : null,
-        turn:  this.form.turn  !== '' && this.form.turn  != null ? Number(this.form.turn)  : null,
-        fade:  this.form.fade  !== '' && this.form.fade  != null ? Number(this.form.fade)  : null,
-        notes: this.form.notes.trim(),
-        tags: this.form.tags || [],
-        user_photo_url: id ? (this.discs.find(x => x.id === id) || {}).user_photo_url || null : null,
-        added: id ? (this.discs.find(x => x.id === id) || {}).added || Date.now() : Date.now(),
-        quantity: this.form.quantity != null && this.form.quantity !== '' ? Math.max(1, Number(this.form.quantity)) : 1,
-      };
-
-      const sb = getSupabase();
       try {
+        const id = this.formId;
+        const disc = {
+          id: id || uid(),
+          name: this.form.name.trim(),
+          manufacturer: this.form.manufacturer.trim(),
+          type: this.form.type,
+          plastic: this.form.plastic.trim(),
+          weight: this.form.weight.trim(),
+          color: this.form.color.trim(),
+          condition: this.form.condition,
+          flight: '',
+          speed: this.form.speed !== '' && this.form.speed != null ? Number(this.form.speed) : null,
+          glide: this.form.glide !== '' && this.form.glide != null ? Number(this.form.glide) : null,
+          turn:  this.form.turn  !== '' && this.form.turn  != null ? Number(this.form.turn)  : null,
+          fade:  this.form.fade  !== '' && this.form.fade  != null ? Number(this.form.fade)  : null,
+          notes: this.form.notes.trim(),
+          tags: this.form.tags || [],
+          user_photo_url: id ? (this.discs.find(x => x.id === id) || {}).user_photo_url || null : null,
+          added: id ? (this.discs.find(x => x.id === id) || {}).added || Date.now() : Date.now(),
+          quantity: this.form.quantity != null && this.form.quantity !== '' ? Math.max(1, Number(this.form.quantity)) : 1,
+        };
+
+        const sb = getSupabase();
         if (sb && this.user && this.user.id !== 'local') {
           if (id) {
             const { error } = await sb.from('discs').update(toDbDisc(disc)).eq('id', disc.id);
@@ -700,7 +699,21 @@ function discApp() {
               .single();
             if (error) throw error;
             this.discs.push(fromDbDisc(data));
-            if (this.photoFile) await this.uploadDiscPhoto(data.id);
+
+            // Pre-compute blob while canvas refs are still valid, then close modal immediately
+            const pendingBlob = this.photoFile ? await this._getCroppedBlob() : null;
+            const newDiscId = data.id;
+            this.saveToLocalStorage();
+            this.closeModals();
+            showToast('✅ Disc added!');
+
+            // Upload photo in background — doesn't block the modal closing
+            if (pendingBlob) {
+              this._uploadBlobForDisc(newDiscId, pendingBlob).catch(() => {
+                showToast('⚠️ Photo upload failed — edit disc to retry');
+              });
+            }
+            return;
           }
         } else {
           // localStorage-only mode
@@ -1123,6 +1136,35 @@ function discApp() {
       }
     },
 
+    async _uploadBlobForDisc(discId, blob) {
+      const sb = getSupabase();
+      if (!sb) throw new Error('Not connected');
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) throw new Error('Not signed in');
+
+      const path = `${user.id}/${discId}.jpg`;
+      const { error: uploadError } = await sb.storage
+        .from('disc-photos')
+        .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+      if (uploadError) throw uploadError;
+
+      const TEN_YEARS = 60 * 60 * 24 * 365 * 10;
+      const { data: signedData, error: signError } = await sb.storage
+        .from('disc-photos')
+        .createSignedUrl(path, TEN_YEARS);
+      if (signError) throw signError;
+
+      const { error: updateError } = await sb
+        .from('discs')
+        .update({ user_photo_url: signedData.signedUrl })
+        .eq('id', discId);
+      if (updateError) throw updateError;
+
+      const idx = this.discs.findIndex(d => d.id === discId);
+      if (idx !== -1) this.discs[idx] = { ...this.discs[idx], user_photo_url: signedData.signedUrl };
+      showToast('📸 Photo saved!');
+    },
+
     async removeDiscPhoto() {
       if (!this.formId) return;
       const sb = getSupabase();
@@ -1332,8 +1374,9 @@ function discApp() {
       const ncy = cy * scaleY;
       const nr = r * Math.min(scaleX, scaleY);
 
-      // Create square output canvas (diameter × diameter)
-      const size = Math.max(1, Math.round(nr * 2));
+      // Cap output at 600px — prevents huge JPEG uploads from high-res photos
+      const MAX_SIZE = 600;
+      const size = Math.min(MAX_SIZE, Math.max(1, Math.round(nr * 2)));
       const off = document.createElement('canvas');
       off.width = size;
       off.height = size;
@@ -1351,8 +1394,12 @@ function discApp() {
         0, 0, size, size                        // dest rect
       );
 
-      return new Promise(resolve => {
-        off.toBlob(blob => resolve(blob || this.photoFile), 'image/jpeg', 0.92);
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => resolve(this.photoFile), 8000);
+        off.toBlob(blob => {
+          clearTimeout(timeout);
+          resolve(blob || this.photoFile);
+        }, 'image/jpeg', 0.85);
       });
     },
 
