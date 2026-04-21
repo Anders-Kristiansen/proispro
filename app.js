@@ -144,7 +144,7 @@ function fromDbPin(p) {
 
 // ── Helpers ─────────────────────────────────────────────────
 function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+  return crypto.randomUUID();
 }
 
 const TYPE_LABELS = { putter: 'Putter', midrange: 'Midrange', fairway: 'Fairway Driver', distance: 'Distance Driver' };
@@ -857,15 +857,13 @@ function discApp() {
           reader.readAsDataURL(this.photoFile);
         });
 
-        // Call Edge Function — use raw fetch (no auth needed, works even if Supabase client is unavailable)
-        const resp = await fetch(`${SUPABASE_URL}/functions/v1/identify-disc`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
-          body: JSON.stringify({ imageBase64: b64, mimeType }),
+        // Call Edge Function via Supabase client so auth token is included automatically
+        const sb = getSupabase();
+        if (!sb) throw new Error('Not connected to database');
+        const { data, error: fnError } = await sb.functions.invoke('identify-disc', {
+          body: { imageBase64: b64, mimeType },
         });
-        if (!resp.ok && resp.status !== 200) throw new Error(`Server error ${resp.status}`);
-        const data = await resp.json();
-        if (data?.error) throw new Error(data.error);
+        if (fnError) throw fnError;
 
         const result = data;
         // Apply flight numbers from AI (only fills empty fields)
@@ -1756,7 +1754,9 @@ function discApp() {
 
     async searchCourses(query) {
       try {
-        const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Sanitize: strip chars that break OQL string context (", ;, \, control chars)
+        const sanitized = query.replace(/[";\\\x00-\x1F]/g, '').slice(0, 100);
+        const escaped = sanitized.replace(/[.*+?^${}()|[\]]/g, '\\$&');
         const oql = `[out:json][timeout:10];(node["leisure"="disc_golf_course"]["name"~"${escaped}",i];way["leisure"="disc_golf_course"]["name"~"${escaped}",i];relation["leisure"="disc_golf_course"]["name"~"${escaped}",i];);out center 10;`;
         const data = await this.overpassFetch(oql, 12000);
         this.pdgaSuggestions = (data.elements || []).slice(0, 8).map(el => this.mapCourseElement(el));

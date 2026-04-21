@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -10,6 +11,18 @@ const json = (body: unknown, status = 200) =>
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+
+  // Require a valid Supabase user JWT — prevents unauthenticated Gemini API abuse
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
+
+  const sb = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    { global: { headers: { Authorization: authHeader } } },
+  );
+  const { data: { user }, error: authErr } = await sb.auth.getUser();
+  if (authErr || !user) return json({ error: 'Unauthorized' }, 401);
 
   try {
     const { imageBase64, mimeType } = await req.json();
