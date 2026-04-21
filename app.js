@@ -67,7 +67,7 @@ function toDbDisc(disc) {
     manufacturer: disc.manufacturer || null,
     disc_type: disc.type || null,
     plastic: disc.plastic || null,
-    weight: disc.weight || null,
+    weight: disc.weight !== '' && disc.weight != null ? parseFloat(disc.weight) : null,
     color: disc.color || null,
     condition: disc.condition || null,
     flight: disc.flight || null,
