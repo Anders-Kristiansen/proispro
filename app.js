@@ -195,8 +195,9 @@ function discApp() {
     showDeleteModal: false,
     editingDisc: null,
     pendingDeleteDisc: null,
-    form: { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '', tags: [] },
+    form: { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '', tags: [], quantity: 1 },
     formId: '',
+    formSaving: false,
     formInvalid: { name: false, type: false },
     photoPreview:    null,
     photoFile:       null,
@@ -652,12 +653,14 @@ function discApp() {
     },
 
     async saveDisc() {
+      if (this.formSaving) return;
       // Validate
       this.formInvalid = { name: false, type: false };
       let ok = true;
       if (!this.form.name.trim()) { this.formInvalid.name = true; ok = false; }
       if (!this.form.type) { this.formInvalid.type = true; ok = false; }
       if (!ok) return;
+      this.formSaving = true;
 
       const id = this.formId;
       const disc = {
@@ -713,6 +716,8 @@ function discApp() {
         showToast(id ? '✏️ Disc updated!' : '✅ Disc added!');
       } catch (err) {
         showToast('❌ Save failed: ' + err.message);
+      } finally {
+        this.formSaving = false;
       }
     },
 
@@ -1056,8 +1061,9 @@ function discApp() {
       this.photoFile = file;
       const url = URL.createObjectURL(file);
       this.photoPreview = url;
-      // setTimeout after $nextTick ensures Alpine.js has fully registered x-ref inside x-if
-      this.$nextTick(() => setTimeout(() => this._initCropCanvas(url), 0));
+      // $nextTick waits for Alpine x-show to toggle display, then double-rAF
+      // ensures the browser has laid out the canvas so clientWidth is valid.
+      this.$nextTick(() => requestAnimationFrame(() => requestAnimationFrame(() => this._initCropCanvas(url))));
     },
 
     cancelPhotoUpload() {

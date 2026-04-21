@@ -896,10 +896,9 @@
                 </div>
               </template>
 
-              <!-- Upload preview -->
-              <template x-if="photoPreview">
-                <div class="bag-photo-preview">
-                  <div class="crop-canvas-wrapper">
+              <!-- Upload preview — x-show keeps canvas in DOM so x-ref is always available -->
+              <div x-show="photoPreview" class="bag-photo-preview">
+                <div class="crop-canvas-wrapper">
                     <canvas class="crop-canvas"
                             x-ref="cropCanvas"
                             @pointerdown="cropPointerDown($event)"
@@ -937,11 +936,9 @@
                          style="font-size:.78rem;margin-top:.35rem;padding:.3rem .5rem;border-radius:6px;background:var(--clr-surface-raised)"></div>
                   </div>
                 </div>
-              </template>
 
               <!-- Upload button (only shown when no preview active) -->
-              <template x-if="!photoPreview">
-                <div style="margin-top:.5rem">
+              <div x-show="!photoPreview" style="margin-top:.5rem">
                   <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:.4rem">
                     📸 <span x-text="formId && discs.find(d => d.id === formId)?.user_photo_url ? 'Change photo' : 'Add photo'"></span>
                     <input type="file" id="bagPhotoInput" x-ref="bagPhotoInput"
@@ -951,7 +948,6 @@
                   </label>
                   <span style="font-size:.78rem;color:var(--clr-muted);margin-left:.5rem">JPEG, PNG or WEBP · max 5MB</span>
                 </div>
-              </template>
 
             </div>
 
@@ -960,7 +956,8 @@
               <template x-if="formId">
                 <button type="button" class="btn btn-secondary" @click="addDiscToSale(discs.find(d => d.id === formId)); closeModals()">🏷 Sell</button>
               </template>
-              <button type="submit" class="btn btn-primary" x-text="formId ? 'Update Disc' : 'Save Disc'"></button>
+              <button type="submit" class="btn btn-primary" :disabled="formSaving"
+                      x-text="formSaving ? 'Saving…' : (formId ? 'Update Disc' : 'Save Disc')"></button>
             </div>
           </form>
         </div>
