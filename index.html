@@ -44,7 +44,7 @@
           <a href="flight-guide.html" class="btn btn-secondary btn-sm" title="Browse the disc flight guide">🗺 Flight Guide</a>
           <span class="disc-count" x-text="user.email || 'Local mode'" style="font-size:.78rem;"></span>
           <button class="btn btn-secondary btn-sm" @click="signOut()" title="Sign out">↪ Logout</button>
-          <button class="btn btn-primary" x-show="activeTab === 'inventory'" @click="openAddModal()">+ Add Disc</button>
+          <button class="btn btn-primary header-add-disc-btn" x-show="activeTab === 'inventory'" @click="openAddModal()">+ Add Disc</button>
           <button class="btn btn-primary" x-show="activeTab === 'bags'" @click="openCreateBagModal()">+ Create Bag</button>
           <button class="btn btn-primary" x-show="activeTab === 'courses'" @click="openPinModal()">📍 Pin a Course</button>
           <button class="btn btn-primary" x-show="activeTab === 'collections'" @click="openCreateCollectionModal()">+ New Collection</button>
@@ -68,6 +68,7 @@
 
       <!-- ── Toolbar ── -->
       <div class="toolbar">
+        <button type="button" class="btn btn-primary btn-sm mobile-add-disc-btn" @click="openAddModal()">+ Add Disc</button>
         <input
           type="search"
           class="search-input"
@@ -83,35 +84,41 @@
           <button type="button" class="view-toggle-btn" :class="{ 'view-toggle-btn--active': viewMode === 'compact' }" @click="viewMode = 'compact'" title="Compact view">≡</button>
         </div>
         
-        <!-- Group by -->
-        <select class="select-input" aria-label="Group by" x-model="groupBy">
-          <option value="none">No grouping</option>
-          <option value="type">Group by Type</option>
-          <option value="brand">Group by Brand</option>
-          <option value="bag">Group by Bag</option>
-        </select>
+        <button type="button" class="btn btn-secondary btn-sm mobile-sort-toggle" @click="showMobileSortControls = !showMobileSortControls">
+          <span x-text="showMobileSortControls ? 'Hide' : 'Sort & Group'"></span>
+        </button>
         
-        <!-- Sort -->
-        <select class="select-input" aria-label="Sort by" x-model="sortBy">
-          <option value="name-asc">Name (A→Z)</option>
-          <option value="name-desc">Name (Z→A)</option>
-          <option value="type-asc">Type (Putter→Distance)</option>
-          <option value="type-desc">Type (Distance→Putter)</option>
-          <option value="speed-asc">Speed (Low→High)</option>
-          <option value="speed-desc">Speed (High→Low)</option>
-          <option value="glide-asc">Glide (Low→High)</option>
-          <option value="glide-desc">Glide (High→Low)</option>
-          <option value="turn-asc">Turn (Understable→Overstable)</option>
-          <option value="turn-desc">Turn (Overstable→Understable)</option>
-          <option value="fade-asc">Fade (Low→High)</option>
-          <option value="fade-desc">Fade (High→Low)</option>
-          <option value="weight-asc">Weight (Low→High)</option>
-          <option value="weight-desc">Weight (High→Low)</option>
-          <option value="condition-asc">Condition (Best→Worst)</option>
-          <option value="condition-desc">Condition (Worst→Best)</option>
-          <option value="added-desc">Date Added (Newest)</option>
-          <option value="added-asc">Date Added (Oldest)</option>
-        </select>
+        <div class="group-sort-controls" :class="{ 'group-sort-controls--open': showMobileSortControls }">
+          <!-- Group by -->
+          <select class="select-input" aria-label="Group by" x-model="groupBy" @change="showMobileSortControls = false">
+            <option value="none">No grouping</option>
+            <option value="type">Group by Type</option>
+            <option value="brand">Group by Brand</option>
+            <option value="bag">Group by Bag</option>
+          </select>
+          
+          <!-- Sort -->
+          <select class="select-input" aria-label="Sort by" x-model="sortBy" @change="showMobileSortControls = false">
+            <option value="name-asc">Name (A→Z)</option>
+            <option value="name-desc">Name (Z→A)</option>
+            <option value="type-asc">Type (Putter→Distance)</option>
+            <option value="type-desc">Type (Distance→Putter)</option>
+            <option value="speed-asc">Speed (Low→High)</option>
+            <option value="speed-desc">Speed (High→Low)</option>
+            <option value="glide-asc">Glide (Low→High)</option>
+            <option value="glide-desc">Glide (High→Low)</option>
+            <option value="turn-asc">Turn (Understable→Overstable)</option>
+            <option value="turn-desc">Turn (Overstable→Understable)</option>
+            <option value="fade-asc">Fade (Low→High)</option>
+            <option value="fade-desc">Fade (High→Low)</option>
+            <option value="weight-asc">Weight (Low→High)</option>
+            <option value="weight-desc">Weight (High→Low)</option>
+            <option value="condition-asc">Condition (Best→Worst)</option>
+            <option value="condition-desc">Condition (Worst→Best)</option>
+            <option value="added-desc">Date Added (Newest)</option>
+            <option value="added-asc">Date Added (Oldest)</option>
+          </select>
+        </div>
         
         <!-- Advanced filters popover -->
         <div class="advanced-popover-wrap">

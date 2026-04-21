@@ -155,6 +155,9 @@ a { color: var(--clr-accent); }
 .search-input { flex: 1 1 180px; }
 .select-input { flex: 0 1 auto; }
 .disc-count   { margin-left: auto; font-size: .85rem; color: var(--clr-muted); }
+.mobile-add-disc-btn,
+.mobile-sort-toggle { display: none; }
+.group-sort-controls { display: contents; }
 
 /* ── Disc Grid ────────────────────────────────────────────── */
 .disc-grid {
@@ -1323,6 +1326,18 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   .list-col-tags, .list-col-bags, .list-col-weight, .list-col-qty { display: none; }
   .toolbar { flex-wrap: wrap; }
   .toolbar-filter-chips { padding: .5rem .8rem; }
+  .header-add-disc-btn { display: none; }
+  .mobile-add-disc-btn,
+  .mobile-sort-toggle { display: inline-flex; }
+  .mobile-add-disc-btn { order: -2; }
+  .mobile-sort-toggle { order: 1; margin-left: auto; }
+  .search-input { order: 0; flex: 1 1 100%; }
+  .view-toggle { order: 1; }
+  .advanced-popover-wrap { order: 1; }
+  .disc-count { order: 1; margin-left: 0; }
+  .group-sort-controls { display: none; width: 100%; }
+  .group-sort-controls--open { display: flex; flex-direction: column; gap: .6rem; }
+  .group-sort-controls .select-input { width: 100%; }
 }
 
 @media (max-width: 480px) {
