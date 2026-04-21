@@ -9,6 +9,17 @@ const STORAGE_KEY = 'proispro_discs';
 const BAGS_KEY    = 'proispro_bags';
 const PINS_KEY    = 'proispro_course_pins';
 const UI_PREFS_KEY = 'proispro_ui_prefs';
+const SORT_OPTIONS = new Set([
+  'name-asc', 'name-desc',
+  'type-asc', 'type-desc',
+  'speed-asc', 'speed-desc',
+  'glide-asc', 'glide-desc',
+  'turn-asc', 'turn-desc',
+  'fade-asc', 'fade-desc',
+  'weight-asc', 'weight-desc',
+  'condition-asc', 'condition-desc',
+  'added-asc', 'added-desc',
+]);
 
 // ── Supabase Client ─────────────────────────────────────────
 //
@@ -501,7 +512,7 @@ function discApp() {
     loadUiPrefs() {
       try {
         const raw = JSON.parse(localStorage.getItem(UI_PREFS_KEY) || '{}');
-        if (typeof raw.sortBy === 'string' && /^[a-z]+-(asc|desc)$/.test(raw.sortBy)) {
+        if (typeof raw.sortBy === 'string' && SORT_OPTIONS.has(raw.sortBy)) {
           this.sortBy = raw.sortBy;
         }
         if (typeof raw.groupBy === 'string' && ['none', 'type', 'brand', 'bag'].includes(raw.groupBy)) {
@@ -522,6 +533,10 @@ function discApp() {
           viewMode: this.viewMode,
         }));
       } catch { /* ignore storage errors */ }
+    },
+
+    closeMobileSortControls() {
+      this.showMobileSortControls = false;
     },
 
     toggleGroup(label) {

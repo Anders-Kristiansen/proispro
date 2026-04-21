@@ -90,7 +90,7 @@
         
         <div class="group-sort-controls" :class="{ 'group-sort-controls--open': showMobileSortControls }">
           <!-- Group by -->
-          <select class="select-input" aria-label="Group by" x-model="groupBy" @change="showMobileSortControls = false">
+          <select class="select-input" aria-label="Group by" x-model="groupBy" @change="closeMobileSortControls()">
             <option value="none">No grouping</option>
             <option value="type">Group by Type</option>
             <option value="brand">Group by Brand</option>
@@ -98,7 +98,7 @@
           </select>
           
           <!-- Sort -->
-          <select class="select-input" aria-label="Sort by" x-model="sortBy" @change="showMobileSortControls = false">
+          <select class="select-input" aria-label="Sort by" x-model="sortBy" @change="closeMobileSortControls()">
             <option value="name-asc">Name (A→Z)</option>
             <option value="name-desc">Name (Z→A)</option>
             <option value="type-asc">Type (Putter→Distance)</option>
