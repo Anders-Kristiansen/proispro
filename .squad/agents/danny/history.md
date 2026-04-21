@@ -8,6 +8,31 @@
 
 ## Learnings
 
+### 2026-04-21: Security Review (Red Team Audit)
+
+**Session:** security-review-2026-04-21
+**Role:** Red team application & function security audit
+**Model:** claude-opus-4.6
+
+**CRITICAL Issues Found:**
+1. **OQL Injection in app.js** — User input not sanitized in NoSQL queries; attacker can inject arbitrary query operators (MongoDB injection pattern)
+2. **Edge Function No-Auth** — `/api/identify-disc` exposes authentication logic without verifying caller identity
+
+**HIGH Issues:**
+1. **Sale Token Enumeration** — Public SELECT on `sale_tokens` allows listing all token IDs (privacy leak)
+
+**Recommendations & Fixes (commit 7193326):**
+1. ✅ Sanitize all user inputs via parameterized queries; input validation
+2. ✅ Add JWT verification to Edge Functions; require valid session via functions.invoke()
+3. ✅ Wrap sensitive table queries in SECURITY DEFINER functions (sale_tokens lookup)
+
+**Key Learnings:**
+- Edge Functions need explicit auth verification — functions.invoke() with JWT token ensures only authenticated Supabase clients can call them
+- NoSQL query building is particularly susceptible to injection — need explicit parameterization or input whitelisting
+- Token enumeration can be gated via SECURITY DEFINER functions that drop broad SELECT permissions
+
+---
+
 ### 2026-04-20: Moxfield-Inspired Features Phase 1–3 — Collections, Wishlist, For Sale
 
 **Completed architecture guidance for three feature sets:**
@@ -389,4 +414,30 @@ Added `.devcontainer/devcontainer.json` to enable GitHub Codespaces development 
 **Rationale:** The project is pure HTML/CSS/JS (no build step). Adding Node just to auto-serve defeats the point. Live Server gives identical UX (static preview) with one extra click. This keeps the development environment as simple as the application itself.
 
 **Verification:** `.devcontainer/devcontainer.json` created, PR #7 opened for review.
+
+---
+
+## Learnings
+
+### Red Team Security Review (2026-07)
+
+**Findings summary:** 2 critical, 4 high, 5 medium, 5 low/informational.
+
+**Key security patterns discovered:**
+
+1. **Overpass QL injection** — JS regex escaping is insufficient for non-JS query languages. Each query language needs context-specific escaping. The Overpass API uses its own string syntax with `"` and `;` as metacharacters — these aren't covered by `replace(/[.*+?^${}()|[\]\\]/g, ...)`.
+
+2. **Supabase Edge Functions need explicit auth** — Edge functions don't inherit RLS protections. The `identify-disc` function accepts unauthenticated requests, meaning the publishable anon key is sufficient to burn Gemini API credits. Always verify JWT in edge functions.
+
+3. **RLS policy scope creep on public data** — The `sale_tokens_public_read` policy enables anonymous enumeration of ALL public tokens. Intended use: look up one token. Actual exposure: full table scan. Principle: public READ policies should be as narrow as possible — prefer RPC functions that accept specific parameters.
+
+4. **CDN supply chain risk** — Two critical scripts loaded without SRI hashes. In a no-CSP environment (GitHub Pages), a CDN compromise gives full code execution. SRI is the primary mitigation.
+
+5. **Signed URL lifetime** — 10-year signed URLs for photos are effectively permanent and irrevocable. Once leaked, they persist beyond account deletion. Short-lived URLs with client-side refresh are more secure.
+
+6. **XSS defense was excellent** — Consistent use of `x-text` (never `x-html`), `textContent` for toasts, no `eval/innerHTML/document.write`. This is the gold standard for Alpine.js apps.
+
+7. **Defense-in-depth matters** — RLS policies are correctly configured, but client-side mutations don't include `user_id` filters. If RLS is ever disabled accidentally, every mutation becomes an IDOR vulnerability. Belt-and-suspenders costs nothing.
+
+8. **Third-party data leakage via QR service** — Encoding secret tokens into third-party API URLs leaks them. Generate QR codes client-side.
 

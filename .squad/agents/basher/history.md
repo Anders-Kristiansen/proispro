@@ -8,6 +8,62 @@
 
 ## Learnings
 
+### 2026-04-21: RLS & Schema Security Audit
+
+**Session:** security-review-2026-04-21
+**Role:** Supabase Row-Level Security & table schema audit
+**Model:** claude-sonnet-4.5
+
+**CRITICAL Issues:**
+1. **collection_discs Missing UPDATE Policy** — Users can update records without RLS enforcement; data integrity violation
+2. **Core Tables Not in Migrations** — Schema exists in Supabase but not in version-controlled migrations; reproducibility risk
+
+**HIGH Issues:**
+1. **sale_tokens Enumeration** — Public SELECT allows any user to list all sale tokens and their IDs (privacy leak)
+2. **10-Year Signed URL Lifetime** — CosmosDB signed URLs valid for 10 years (should be < 1 day)
+
+**Fixes Implemented (commit 7193326):**
+1. ✅ Added UPDATE RLS policy to `collection_discs` to restrict modifications by owner
+2. ✅ Exported schema to timestamped migration file (20260421000000_security_fixes.sql)
+3. ✅ Created `lookup_sale_token()` SECURITY DEFINER function to gate token validation (drops broad public SELECT)
+4. ⏳ Signed URL lifetime (pending infrastructure update)
+
+**Key Learnings:**
+- Junction tables without user_id denormalization need EXISTS-based RLS for all four operations (SELECT/INSERT/UPDATE/DELETE)
+- SECURITY DEFINER functions are powerful for gating sensitive lookups — wraps dangerous queries in a trusted boundary
+- All schema changes must go through migrations (even retroactively) for deployment reproducibility
+
+---
+
+### 2026-04-20: Supabase Security Audit — RLS + Storage Policies
+**Context:** Full security review of all database tables, RLS policies, and storage bucket configurations.
+
+**Key Findings:**
+1. **Critical**: `collection_discs` missing UPDATE policy — users can't reorder discs in collections
+2. **Critical**: Core tables (`discs`, `bags`, `course_pins`) exist only in `/docs`, not in `/supabase/migrations/` — breaks Supabase CLI workflow
+3. **High**: `sale_tokens` public read policy allows enumeration of all public sale pages (privacy leak)
+4. **High**: Signed URLs have 10-year lifetime — should be short-lived (24h) with path-based storage
+
+**RLS Coverage:** 8/8 tables have RLS enabled. 7/8 have complete CRUD policies (collection_discs missing UPDATE).
+
+**Storage Policies:** `disc-photos` bucket has correct path-scoped policies (INSERT/SELECT/UPDATE/DELETE) preventing cross-user access. `upsert: true` requires all 3 policies (verified present).
+
+**Best Practices Applied:**
+- All policies use `auth.uid()` (server-validated), not `user_metadata` (user-editable)
+- No `SECURITY DEFINER` functions (all SECURITY INVOKER)
+- No triggers bypassing RLS
+- CHECK constraints on quantity field (defense in depth)
+
+**Recommendations:**
+1. Add UPDATE policy to collection_discs
+2. Consolidate core schema into 000_initial_schema.sql migration
+3. Implement Edge Function for token resolution (eliminate enumeration)
+4. Change signed URLs from 10y to 24h, store paths not URLs
+5. Add `FORCE ROW LEVEL SECURITY` to all tables
+6. Add indexes on forsale_listings(user_id, status)
+
+**Lesson:** Migration files scattered across `/docs` and `/supabase/migrations/` is a deployment risk. Always consolidate schema into official migrations directory for Supabase CLI compatibility.
+
 <!-- Append learnings below -->
 
 ### 2026-04-20: Phase 1–3 Supabase Migrations (Collections, Wishlist, For Sale)
