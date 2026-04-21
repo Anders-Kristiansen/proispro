@@ -8,6 +8,18 @@ const SUPABASE_ANON = 'sb_publishable_p0KpjMepMloZb6SI-y6ang_2uzbdQ9U';
 const STORAGE_KEY = 'proispro_discs';
 const BAGS_KEY    = 'proispro_bags';
 const PINS_KEY    = 'proispro_course_pins';
+const UI_PREFS_KEY = 'proispro_ui_prefs';
+const SORT_OPTIONS = new Set([
+  'name-asc', 'name-desc',
+  'type-asc', 'type-desc',
+  'speed-asc', 'speed-desc',
+  'glide-asc', 'glide-desc',
+  'turn-asc', 'turn-desc',
+  'fade-asc', 'fade-desc',
+  'weight-asc', 'weight-desc',
+  'condition-asc', 'condition-desc',
+  'added-asc', 'added-desc',
+]);
 
 // ── Supabase Client ─────────────────────────────────────────
 //
@@ -184,6 +196,7 @@ function discApp() {
     groupBy: 'bag',
     activeTagFilter: '',
     showAdvancedPopover: false,
+    showMobileSortControls: false,
     filterBrand: '',
     filterBag: '',
     filterCondition: '',
@@ -490,6 +503,42 @@ function discApp() {
       this.sortBy = field + '-' + this.sortDir;
     },
 
+    syncSortStateFromSortBy() {
+      const [field = 'name', dir = 'asc'] = (this.sortBy || '').split('-');
+      this.activeSortColumn = field || 'name';
+      this.sortDir = dir === 'desc' ? 'desc' : 'asc';
+    },
+
+    loadUiPrefs() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(UI_PREFS_KEY) || '{}');
+        if (typeof raw.sortBy === 'string' && SORT_OPTIONS.has(raw.sortBy)) {
+          this.sortBy = raw.sortBy;
+        }
+        if (typeof raw.groupBy === 'string' && ['none', 'type', 'brand', 'bag'].includes(raw.groupBy)) {
+          this.groupBy = raw.groupBy;
+        }
+        if (typeof raw.viewMode === 'string' && ['grid', 'list', 'compact'].includes(raw.viewMode)) {
+          this.viewMode = raw.viewMode;
+        }
+      } catch { /* ignore invalid prefs */ }
+      this.syncSortStateFromSortBy();
+    },
+
+    saveUiPrefs() {
+      try {
+        localStorage.setItem(UI_PREFS_KEY, JSON.stringify({
+          sortBy: this.sortBy,
+          groupBy: this.groupBy,
+          viewMode: this.viewMode,
+        }));
+      } catch { /* ignore storage errors */ }
+    },
+
+    closeMobileSortControls() {
+      this.showMobileSortControls = false;
+    },
+
     toggleGroup(label) {
       this.groupExpanded[label] = !(this.groupExpanded[label] !== false);
     },
@@ -534,6 +583,13 @@ function discApp() {
         this.loadPinsFromLocalStorage();
         this.loading = false;
       }
+      this.loadUiPrefs();
+      this.$watch('sortBy', () => {
+        this.syncSortStateFromSortBy();
+        this.saveUiPrefs();
+      });
+      this.$watch('groupBy', () => this.saveUiPrefs());
+      this.$watch('viewMode', () => this.saveUiPrefs());
       try { this._courseCache = JSON.parse(localStorage.getItem('proispro_course_cache') || '{}'); } catch { this._courseCache = {}; }
 
       // Pre-fill from flight guide link: index.html?name=Destroyer&manufacturer=Innova&...
