@@ -198,6 +198,7 @@ function discApp() {
     form: { name: '', manufacturer: '', type: '', plastic: '', weight: '', color: '', condition: 'good', speed: '', glide: '', turn: '', fade: '', notes: '', tags: [], quantity: 1 },
     formId: '',
     formSaving: false,
+    formSaveError: '',
     formInvalid: { name: false, type: false },
     photoPreview:    null,
     photoFile:       null,
@@ -657,6 +658,7 @@ function discApp() {
       if (this.aiIdentifying) { showToast('⏳ AI scan in progress — please wait a moment'); return; }
       // Validate
       this.formInvalid = { name: false, type: false };
+      this.formSaveError = '';
       let ok = true;
       if (!this.form.name.trim()) { this.formInvalid.name = true; ok = false; }
       if (!this.form.type) { this.formInvalid.type = true; ok = false; }
@@ -741,6 +743,7 @@ function discApp() {
         this.closeModals();
         showToast(id ? '✏️ Disc updated!' : '✅ Disc added!');
       } catch (err) {
+        this.formSaveError = err.message;
         showToast('❌ Save failed: ' + err.message);
       } finally {
         this.formSaving = false;
@@ -850,6 +853,7 @@ function discApp() {
       this.showForSaleModal = false;
       this.showDeleteForSaleModal = false;
       this.formInvalid = { name: false, type: false };
+      this.formSaveError = '';
       if (this.photoPreview) URL.revokeObjectURL(this.photoPreview);
       this.photoPreview = null;
       this.photoFile = null;

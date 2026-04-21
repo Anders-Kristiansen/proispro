@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://overpass-api.de https://overpass.kumi.systems https://overpass.openstreetmap.ru https://nominatim.openstreetmap.org; img-src 'self' data: blob: https://*.supabase.co https://api.qrserver.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline'; frame-ancestors 'none';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://overpass-api.de https://overpass.kumi.systems https://overpass.openstreetmap.ru https://nominatim.openstreetmap.org https://cdn.jsdelivr.net; img-src 'self' data: blob: https://*.supabase.co https://api.qrserver.com https://*.googleusercontent.com; style-src 'self' 'unsafe-inline';" />
   <title>ProIsPro – Disc Inventory</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" href="img/logo.png" type="image/png" />
@@ -952,6 +952,9 @@
 
             </div>
 
+            <div x-show="formSaveError" x-cloak
+                 style="margin-bottom:.6rem;padding:.6rem .8rem;background:var(--clr-danger,#e53);color:#fff;border-radius:6px;font-size:.85rem;"
+                 x-text="'❌ ' + formSaveError"></div>
             <div class="form-actions">
               <button type="button" class="btn btn-secondary" @click="closeModals()">Cancel</button>
               <template x-if="formId">
