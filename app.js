@@ -700,18 +700,25 @@ function discApp() {
             if (error) throw error;
             this.discs.push(fromDbDisc(data));
 
-            // Pre-compute blob while canvas refs are still valid, then close modal immediately
-            const pendingBlob = this.photoFile ? await this._getCroppedBlob() : null;
+            // Capture file ref and disc ID before closeModals() clears photoFile
+            const capturedFile = this.photoFile;
             const newDiscId = data.id;
+
+            // Close modal IMMEDIATELY — _cropImg/_cropCanvas/photoCropCircle survive closeModals()
             this.saveToLocalStorage();
             this.closeModals();
             showToast('✅ Disc added!');
 
-            // Upload photo in background — doesn't block the modal closing
-            if (pendingBlob) {
-              this._uploadBlobForDisc(newDiscId, pendingBlob).catch(() => {
-                showToast('⚠️ Photo upload failed — edit disc to retry');
-              });
+            // Blob computation + upload in full background — modal is already closed
+            if (capturedFile) {
+              this._getCroppedBlob(capturedFile)
+                .then(blob => this._uploadBlobForDisc(newDiscId, blob || capturedFile))
+                .catch(() => showToast('⚠️ Photo upload failed — edit disc to retry'))
+                .finally(() => {
+                  this._cropImg = null;
+                  this._cropCanvas = null;
+                  this.photoCropCircle = null;
+                });
             }
             return;
           }
@@ -1359,12 +1366,13 @@ function discApp() {
       this._cropDragOffset = null;
     },
 
-    async _getCroppedBlob() {
+    async _getCroppedBlob(fallbackFile = null) {
+      const fallback = fallbackFile || this.photoFile;
       if (!this._cropImg || !this.photoCropCircle) {
-        return this.photoFile;
+        return fallback;
       }
       const canvas = this._cropCanvas || this.$refs.cropCanvas;
-      if (!canvas) return this.photoFile;
+      if (!canvas) return fallback;
       const { cx, cy, r } = this.photoCropCircle;
 
       // Scale from canvas display coords to natural image coords
@@ -1395,10 +1403,10 @@ function discApp() {
       );
 
       return new Promise((resolve) => {
-        const timeout = setTimeout(() => resolve(this.photoFile), 8000);
+        const timeout = setTimeout(() => resolve(fallback), 8000);
         off.toBlob(blob => {
           clearTimeout(timeout);
-          resolve(blob || this.photoFile);
+          resolve(blob || fallback);
         }, 'image/jpeg', 0.85);
       });
     },
