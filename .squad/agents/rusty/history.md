@@ -887,3 +887,61 @@ px supabase gen types typescript later for full types)
 - Phase 4: Bags tab (full bag CRUD, assign discs, reorder)
 - Phase 5: Photo upload, catalog search, toast system
 - Phase 6: Core/Scramble assignments (use badge slot in DiscCard)
+
+---
+
+### 2026-05-16 — Phase 4: Bags Tab + FlightChart Port to React
+
+**Session:** AK-requested Bags UI implementation  
+**Commit:** bf0ffae
+
+**Implementation:**
+- **FlightChart.tsx:** Native React SVG component (no x-html workaround needed vs Alpine.js).
+  - Zone labels (Overstable/Stable/Understable), turn axis ticks, speed labels + horizontal grid.
+  - Vertical grid lines at each turn position (except center line at turn=0, which uses dashed stroke).
+  - Disc dots: type-colored circles with OKLCH colors (putter blue, mid green, fairway orange, distance red).
+  - Disc labels: name truncated to 8 chars + ellipsis if > 9, positioned below each dot.
+  - Legend row below chart: ● Putter ● Mid ● Fairway ● Driver.
+  - Coordinate math preserved exactly from legacy (flightChartX, flightChartY formulas).
+
+- **BagCard.tsx:** Expandable bag card component with collapsible sections.
+  - Header: bag name, disc count, chevron toggle, action buttons (✏️ rename, 🗑 delete, ⊞ popout).
+  - Expanded detail: "Add / Remove Discs" button, disc list with ✕ remove button per disc.
+  - Change history: collapsible section, loads from ag_history table on first expand (lazy load).
+  - Flight chart: collapsible inline chart, shown only if bag has discs with flight numbers.
+
+- **BagPopout.tsx:** Full-screen modal with 2-column layout (chart left, disc list right).
+  - Close on ✕ button, Escape key, or click-outside overlay.
+  - Responsive: grid switches to single column below 500px (via epeat(auto-fit, minmax(500px, 1fr))).
+
+- **DiscPickerModal.tsx:** Search + checkbox picker for adding/removing discs from bag.
+  - Search filter by name/manufacturer/type.
+  - Checkboxes indicate which discs are currently in bag.
+  - Border highlight (2px accent) on checked rows.
+
+- **useBags.ts:** Full CRUD hook implementation.
+  - Added: createBag, enameBag, deleteBag, emoveDiscFromBag, loadBagHistory.
+  - 	oggleDiscInBag now accepts discs: ClientDisc[] param to record disc name in history.
+  - ormatHistoryTime(ts: string) helper: relative time formatter (just now / Xm ago / Xh ago / Xd ago / date).
+  - ecordHistory() internal method: inserts into ag_history table, swallows errors silently (non-critical).
+
+- **BagsPage.tsx:** Main bags page component.
+  - Empty state: 👜 "No bags yet — Create your first bag!"
+  - Bag list with expandable cards, create bag flow (native prompt for simplicity).
+  - Rename modal: inline modal with text input + save/cancel.
+  - Delete confirmation via native confirm().
+
+- **App.tsx:** Wired up BagsPage for ctiveTab === 'bags'.
+
+- **InventoryPage.tsx:** Fixed 	oggleDiscInBag call site to pass discs array (signature change).
+
+**Architecture Wins:**
+- React SVG works natively — no Alpine.js x-html workaround or string building needed.
+- Components are fully self-contained — BagCard manages its own history + chart state.
+- Lazy loading: history fetched only on first bag expand (not all bags upfront).
+- Type-safe: ClientBag, ClientDisc interfaces prevent shape mismatches.
+
+**Build:** Zero TypeScript errors, clean build output (400KB gzipped bundle).
+
+**Status:** Implemented, committed, build verified. Bags tab now functional in React app.
+

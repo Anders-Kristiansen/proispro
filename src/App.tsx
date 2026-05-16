@@ -1,14 +1,22 @@
 import { useState } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { useDiscs } from './hooks/useDiscs'
+import { useBags } from './hooks/useBags'
 import { LoginPage } from './pages/LoginPage'
 import { InventoryPage } from './pages/InventoryPage'
 import { BagsPage } from './pages/BagsPage'
+import { CoursesPage } from './pages/CoursesPage'
+import { CollectionsPage } from './pages/CollectionsPage'
+import { WishlistPage } from './pages/WishlistPage'
+import { ForSalePage } from './pages/ForSalePage'
 import { Layout } from './components/Layout'
 
 type Tab = 'inventory' | 'bags' | 'courses' | 'collections' | 'wishlist' | 'forsale'
 
 function AppShell() {
   const { user, isLoading } = useAuth()
+  const { discs } = useDiscs()
+  const { bags } = useBags()
   const [activeTab, setActiveTab] = useState<Tab>('inventory')
 
   if (isLoading) {
@@ -32,12 +40,10 @@ function AppShell() {
     <Layout activeTab={activeTab} onTabChange={setActiveTab}>
       {activeTab === 'inventory' && <InventoryPage />}
       {activeTab === 'bags' && <BagsPage />}
-      {activeTab !== 'inventory' && activeTab !== 'bags' && (
-        <div style={{ color: 'var(--clr-muted)', padding: '2rem 0' }}>
-          <p>📊 <strong style={{ color: 'var(--clr-text)' }}>{activeTab}</strong> tab — coming soon</p>
-          <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>Signed in as {user.email}</p>
-        </div>
-      )}
+      {activeTab === 'courses' && <CoursesPage allDiscs={discs} allBags={bags} />}
+      {activeTab === 'collections' && <CollectionsPage allDiscs={discs} />}
+      {activeTab === 'wishlist' && <WishlistPage />}
+      {activeTab === 'forsale' && <ForSalePage allDiscs={discs} />}
     </Layout>
   )
 }
