@@ -9,9 +9,10 @@ import { CoursesPage } from './pages/CoursesPage'
 import { CollectionsPage } from './pages/CollectionsPage'
 import { WishlistPage } from './pages/WishlistPage'
 import { ForSalePage } from './pages/ForSalePage'
+import { AnalyticsPage } from './pages/AnalyticsPage'
 import { Layout } from './components/Layout'
 
-type Tab = 'inventory' | 'bags' | 'courses' | 'collections' | 'wishlist' | 'forsale'
+type Tab = 'inventory' | 'bags' | 'courses' | 'collections' | 'wishlist' | 'forsale' | 'analytics'
 
 function AppShell() {
   const { user, isLoading } = useAuth()
@@ -44,6 +45,7 @@ function AppShell() {
       {activeTab === 'collections' && <CollectionsPage allDiscs={discs} />}
       {activeTab === 'wishlist' && <WishlistPage />}
       {activeTab === 'forsale' && <ForSalePage allDiscs={discs} />}
+      {activeTab === 'analytics' && <AnalyticsPage />}
     </Layout>
   )
 }

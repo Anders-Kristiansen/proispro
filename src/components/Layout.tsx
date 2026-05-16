@@ -1,7 +1,7 @@
 import { ReactNode } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 
-type Tab = 'inventory' | 'bags' | 'courses' | 'collections' | 'wishlist' | 'forsale'
+type Tab = 'inventory' | 'bags' | 'courses' | 'collections' | 'wishlist' | 'forsale' | 'analytics'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'inventory', label: '💿 Inventory' },
@@ -10,6 +10,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'collections', label: '📦 Collections' },
   { id: 'wishlist', label: '⭐ Wishlist' },
   { id: 'forsale', label: '🏷️ For Sale' },
+  { id: 'analytics', label: '📊 Analytics' },
 ]
 
 interface LayoutProps {
