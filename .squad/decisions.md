@@ -809,6 +809,48 @@ Store user-uploaded disc photos in Supabase Storage bucket `disc-photos` (public
 
 ---
 
+## Feature Development
+
+### 2026-05-16: PRD Decomposition — ProIsPro v2 Features
+**By:** Danny (Lead/Architect) | **Date:** 2026-05-16 | **Status:** Active
+
+Decomposed 3 feature requests (FR-1 autocomplete polish, FR-2 bag history, FR-3 course+holes+stats) into 10 GitHub issues with explicit dependency ordering and architecture decisions.
+
+**Issues Created:**
+- #48: [FR-1] Audit & improve disc name autocomplete UX
+- #49: [FR-2] Add bag_history Supabase migration
+- #50: [FR-2] Wire bag history into add/remove mutations + load on bag open
+- #51: [FR-2] Bag change history UI panel
+- #52: [FR-3b] Disc-to-hole assignment UI (course game plan)
+- #53: [FR-3a] Course holes UI — show hole list in Courses tab
+- #54: [FR-3c] Disc usage stats — Core vs Scramble badges
+- #55: [FR-3b] Hole assignment logic in app.js
+- #56: [FR-3a] Fix OSM course fetching + parse structured hole data
+- #57: [FR-3b] Hole assignments Supabase migration
+
+All labeled `squad:copilot` for autonomous pickup.
+
+**Architecture Decisions:**
+
+1. **bag_history as separate audit table** — Not using array mutation log or storing history inline. Separate table enables efficient queries, proper indexing, and RLS isolation. Append-only (no UPDATE/DELETE policies) preserves audit integrity.
+
+2. **hole_assignments scoped to course_pin_id** — Assignments reference the user's pinned course (course_pins.id), not a separate course entity. This keeps the relationship simple and maintains bag context per user.
+
+3. **Disc stats computed client-side** — No materialized view or pre-aggregated table. At current user scale, aggregating from hole_assignments on demand is sufficient. Threshold of 5+ holes for "Core" badge is initial heuristic — may tune later.
+
+4. **Holes stored as JSONB on course_pins** — Rather than a separate holes table, storing structured hole data as JSON column keeps queries simple and avoids joins. Works well for read-heavy, rarely-updated data.
+
+**Dependency Order:**
+```
+FR-1 (standalone)
+FR-2: #49 → #50 → #51
+FR-3: #56 → #53 → #57 → #55 → #52 → #54
+```
+
+**Rationale:** AK requested PRD decomposition and build kickoff for v2 features. Explicit dependency ordering prevents blocked work.
+
+---
+
 ### Disc Photo Storage Path — Fallback Strategy
 **By:** Rusty (Frontend Dev) via Copilot | **Date:** 2026-04-16 | **Status:** Active (follow-up pending)
 

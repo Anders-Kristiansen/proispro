@@ -441,3 +441,43 @@ Added `.devcontainer/devcontainer.json` to enable GitHub Codespaces development 
 
 8. **Third-party data leakage via QR service** — Encoding secret tokens into third-party API URLs leaks them. Generate QR codes client-side.
 
+---
+
+### 2026-05-16: PRD Decomposition — ProIsPro v2 Features
+
+**Session:** prd-decomp-2026-05-16
+**Requested by:** AK
+
+Decomposed 3 feature requests into 10 GitHub issues:
+
+**FR-1: Autocomplete Polish**
+- #48: Audit & improve disc name autocomplete UX
+
+**FR-2: Bag Change History**
+- #49: Add bag_history Supabase migration
+- #50: Wire bag history into add/remove mutations + load on bag open
+- #51: Bag change history UI panel
+
+**FR-3: Course Holes + Disc Assignment + Stats**
+- #52: Disc-to-hole assignment UI (course game plan)
+- #53: Course holes UI — show hole list in Courses tab
+- #54: Disc usage stats — Core vs Scramble badges
+- #55: Hole assignment logic in app.js
+- #56: Fix OSM course fetching + parse structured hole data
+- #57: Hole assignments Supabase migration
+
+**Key Architecture Decisions:**
+
+1. **bag_history as separate audit table** — Append-only with no UPDATE/DELETE policies. Separate table enables efficient queries and preserves audit integrity.
+
+2. **hole_assignments scoped to course_pin_id** — Keeps relationship simple by referencing user's pinned course, maintains bag context per user.
+
+3. **Disc stats computed client-side** — No materialized view needed at current scale. Aggregate from hole_assignments on demand. 5+ hole threshold for "Core" badge.
+
+4. **Holes stored as JSONB on course_pins** — Avoids separate table/joins for read-heavy, rarely-updated structured hole data.
+
+**Dependency chain:**
+- FR-1: standalone
+- FR-2: #49 → #50 → #51
+- FR-3: #56 → #53 → #57 → #55 → #52 → #54
+

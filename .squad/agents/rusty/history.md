@@ -10,6 +10,23 @@
 
 <!-- Append learnings below -->
 
+### 2026-05-16 — FR-1/2/3 Issues Created via PRD Decomposition
+
+Danny created 10 GitHub issues (#48–#57) from PRD decomposition:
+- **FR-1 (Autocomplete):** #48 (standalone)
+- **FR-2 (Bag History):** #49 (migration) → #50 (wire mutations) → #51 (UI panel)
+- **FR-3 (Courses+Holes+Stats):** #56 (fetch+parse) → #53 (holes UI) → #57 (migration) → #55 (assignment logic) → #52 (assignment UI) → #54 (stats)
+
+All issues labeled `squad:copilot` and assigned to Rusty for implementation pickup.
+
+**Key architecture decisions:**
+- bag_history: separate audit table (append-only, proper indexing)
+- hole_assignments: scoped to course_pin_id (not abstract course entity)
+- Disc stats: computed client-side at 5+ holes threshold
+- Holes data: JSONB on course_pins (avoids joins)
+
+Dependency order must be respected — FR-2 and FR-3 have sequential blockers.
+
 ### 2026-04-20 — Collections, Wishlist, For Sale Phases 1–3 (Completed)
 
 - Final implementation of Moxfield-inspired inventory features: Collections, Wishlist, For Sale tabs.

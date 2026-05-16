@@ -8,6 +8,27 @@
 
 ## Learnings
 
+## Learnings
+
+### 2026-05-16: PRD Decomposition — 10 New Feature Issues
+
+Danny created issues #48–#57 from PRD decomposition:
+- **FR-2 (Bag History):** New `bag_history` table (append-only audit log)
+- **FR-3 (Courses+Holes+Stats):** New `hole_assignments` table scoped to `course_pin_id`
+
+**Key schema decisions:**
+- bag_history: separate table, no UPDATE/DELETE policies (audit integrity)
+- hole_assignments: FK to course_pins.id (not abstract course entity)
+- Holes: stored as JSONB on course_pins (read-heavy, rarely updated)
+
+Two Supabase migrations needed:
+- #49: bag_history table creation
+- #57: hole_assignments + JSONB holes column
+
+See Danny's decomposition for full architecture rationale.
+
+---
+
 ### 2026-04-21: RLS & Schema Security Audit
 
 **Session:** security-review-2026-04-21
