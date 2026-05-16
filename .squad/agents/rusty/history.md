@@ -58,6 +58,41 @@
 
 ---
 
+### 2026-05-16 — Core/Scramble Disc Usage Badges (FR-5, Issue #54)
+
+**Session:** 2026-05-16T20:00:00Z  
+**PR #64:** squad/54-disc-usage-badges (Draft)
+
+**Implementation:**
+- Added `holeAssignments` state array to track disc assignments across all course pins
+- `loadAllHoleAssignments()` method loads all assignments at app init (called alongside loadDiscs/loadBags)
+- `computeDiscUsageStats()` computes stats client-side: returns Map<discId, { count, courseCount }>
+  - Iterates `holeAssignments`, tracks assignment count + Set of unique course_pin_ids per disc
+  - Flattens Set to size for courseCount (number of different courses/pins disc is used in)
+- `getDiscBadge(discId)` returns 'core' | 'scramble' | null:
+  - Core: 3+ hole assignments OR appears in 2+ courses
+  - Scramble: 1-2 hole assignments (situational use)
+  - null: no assignments (clean state when holeAssignments empty)
+- Badges shown in inventory disc cards (grid view) and bag disc lists
+- Badge styling: OKLCH warm gold for Core (🔑), soft purple for Scramble (🎲)
+- CSS: `.disc-usage-badge`, `.badge-core`, `.badge-scramble` — inline-flex with emoji, 0.7rem font
+
+**Architecture Decision:**
+- Stats computed **client-side** from holeAssignments (no materialized view in DB)
+- Recomputes on every `getDiscBadge()` call — acceptable at current scale (<100 discs × <50 assignments)
+- If performance becomes issue, can memoize `computeDiscUsageStats()` result and invalidate on assignment changes
+- Aligns with decisions.md: client-side stats, no extra DB queries
+
+**UX:**
+- Badges appear inline below disc name in card header
+- Only shown when disc has hole assignments (graceful: no badges when holeAssignments empty)
+- Title tooltips explain badge meaning ("Core disc — frequently used in your game plans")
+- Works with existing reactive Alpine patterns (x-if templates, getDiscBadge() as method call in template)
+
+**Status:** Draft PR #64 created, ready for review. Closes #54 (last MVP feature).
+
+---
+
 ### 2026-05-16 — FR-1/2/3 Issues Created via PRD Decomposition
 
 Danny created 10 GitHub issues (#48–#57) from PRD decomposition:
@@ -552,3 +587,114 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 
 **Status:** PR #62 draft, branch squad/51-bag-history-ui. Depends on PR #59 (wiring) merging first. 🟢 Good fit task — no review needed.
 
+### 2026-05-16 — Disc-to-Hole Game Plan UI (Issues #55 + #52)
+
+**PR #63:** `squad/52-hole-game-plan-ui`
+
+**What:** Per-hole disc assignment UI that lets users build a game plan by selecting which disc from their bag to throw on each hole of a pinned course.
+
+**Implementation:**
+
+**Alpine.js State (app.js):**
+- Added `holeAssignments: []` (array of assignment records from Supabase)
+- Added `activePinId: null` (which pin's game plan is open)
+- Added `showGamePlan: false` (boolean toggle for panel visibility)
+
+**Methods (app.js):**
+- `getHolesForPin(pin)` — Extracts hole elements from `_courseCache[pin.courseId].mapData.elements`, filters by `discGolf === 'hole'`, sorts by numeric `ref` tag (hole numbers 1-18+)
+- `loadHoleAssignments(coursePinId)` — Fetches from Supabase `hole_assignments` table (or clears if local-only mode)
+- `getAssignmentForHole(coursePinId, holeRef)` — Returns the assignment record for a specific hole, or null
+- `assignDiscToHole(coursePinId, holeRef, discId)` — Creates or updates assignment in Supabase (or in-memory for local mode). Denormalizes `disc_name` for display after disc deletion.
+- `clearHoleAssignment(coursePinId, holeRef)` — Deletes assignment from Supabase + in-memory array
+- `openGamePlan(pin)` — Sets `activePinId`, `showGamePlan = true`, triggers `loadHoleAssignments(pin.id)`
+- `closeGamePlan()` — Resets `showGamePlan` and `activePinId`
+- `getDiscsForGamePlan(pin)` — Returns discs from the bag linked to the course pin via `getBagForPin(pin)` → `getDiscsForBag(bag)`
+
+**UI (index.html):**
+- Added `🎯 Game Plan` button to course pin cards (visible via `x-show="getHolesForPin(pin) && getHolesForPin(pin).length > 0"` — only shows after OSM holes are downloaded)
+- Added `.game-plan-panel` div (inline below the course-pin-main, shown via `x-show="showGamePlan && activePinId === pin.id"` with `x-transition` for smooth expand/collapse)
+- Game plan panel contains:
+  - `.game-plan-header` — course name + close button
+  - `.game-plan-holes` — flex column of per-hole rows
+  - Each `.game-plan-hole` row shows: hole ref (e.g., "H1"), hole name (if present in OSM data), disc select dropdown (populated from bag discs), clear (✕) button
+- Select dropdown uses `:value` binding to show current assignment, `@change` triggers `assignDiscToHole()`
+- Wrapped existing course pin info + actions in a new `.course-pin-main` div to allow flexbox row layout while game plan panel sits below as a separate block
+
+**CSS (styles.css):**
+- Restructured `.course-pin-card` from flex row to block container (with overflow: hidden for border-radius)
+- Added `.course-pin-main` (flex row, existing layout for info + actions)
+- Added `.game-plan-panel` (border-top, surface2 background, padding 1rem)
+- Added `.game-plan-header` (flex row, space-between, bold)
+- Added `.game-plan-holes` (flex column, gap .5rem)
+- Added `.game-plan-hole` (flex row, align-center, gap .6rem, padded card with border)
+- Added `.hole-ref` (monospace, bold, 3ch min-width)
+- Added `.hole-name` (muted text, flex-grow, ellipsis overflow)
+- Added `.hole-disc-select` (compact select input, 150-300px responsive width, focus border transition)
+- Added `.btn-xs` (smaller button variant: .25rem .5rem padding, .75rem font-size)
+- Added `.btn-ghost` (transparent button with hover state for clear actions)
+
+**Migration (supabase/migrations/20260516000002_hole_assignments.sql):**
+- Created `hole_assignments` table:
+  - `id` (UUID primary key)
+  - `course_pin_id` (TEXT, links to course_pins)
+  - `hole_ref` (TEXT, from OSM ref tag like "1", "18")
+  - `disc_id` (TEXT, nullable — disc may be deleted)
+  - `disc_name` (TEXT, denormalized for display)
+  - `user_id` (UUID, FK to auth.users)
+  - `created_at`, `updated_at` (timestamptz)
+  - UNIQUE constraint on (course_pin_id, hole_ref, user_id)
+- Indexes on `course_pin_id`, `user_id`
+- RLS policies (owner-only SELECT/INSERT/UPDATE/DELETE)
+- `update_updated_at_column()` trigger
+
+**Key Patterns:**
+- Hole data flows from: OSM Overpass download → `_courseCache[courseId].mapData.elements` (localStorage) → `getHolesForPin()` getter → game plan UI
+- Assignments follow the existing Alpine CRUD pattern: optimistic local state update → Supabase write (fire-and-forget)
+- Local mode fallback: assignments stored in-memory with `uid()` IDs, never persisted (same pattern as bags/pins in local mode)
+- Denormalized `disc_name`: survives disc deletion, mirrors `bag_history` pattern
+- Game plan panel is inline (not modal) — one panel per pin, shown via `x-show` + `x-transition` for smooth collapse
+- `x-show` guard on Game Plan button prevents UI clutter for pins without downloaded holes
+
+**Integration with existing features:**
+- Uses existing `_courseCache` structure (shared with downloadCourseMap, getDownloadedMapSummary)
+- Uses existing `getBagForPin()` and `getDiscsForBag()` methods to populate disc selector
+- Follows same Alpine reactivity patterns as bag history, collections, wishlist, forsale
+
+**Status:** Draft PR #63, ready for review. Works in both Supabase and local-only modes. Migration included and ready to deploy.
+
+**Closes:** #55 (hole assignment logic), #52 (hole assignment UI)
+
+**Next:** Disc stats aggregation (FR-3c, issue #54) — compute per-disc stats from hole assignments (fairways hit, accuracy trends).
+
+---
+
+## 2026-05-16 — MVP Sprint Complete: All 11 Features + 6 PRs
+
+**Summary:** Completed full MVP feature sprint. Rusty built 4 parallel PRs delivering all remaining features (FR-2, FR-3a, FR-3b, FR-3c, FR-4). Session lead: Rusty. Support: Coordinator (inline fixes for hole filter + bag_history wiring). Data lead: Basher (2 migrations deployed to Supabase).
+
+**All 6 PRs:**
+1. **PR #59** (`squad/56-fix-hole-parsing`) — Course holes parsing (FR-3a) + bag_history wiring + inline Coordinator fixes. Draft.
+2. **PR #60** — (Already live, no PR needed for FR-1 autocomplete)
+3. **PR #61** (`squad/flight-chart`) — Flight chart SVG scatter plot (FR-4). Draft.
+4. **PR #62** (`squad/50-bag-history-ui`) — Bag history UI panel (FR-2). Blocks: PR #59 + migration #49 (live).
+5. **PR #63** (`squad/52-hole-game-plan-ui`) — Game plan UI + assignment logic (FR-3b). Blocks: PR #59 + migration #57 (live).
+6. **PR #64** (`squad/54-disc-usage-badges`) — Disc usage badges (FR-3c). Blocks: PR #63 (hole_assignments data).
+
+**Status:** ✅ All 6 PRs draft-complete, zero test failures, awaiting AK review + merge. Merge order: #59 → #61, #62 → #63 → #64.
+
+**Supabase Migrations (Live):**
+- `20260516000000_bag_history.sql` — append-only audit table, denormalized disc_name, owner-only RLS
+- `20260516000002_hole_assignments.sql` — game plan storage, scoped to course_pin_id, full CRUD RLS
+
+**Key Decisions Merged to decisions.md:**
+1. Disc usage badges: Core (3+ holes or 2+ courses) vs Scramble (1-2 holes)
+2. Flight chart: SVG pure implementation (zero library overhead)
+3. Game plan UI: inline collapsible panel (vs modal) for context preservation
+
+**Architecture Pattern:** Rusty's 4 PRs follow consistent Alpine.js patterns (x-if, x-for, x-show, x-transition, computed getters, optimistic state + fire-and-forget Supabase writes). All features gracefully fallback to local-only mode if Supabase unavailable. Denormalization strategy (disc_name) matches bag_history pattern for audit trail reliability.
+
+**Learnings:** PRD decomposition (Danny) made work tractable: explicit dependency ordering prevented blocked work. Coordinator inline fixes (hole filter + bag_history wiring in PR #59) unblocked downstream PRs. Migrations deployed early by Basher reduced frontend risk. 4-hour sprint (5 for Rusty + 1 Coordinator) delivered 11 features across 6 PRs with zero breaking changes.
+
+**Next:** AK review + merge. Expect 30min/PR review time (~2.5 hrs total). Then v2.1 roadmap TBD.
+
+Rusty is now owner of all 3 frontend feature areas: bag history UI, flight chart visualization, game plan UI, disc badges (all 4 PRs from this sprint). Also maintains photo upload, color picker, inventory UX (Moxfield redesign), collections/wishlist/forsale tabs from prior work. Total: ~2000 lines of feature code + migrations across 20+ sessions.

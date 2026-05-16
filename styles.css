@@ -1666,6 +1666,33 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
 /* Sale public share section */
 .sale-public-section { margin-bottom: .5rem; }
 .sale-link-card {
+
+/* ── Disc Usage Badges ──────────────────────────────────────── */
+.disc-usage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  font-size: .7rem;
+  font-weight: 600;
+  padding: .15rem .4rem;
+  border-radius: 999px;
+  vertical-align: middle;
+  margin-top: .2rem;
+}
+.badge-core {
+  background: oklch(90% 0.08 80);    /* warm gold */
+  color: oklch(35% 0.12 80);
+}
+.badge-scramble {
+  background: oklch(90% 0.06 270);   /* soft purple */
+  color: oklch(35% 0.10 270);
+}
+
+/* ── For Sale ───────────────────────────────────────────────── */
+
+/* Sale public share section */
+.sale-public-section { margin-bottom: .5rem; }
+.sale-link-card {
   display: flex;
   gap: 1rem;
   align-items: flex-start;
