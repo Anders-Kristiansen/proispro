@@ -241,6 +241,7 @@ function discApp() {
     pdgaLoading: false,
     _pdgaTimer: null,
     _courseCache: {},
+    expandedHoleLists: {},
     discSuggestions: [],
     discSuggestionsLoading: false,
     _discTimer: null,
@@ -1825,6 +1826,43 @@ function discApp() {
       return parts.join(' · ');
     },
 
+    parseHolesFromElements(elements) {
+      // Parse disc_golf=hole nodes with ref tag as hole number
+      const holes = elements
+        .filter(el => el.discGolf === 'hole')
+        .map((el, index) => ({
+          ref: el.ref || String(index + 1),
+          name: el.name || '',
+          lat: el.lat,
+          lon: el.lon,
+        }))
+        .sort((a, b) => {
+          // Natural sort by ref (hole number)
+          const aNum = parseInt(a.ref, 10);
+          const bNum = parseInt(b.ref, 10);
+          if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+          return a.ref.localeCompare(b.ref);
+        });
+      return holes;
+    },
+
+    getHolesForPin(pin) {
+      const data = pin?.courseId ? this._courseCache[pin.courseId]?.mapData : null;
+      if (!data) return null;
+      return data.holes || [];
+    },
+
+    toggleHoleList(pinId) {
+      this.expandedHoleLists[pinId] = !this.expandedHoleLists[pinId];
+    },
+
+    openHoleInMaps(hole) {
+      if (hole.lat != null && hole.lon != null) {
+        const url = this.getGoogleMapsUrl('', hole.lat, hole.lon);
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    },
+
     async downloadCourseMap(pin) {
       if (!pin?.courseId) {
         showToast('⚠️ Select a mapped course first to download hole data');
@@ -1847,6 +1885,16 @@ function discApp() {
         const data = await this.overpassFetch(oql, 32000);
         const elements = (data.elements || []);
         const byType = (name) => elements.filter(el => (el.tags?.disc_golf || '').toLowerCase() === name).length;
+        const mappedElements = elements.map(el => ({
+          id: `${el.type}:${el.id}`,
+          type: el.type,
+          discGolf: el.tags?.disc_golf || '',
+          ref: el.tags?.ref || '',
+          name: el.tags?.name || '',
+          lat: el.lat ?? el.center?.lat ?? null,
+          lon: el.lon ?? el.center?.lon ?? null,
+        }));
+        const holes = this.parseHolesFromElements(mappedElements);
         cached.mapData = {
           downloadedAt: Date.now(),
           totalElements: elements.length,
@@ -1854,15 +1902,9 @@ function discApp() {
           teeCount: byType('tee'),
           basketCount: byType('basket'),
           fairwayCount: byType('fairway'),
-          elements: elements.map(el => ({
-            id: `${el.type}:${el.id}`,
-            type: el.type,
-            discGolf: el.tags?.disc_golf || '',
-            ref: el.tags?.ref || '',
-            name: el.tags?.name || '',
-            lat: el.lat ?? el.center?.lat ?? null,
-            lon: el.lon ?? el.center?.lon ?? null,
-          })),
+          elements: mappedElements,
+          holes: holes,
+          manualFallback: holes.length === 0,
         };
         this._courseCache[pin.courseId] = cached;
         try { localStorage.setItem('proispro_course_cache', JSON.stringify(this._courseCache)); } catch {}

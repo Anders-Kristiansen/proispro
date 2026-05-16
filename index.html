@@ -487,6 +487,39 @@
                 <span class="course-name" x-text="pin.courseName"></span>
                 <span class="course-bag-name" x-text="getBagForPin(pin)?.name || '(bag deleted)'"></span>
                 <span class="course-bag-name" x-show="getDownloadedMapSummary(pin)" x-text="'Downloaded map: ' + getDownloadedMapSummary(pin)"></span>
+                
+                <!-- Hole list section (only when map downloaded) -->
+                <template x-if="getHolesForPin(pin) !== null">
+                  <div class="hole-list-section">
+                    <template x-if="getHolesForPin(pin).length > 0">
+                      <div>
+                        <button type="button" 
+                                class="hole-list-toggle" 
+                                @click="toggleHoleList(pin.id)"
+                                :aria-expanded="expandedHoleLists[pin.id] ? 'true' : 'false'">
+                          <span x-text="(expandedHoleLists[pin.id] ? '▼' : '▶') + ' ' + getHolesForPin(pin).length + ' holes'"></span>
+                        </button>
+                        <div class="hole-list" x-show="expandedHoleLists[pin.id]" x-collapse>
+                          <template x-for="hole in getHolesForPin(pin)" :key="hole.ref">
+                            <button type="button" 
+                                    class="hole-item" 
+                                    @click="openHoleInMaps(hole)"
+                                    :title="'Open Hole ' + hole.ref + ' in Google Maps'">
+                              <span class="hole-number" x-text="'Hole ' + hole.ref"></span>
+                              <span class="hole-nav-icon">🗺</span>
+                            </button>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                    <template x-if="getHolesForPin(pin).length === 0">
+                      <div class="hole-list-empty">
+                        <span>No hole data from OSM</span>
+                        <span class="hole-list-fallback" x-show="getDownloadedMapSummary(pin)" x-text="'(' + getDownloadedMapSummary(pin) + ')'"></span>
+                      </div>
+                    </template>
+                  </div>
+                </template>
               </div>
               <div class="course-pin-actions">
                 <button class="btn btn-secondary btn-sm" @click="downloadCourseMap(pin)" title="Download hole map data">⬇ Download Map</button>
