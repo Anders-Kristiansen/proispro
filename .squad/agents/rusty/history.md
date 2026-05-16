@@ -698,3 +698,60 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 **Next:** AK review + merge. Expect 30min/PR review time (~2.5 hrs total). Then v2.1 roadmap TBD.
 
 Rusty is now owner of all 3 frontend feature areas: bag history UI, flight chart visualization, game plan UI, disc badges (all 4 PRs from this sprint). Also maintains photo upload, color picker, inventory UX (Moxfield redesign), collections/wishlist/forsale tabs from prior work. Total: ~2000 lines of feature code + migrations across 20+ sessions.
+
+
+---
+
+### 2026-05-16 — React + Vite + TypeScript Migration Scaffold
+
+**Session:** 2026-05-16T220800Z-react-scaffold  
+**Role:** Frontend Dev
+
+**Implemented:**
+- Preserved legacy Alpine.js app as legacy-index.html (1530 lines)
+- Created React 18 + Vite 6 + TypeScript 5.7 scaffold
+- Package.json: added React, Vite, TypeScript, react-router-dom, recharts, @supabase/supabase-js
+- Config files: ite.config.ts, 	sconfig.json
+- New index.html as Vite entry point (13 lines vs 1530)
+- src/ structure:
+  - main.tsx — React entry point
+  - App.tsx — Shell with router (placeholder UI)
+  - index.css — Global styles (legacy styles.css imported later)
+  - lib/supabase.ts — Supabase client config
+  - 	ypes/database.ts — Type stubs (Disc, Bag, CoursePin, HoleAssignment interfaces)
+
+**Build:**
+- 
+pm install — 124 packages installed (19s, 0 vulnerabilities)
+- 
+pm run build — ✅ Clean build (tsc + vite, 1.02s)
+- Output: dist/ directory with bundled assets (160KB JS, 0.1KB CSS, sourcemaps)
+
+**Architecture Decision:**
+- Migration strategy: scaffold first, then incrementally port features from app.js
+- pp.js preserved (2682 lines) as reference — DO NOT DELETE during migration
+- styles.css stays at repo root (imported globally later)
+- Supabase client URL + anon key unchanged from Alpine.js app
+- Type stubs manual for now (run 
+px supabase gen types typescript later for full types)
+- React Router in place for future page routing (inventory, bags, courses, analytics)
+
+**Status:** ✅ Scaffold complete, committed to eat/refactor branch (commit 132c8a8).
+
+**Next Steps:**
+1. Port authentication (Google/GitHub OAuth) from Alpine.js to React
+2. Create component structure: Layout, DiscCard, BagCard, Modal components
+3. Port state management: discs, bags, coursePins, holeAssignments
+4. Port CRUD operations for discs (inventory tab)
+5. Port bags, courses, collections tabs
+6. Port flight guide as separate route
+7. Port analytics/charts with recharts
+
+**Key Files:**
+- legacy-index.html — Alpine.js app preserved
+- pp.js — Alpine.js logic preserved
+- src/App.tsx — React shell
+- src/lib/supabase.ts — Supabase client
+- src/types/database.ts — Database types
+
+
