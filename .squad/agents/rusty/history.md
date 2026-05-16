@@ -945,3 +945,31 @@ px supabase gen types typescript later for full types)
 
 **Status:** Implemented, committed, build verified. Bags tab now functional in React app.
 
+
+---
+
+## 2025-01-XX — Phase 5: Courses, Collections, Wishlist, For Sale
+
+**Commit:** 614dc71
+
+**What I built:**
+- **CoursesPage**: Full OSM integration for course search and hole download. Pin courses to bags, download maps, assign discs to holes per course.
+- **CollectionsPage**: Collection CRUD with disc picker modal. Expandable cards showing disc count and description.
+- **WishlistPage**: Priority-based wishlist (Low/Medium/High) with acquired toggle. Separate sections for wanted and acquired items.
+- **ForSalePage**: Disc listings with public/private toggle, QR code for sharing, sold/available status tracking.
+
+**Hooks:**
+- useCoursePins: OSM Overpass API (3 mirrors), hole download/parse, course cache, disc usage stats
+- useCollections: Collection CRUD + collection_discs join table, disc membership checks
+- useWishlist: Wishlist CRUD with priority and acquired fields
+- useForSale: Listing CRUD, sale token management, public link generation
+
+**Technical details:**
+- OSM course search: debounced typeahead with 400ms delay, tries 3 mirrors (overpass-api.de, kumi.systems, openstreetmap.ru)
+- Hole parsing: tries hole then tee then basket tags, sorts by numeric ref
+- CourseId format: osm:TYPE:ID
+- Public sale URLs: https://proispro.com/sale.html?token=TOKEN
+- QR code: https://api.qrserver.com/v1/create-qr-code/?size=160x160
+
+**Build:** Clean (0 TypeScript errors)
+
