@@ -427,7 +427,7 @@
           <!-- Bag cards -->
           <template x-for="bag in bags" :key="bag.id">
             <div class="bag-card">
-              <div class="bag-card-header" @click="activeBagId = (activeBagId === bag.id ? null : bag.id)">
+              <div class="bag-card-header" @click="openBagDetail(bag)">
                 <div class="bag-card-info">
                   <span class="bag-name" x-text="bag.name"></span>
                   <span class="bag-count" x-text="bag.discIds.length + ' disc' + (bag.discIds.length !== 1 ? 's' : '')"></span>
@@ -459,6 +459,26 @@
                       <button class="btn btn-danger btn-sm" @click="removeDiscFromBag(bag.id, disc.id)" title="Remove from bag">✕</button>
                     </div>
                   </template>
+                </div>
+
+                <!-- Bag Change History -->
+                <div class="bag-history-section">
+                  <button class="btn btn-ghost btn-sm" @click="showBagHistory = !showBagHistory">
+                    <span x-text="showBagHistory ? '▼ Hide history' : '▶ Change history'"></span>
+                  </button>
+                  <div x-show="showBagHistory" x-transition>
+                    <div class="bag-history-empty" x-show="bagHistory.length === 0">No changes recorded yet</div>
+                    <ul class="bag-history-list" x-show="bagHistory.length > 0">
+                      <template x-for="entry in bagHistory" :key="entry.id">
+                        <li class="bag-history-entry">
+                          <span class="bag-history-badge" :class="entry.action === 'added' ? 'badge-added' : 'badge-removed'"
+                                x-text="entry.action === 'added' ? '+1' : '-1'"></span>
+                          <span class="bag-history-disc" x-text="entry.disc_name"></span>
+                          <span class="bag-history-time" x-text="formatHistoryTime(entry.changed_at)"></span>
+                        </li>
+                      </template>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
