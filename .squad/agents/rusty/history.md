@@ -478,3 +478,45 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
   - Default crop circle is centered and sized to 80% diameter of the shorter dimension — usually captures the disc even if slightly off-center.
 - **Files modified:** index.html (canvas markup), styles.css (+26 lines), pp.js (+203 lines: 7 new methods, 4 state vars, 3 method updates).
 - **Tech notes:** All vanilla JS + Alpine.js reactivity. No external crop libraries. Canvas 2D API with evenodd fill for cutout, pointer events for modern touch/mouse/pen handling. Blob created via canvas.toBlob() for efficient memory usage.
+
+### 2026-05-17 — Fix Course Fetching + Parse Structured Holes (Issues #56, #53)
+
+**Task:** Implement FR-3a (fix OSM course fetching + parse holes) as assigned by AK. The courses feature wasn't working properly — no hole data was being shown to users after downloading course maps.
+
+**What was broken:**
+- downloadCourseMap() fetched OSM elements but only stored raw counts ("18 holes · 18 tees")
+- No structured hole data was parsed from disc_golf=hole nodes
+- UI showed map download summary but no way to see or navigate to individual holes
+
+**Implementation:**
+- Added parseHolesFromElements() helper to extract hole nodes from OSM data, using ef tag as hole number
+- Updated downloadCourseMap() to parse holes into structured array with natural sort by hole number
+- Added holes array and manualFallback flag to cached.mapData structure
+- Added xpandedHoleLists state object to track which course pin's hole list is expanded
+- Added getHolesForPin(pin) helper to retrieve parsed holes for a pin
+- Added 	oggleHoleList(pinId) to expand/collapse hole lists
+- Added openHoleInMaps(hole) to open a specific hole in Google Maps
+- Updated courses tab UI to show expandable hole list below each course pin card
+- Graceful fallback when OSM has no hole data: shows "No hole data from OSM (X tees/baskets found)"
+- Added hole list CSS: .hole-list-section, .hole-list-toggle, .hole-list, .hole-item, .hole-number, .hole-nav-icon, .hole-list-empty, .hole-list-fallback
+
+**Alpine.js patterns used:**
+- x-collapse directive for smooth expand/collapse animation
+- x-if template for conditional rendering of hole list vs empty state
+- x-for to iterate over holes array
+- Reactive state with xpandedHoleLists object tracking per-pin expansion state
+
+**Tech decisions:**
+- Holes remain in localStorage _courseCache (no Supabase changes yet — that's FR-3b/Basher's domain)
+- Natural sort for hole numbers handles numeric refs ("1", "2", ... "18") correctly
+- Each hole item is clickable → opens Google Maps at hole coordinates
+- Toggle button shows arrow indicator (▶/▼) + hole count
+
+**Files changed:**
+- pp.js: +52 lines (new helpers + parsing logic in downloadCourseMap)
+- index.html: +28 lines (hole list UI section in course pin cards)
+- styles.css: +75 lines (hole list styling)
+
+**Status:** PR #59 opened (draft), issues #56 and #53 closed. 🟢 Good fit task — pure frontend work, no DB schema changes.
+
+**Follow-up:** After Basher implements FR-3b migration (#57 — add JSONB holes column to course_pins), we'll need to sync localStorage cache to Supabase on next pin save. That's a separate issue.

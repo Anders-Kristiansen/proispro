@@ -241,6 +241,7 @@ function discApp() {
     pdgaLoading: false,
     _pdgaTimer: null,
     _courseCache: {},
+    expandedHoleLists: {},
     discSuggestions: [],
     discSuggestionsLoading: false,
     _discTimer: null,
@@ -1618,9 +1619,11 @@ function discApp() {
       const bag = this.bags.find(b => b.id === bagId);
       if (!bag) return;
       const idx = bag.discIds.indexOf(discId);
+      const action = idx === -1 ? 'added' : 'removed';
       if (idx === -1) bag.discIds.push(discId);
       else bag.discIds.splice(idx, 1);
       await this._syncBagDiscIds(bag);
+      await this._recordBagHistory(bag, discId, action);
     },
 
     async removeDiscFromBag(bagId, discId) {
@@ -1628,7 +1631,24 @@ function discApp() {
       if (!bag) return;
       bag.discIds = bag.discIds.filter(id => id !== discId);
       await this._syncBagDiscIds(bag);
+      await this._recordBagHistory(bag, discId, 'removed');
       showToast('Disc removed from bag');
+    },
+
+    async _recordBagHistory(bag, discId, action) {
+      const sb = getSupabase();
+      if (!sb || this.user?.id === 'local') return;
+      const disc = this.discs.find(d => d.id === discId);
+      if (!disc) return;
+      try {
+        await sb.from('bag_history').insert([{
+          bag_id: bag.id,
+          disc_id: discId,
+          disc_name: disc.name,
+          action,
+          user_id: this.user.id,
+        }]);
+      } catch { /* history is non-critical — don't surface errors */ }
     },
 
     async _syncBagDiscIds(bag) {
@@ -1825,6 +1845,45 @@ function discApp() {
       return parts.join(' · ');
     },
 
+    parseHolesFromElements(elements) {
+      // OSM disc_golf tag hierarchy: 'hole' is ideal, but many courses only map
+      // 'tee' or 'basket' nodes. Try each in order and use the first non-empty set.
+      const sortByRef = (arr) => arr.sort((a, b) => {
+        const aNum = parseInt(a.ref, 10);
+        const bNum = parseInt(b.ref, 10);
+        if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+        return a.ref.localeCompare(b.ref);
+      });
+      const toHole = (el, index) => ({
+        ref: el.ref || String(index + 1),
+        name: el.name || '',
+        lat: el.lat,
+        lon: el.lon,
+      });
+      for (const type of ['hole', 'tee', 'basket']) {
+        const candidates = elements.filter(el => el.discGolf === type).map(toHole);
+        if (candidates.length > 0) return sortByRef(candidates);
+      }
+      return [];
+    },
+
+    getHolesForPin(pin) {
+      const data = pin?.courseId ? this._courseCache[pin.courseId]?.mapData : null;
+      if (!data) return null;
+      return data.holes || [];
+    },
+
+    toggleHoleList(pinId) {
+      this.expandedHoleLists[pinId] = !this.expandedHoleLists[pinId];
+    },
+
+    openHoleInMaps(hole) {
+      if (hole.lat != null && hole.lon != null) {
+        const url = this.getGoogleMapsUrl('', hole.lat, hole.lon);
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    },
+
     async downloadCourseMap(pin) {
       if (!pin?.courseId) {
         showToast('⚠️ Select a mapped course first to download hole data');
@@ -1847,6 +1906,16 @@ function discApp() {
         const data = await this.overpassFetch(oql, 32000);
         const elements = (data.elements || []);
         const byType = (name) => elements.filter(el => (el.tags?.disc_golf || '').toLowerCase() === name).length;
+        const mappedElements = elements.map(el => ({
+          id: `${el.type}:${el.id}`,
+          type: el.type,
+          discGolf: el.tags?.disc_golf || '',
+          ref: el.tags?.ref || '',
+          name: el.tags?.name || '',
+          lat: el.lat ?? el.center?.lat ?? null,
+          lon: el.lon ?? el.center?.lon ?? null,
+        }));
+        const holes = this.parseHolesFromElements(mappedElements);
         cached.mapData = {
           downloadedAt: Date.now(),
           totalElements: elements.length,
@@ -1854,15 +1923,9 @@ function discApp() {
           teeCount: byType('tee'),
           basketCount: byType('basket'),
           fairwayCount: byType('fairway'),
-          elements: elements.map(el => ({
-            id: `${el.type}:${el.id}`,
-            type: el.type,
-            discGolf: el.tags?.disc_golf || '',
-            ref: el.tags?.ref || '',
-            name: el.tags?.name || '',
-            lat: el.lat ?? el.center?.lat ?? null,
-            lon: el.lon ?? el.center?.lon ?? null,
-          })),
+          elements: mappedElements,
+          holes: holes,
+          manualFallback: holes.length === 0,
         };
         this._courseCache[pin.courseId] = cached;
         try { localStorage.setItem('proispro_course_cache', JSON.stringify(this._courseCache)); } catch {}

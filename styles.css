@@ -1002,6 +1002,84 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
 
 .course-pin-actions { display: flex; gap: .4rem; flex-shrink: 0; }
 
+/* ── Hole List ──────────────────────────────────────────── */
+.hole-list-section {
+  margin-top: .5rem;
+  width: 100%;
+}
+
+.hole-list-toggle {
+  background: none;
+  border: none;
+  padding: .4rem 0;
+  font-size: .85rem;
+  color: var(--clr-accent);
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  transition: color 0.2s;
+}
+
+.hole-list-toggle:hover {
+  color: var(--clr-primary);
+}
+
+.hole-list {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  margin-top: .4rem;
+  padding: .5rem;
+  background: var(--clr-bg);
+  border-radius: var(--radius);
+}
+
+.hole-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .5rem .65rem;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: calc(var(--radius) * 0.75);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: .85rem;
+}
+
+.hole-item:hover {
+  background: var(--clr-bg);
+  border-color: var(--clr-accent);
+  transform: translateX(2px);
+}
+
+.hole-number {
+  font-weight: 500;
+  color: var(--clr-text);
+}
+
+.hole-nav-icon {
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+.hole-list-empty {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  padding: .5rem 0;
+  font-size: .82rem;
+  color: var(--clr-muted);
+}
+
+.hole-list-fallback {
+  font-size: .75rem;
+  color: var(--clr-muted);
+  opacity: 0.8;
+}
+
 /* ── PDGA autocomplete ────────────────────────────────────── */
 .pdga-suggestions {
   position: absolute;
