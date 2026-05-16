@@ -179,3 +179,33 @@ model: "gemini-2.5-flash"
 - Documented SRI hash recommendations
 - Flagged GitHub Actions pinning for future hardening
 - Verified RLS policies cover all user-owned tables (discs, bags, pins, collections, wishlist, forsale_listings, sale_tokens)
+
+---
+
+### 2026-04-21 — Deploy Pipeline Migration for Vite Build
+
+**Context:**
+Team is migrating from vanilla Alpine.js (no build step) to React + Vite + TypeScript. The existing `deploy.yml` workflow uploaded the repo root directly to GitHub Pages, which worked for static HTML/CSS/JS files but won't work for a Vite app that requires a build step.
+
+**Changes Made (commit 13fbaf4):**
+
+1. **Added Node.js 20 setup** — Using `actions/setup-node@v4` with `cache: 'npm'` to speed up dependency installs on repeat runs
+2. **Added `npm ci` step** — Clean install of exact versions from package-lock.json (reproducible builds)
+3. **Added `npm run build` step** — Runs Vite build process, outputs to `dist/`
+4. **Changed upload path** — Updated `actions/upload-pages-artifact@v3` path from `'.'` (repo root) to `'./dist'` (Vite build output)
+5. **Updated .gitignore** — Added Vite build artifacts: `dist/`, `dist-ssr/`, `*.local`
+
+**Why This Matters:**
+- GitHub Pages deploy was previously "zero-config" (no build step, direct upload)
+- Vite requires compilation: TypeScript → JavaScript, module bundling, asset optimization
+- Build output lives in `dist/`, not repo root — deploy workflow must reflect this
+- npm cache dramatically speeds up CI runs (30-60% faster on cache hit)
+
+**Key Learnings:**
+- When migrating from vanilla to bundled JS, deploy pipeline must adapt to new build artifact path
+- `npm ci` is preferred over `npm install` in CI/CD (fails on lock file mismatch, ensures reproducibility)
+- GitHub Actions npm caching is a free performance win — always enable it
+
+**Related:**
+- Migration decision: "Vite Migration for React App" (see decisions.md)
+- Workflow still triggers on push to `main`, preserves concurrency group and permissions

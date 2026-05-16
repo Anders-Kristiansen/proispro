@@ -698,3 +698,339 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 **Next:** AK review + merge. Expect 30min/PR review time (~2.5 hrs total). Then v2.1 roadmap TBD.
 
 Rusty is now owner of all 3 frontend feature areas: bag history UI, flight chart visualization, game plan UI, disc badges (all 4 PRs from this sprint). Also maintains photo upload, color picker, inventory UX (Moxfield redesign), collections/wishlist/forsale tabs from prior work. Total: ~2000 lines of feature code + migrations across 20+ sessions.
+
+
+---
+
+### 2026-05-16 — React + Vite + TypeScript Migration Scaffold
+
+**Session:** 2026-05-16T220800Z-react-scaffold  
+**Role:** Frontend Dev
+
+**Implemented:**
+- Preserved legacy Alpine.js app as legacy-index.html (1530 lines)
+- Created React 18 + Vite 6 + TypeScript 5.7 scaffold
+- Package.json: added React, Vite, TypeScript, react-router-dom, recharts, @supabase/supabase-js
+- Config files: ite.config.ts, 	sconfig.json
+- New index.html as Vite entry point (13 lines vs 1530)
+- src/ structure:
+  - main.tsx — React entry point
+  - App.tsx — Shell with router (placeholder UI)
+  - index.css — Global styles (legacy styles.css imported later)
+  - lib/supabase.ts — Supabase client config
+  - 	ypes/database.ts — Type stubs (Disc, Bag, CoursePin, HoleAssignment interfaces)
+
+**Build:**
+- 
+pm install — 124 packages installed (19s, 0 vulnerabilities)
+- 
+pm run build — ✅ Clean build (tsc + vite, 1.02s)
+- Output: dist/ directory with bundled assets (160KB JS, 0.1KB CSS, sourcemaps)
+
+**Architecture Decision:**
+- Migration strategy: scaffold first, then incrementally port features from app.js
+- pp.js preserved (2682 lines) as reference — DO NOT DELETE during migration
+- styles.css stays at repo root (imported globally later)
+- Supabase client URL + anon key unchanged from Alpine.js app
+- Type stubs manual for now (run 
+px supabase gen types typescript later for full types)
+- React Router in place for future page routing (inventory, bags, courses, analytics)
+
+**Status:** ✅ Scaffold complete, committed to eat/refactor branch (commit 132c8a8).
+
+**Next Steps:**
+1. Port authentication (Google/GitHub OAuth) from Alpine.js to React
+2. Create component structure: Layout, DiscCard, BagCard, Modal components
+3. Port state management: discs, bags, coursePins, holeAssignments
+4. Port CRUD operations for discs (inventory tab)
+5. Port bags, courses, collections tabs
+6. Port flight guide as separate route
+7. Port analytics/charts with recharts
+
+**Key Files:**
+- legacy-index.html — Alpine.js app preserved
+- pp.js — Alpine.js logic preserved
+- src/App.tsx — React shell
+- src/lib/supabase.ts — Supabase client
+- src/types/database.ts — Database types
+
+
+
+---
+
+## 2026-05-16 22:15 — Auth Context + Login Page + App Shell
+
+**What I did:**
+
+1. **Updated src/lib/supabase.ts** with browser compatibility fixes:
+   - Ported _authStorage polyfill (Edge with Tracking Prevention blocks localStorage for cross-site origins)
+   - Ported _authLock queue (navigator.locks race causes 15-25s login timeouts when concurrent queries fire)
+   - Typed both for TypeScript, passed to createClient auth config
+
+2. **Created src/contexts/AuthContext.tsx**:
+   - AuthProvider with user state, loading state
+   - useAuth() hook exports: user, isLoading, signIn, signOut
+   - OAuth flow: signInWithOAuth with redirectTo, onAuthStateChange for return handling
+
+3. **Created src/pages/LoginPage.tsx**:
+   - Matches old Alpine app visual: logo, "ProIsPro" heading, tagline
+   - Two buttons: Google (cyan accent) + GitHub (surface2 outline)
+   - Uses OKLCH design system variables
+
+4. **Created src/components/Layout.tsx**:
+   - Header: logo, "ProIsPro" brand, user email, sign-out button
+   - Tab nav: 6 tabs (Inventory, Bags, Courses, Collections, Wishlist, For Sale)
+   - Active tab highlighted with accent border + color
+
+5. **Updated src/App.tsx**:
+   - Replaced placeholder with AuthProvider wrapper
+   - Loading screen → LoginPage (if !user) → Layout + content (if user)
+
+6. **Updated src/index.css**:
+   - Import /styles.css at top for CSS variable availability
+   - Added background + color vars to body
+
+7. **Fixed styles.css CSS errors**:
+   - Line 1250: removed extra closing brace
+   - Line 1667: removed unclosed .sale-link-card block
+
+**Result:** Build passes. Auth shell complete. Next: tab content components.
+
+**Commit:** 5b0e36f - feat: add auth context, login page, and app shell layout
+
+### 2026-05-17 — Inventory Tab Migration to React (Phase 3)
+
+**Session:** 2026-05-17-inventory-react-migration  
+**Role:** Frontend Dev  
+**Branch:** feat/refactor (commit: 8f31801)
+
+**Objective:** Port the core Inventory tab from Alpine.js to React + TypeScript, preserving exact legacy behavior and design while modernizing the architecture.
+
+**Components Built:**
+
+1. **src/utils/disc.ts** (370 LOC)
+   - Type-safe DB <-> Client field mapping (`fromDbDisc`, `toDbDisc`)
+   - Key mappings: `disc_type` <-> `type`, `user_photo_url` <-> `photo_url`, `added_at` <-> `added` timestamp
+   - Pure filter/sort/group logic in `filterAndSort()` — perfect for React `useMemo`
+   - All display helpers: `colorSlug`, `stabilityLabel`, `formatTurn`, `tagColor`, `getBagsForDisc`
+   - Exported types: `ClientDisc`, `ClientBag`, `DiscFilters`, `DiscGroup`, `SortOption`
+
+2. **src/hooks/useDiscs.ts** (90 LOC)
+   - Full CRUD: `loadDiscs`, `saveDisc`, `deleteDisc`, `setDiscQty`
+   - Optimistic quantity updates with rollback on error
+   - Maps Supabase response through `fromDbDisc`/`toDbDisc` converters
+   - State: `discs`, `isLoading`, `error`
+
+3. **src/hooks/useBags.ts** (45 LOC)
+   - Minimal bags hook for disc card "In X bags" display
+   - `toggleDiscInBag()` for bag membership checkboxes
+   - Full Bags tab comes in Phase 4
+
+4. **src/components/DiscCard.tsx** (315 LOC)
+   - Grid card matching legacy design system
+   - Avatar: photo or colored circle (`var(--disc-{color-slug})` or `var(--{type})`)
+   - Flight numbers with colored pills (speed/distance, glide/fairway, turn/midrange, fade/putter)
+   - Stability label derived from turn + fade
+   - Quantity stepper (inline optimistic update)
+   - Bag dropdown menu with checkboxes
+   - Clickable tags (filter toggle)
+   - Badge slot for Phase 6 (core/scramble assignments)
+   - Delete confirmation pattern (click once = confirm toast, click again = delete)
+
+5. **src/components/DiscModal.tsx** (510 LOC)
+   - Add/Edit form with all disc fields
+   - Type + Name validation (required)
+   - Color picker: 12 swatches using `var(--disc-{color-slug})` CSS vars
+   - Condition select: New/Mint, Good, Used, Beat-in
+   - Flight numbers row (Speed, Glide, Turn, Fade)
+   - Tag input with add/remove chips
+   - Quantity stepper
+   - Modal overlay with click-outside-to-close
+
+6. **src/pages/InventoryPage.tsx** (365 LOC)
+   - Main orchestration: `useDiscs` + `useBags` + `useMemo(filterAndSort)`
+   - Toolbar: search, filter chips (All | Putter | Midrange | Fairway | Distance), sort select, group select
+   - Filter state: search, type, brand, bag, condition, weight range, active tag, sort, group
+   - Group headers with collapse toggle (tracks `collapsedGroups` Set)
+   - Grid layout: `repeat(auto-fill, minmax(300px, 1fr))`
+   - Empty state: "🥏 No discs yet — Click + Add Disc to get started"
+   - Count display: "12 discs" or "3 of 12 discs" (filtered)
+   - Delete confirm toast (bottom-center, 3s timeout)
+
+**Architecture Decisions:**
+
+1. **Pure `filterAndSort()` function:** Extracted ALL filter/sort/group logic from Alpine computed into one testable pure function. Perfect for React `useMemo` — no expensive re-renders.
+
+2. **DB field mapping layer:** Supabase schema uses `disc_type`, `user_photo_url`, `added_at`. Client code uses `type`, `photo_url`, `added` (timestamp). Bidirectional converters (`fromDbDisc`/`toDbDisc`) isolate this impedance mismatch.
+
+3. **Client-side types use strings for form fields:** `weight`, `speed`, `glide`, `turn`, `fade` are `string | number` on client (empty string for unset). Simplifies form handling. Convert to `number | null` only when writing to DB.
+
+4. **Optimistic quantity updates:** `setDiscQty` updates local state immediately, reverts on DB error. Matches modern UX patterns (Notion, Linear).
+
+5. **Inline styles with CSS vars:** No Tailwind, no CSS modules. All styling via inline `style` objects referencing the global design system vars (`--clr-*`, `--disc-*`, `--putter`, etc.). Keeps component files self-contained, matches legacy aesthetic exactly.
+
+6. **Delete confirmation toast pattern:** Click Delete → 3s toast "Click Delete again to confirm" → second click deletes. No blocking modal. Less disruptive than confirm().
+
+7. **Bag menu as dropdown:** DiscCard renders a dropdown with checkboxes for each bag. Phase 4 will build the full Bags management UI, but this unblocks basic bag membership for Phase 3.
+
+**Key Metrics:**
+- 7 files changed, 1,716 insertions
+- Build: TypeScript clean, 0 errors
+- Bundle: +383 KB (includes React core — subsequent phases add minimal size)
+
+**Deferred to Phase 5:**
+- Photo upload (Supabase Storage integration)
+- Disc catalog autocomplete (search disc-catalog.js data)
+- Toast notification system (using `alert()` for now)
+
+**Next Steps:**
+- Phase 4: Bags tab (full bag CRUD, assign discs, reorder)
+- Phase 5: Photo upload, catalog search, toast system
+- Phase 6: Core/Scramble assignments (use badge slot in DiscCard)
+
+---
+
+### 2026-05-16 — Phase 4: Bags Tab + FlightChart Port to React
+
+**Session:** AK-requested Bags UI implementation  
+**Commit:** bf0ffae
+
+**Implementation:**
+- **FlightChart.tsx:** Native React SVG component (no x-html workaround needed vs Alpine.js).
+  - Zone labels (Overstable/Stable/Understable), turn axis ticks, speed labels + horizontal grid.
+  - Vertical grid lines at each turn position (except center line at turn=0, which uses dashed stroke).
+  - Disc dots: type-colored circles with OKLCH colors (putter blue, mid green, fairway orange, distance red).
+  - Disc labels: name truncated to 8 chars + ellipsis if > 9, positioned below each dot.
+  - Legend row below chart: ● Putter ● Mid ● Fairway ● Driver.
+  - Coordinate math preserved exactly from legacy (flightChartX, flightChartY formulas).
+
+- **BagCard.tsx:** Expandable bag card component with collapsible sections.
+  - Header: bag name, disc count, chevron toggle, action buttons (✏️ rename, 🗑 delete, ⊞ popout).
+  - Expanded detail: "Add / Remove Discs" button, disc list with ✕ remove button per disc.
+  - Change history: collapsible section, loads from ag_history table on first expand (lazy load).
+  - Flight chart: collapsible inline chart, shown only if bag has discs with flight numbers.
+
+- **BagPopout.tsx:** Full-screen modal with 2-column layout (chart left, disc list right).
+  - Close on ✕ button, Escape key, or click-outside overlay.
+  - Responsive: grid switches to single column below 500px (via epeat(auto-fit, minmax(500px, 1fr))).
+
+- **DiscPickerModal.tsx:** Search + checkbox picker for adding/removing discs from bag.
+  - Search filter by name/manufacturer/type.
+  - Checkboxes indicate which discs are currently in bag.
+  - Border highlight (2px accent) on checked rows.
+
+- **useBags.ts:** Full CRUD hook implementation.
+  - Added: createBag, enameBag, deleteBag, emoveDiscFromBag, loadBagHistory.
+  - 	oggleDiscInBag now accepts discs: ClientDisc[] param to record disc name in history.
+  - ormatHistoryTime(ts: string) helper: relative time formatter (just now / Xm ago / Xh ago / Xd ago / date).
+  - ecordHistory() internal method: inserts into ag_history table, swallows errors silently (non-critical).
+
+- **BagsPage.tsx:** Main bags page component.
+  - Empty state: 👜 "No bags yet — Create your first bag!"
+  - Bag list with expandable cards, create bag flow (native prompt for simplicity).
+  - Rename modal: inline modal with text input + save/cancel.
+  - Delete confirmation via native confirm().
+
+- **App.tsx:** Wired up BagsPage for ctiveTab === 'bags'.
+
+- **InventoryPage.tsx:** Fixed 	oggleDiscInBag call site to pass discs array (signature change).
+
+**Architecture Wins:**
+- React SVG works natively — no Alpine.js x-html workaround or string building needed.
+- Components are fully self-contained — BagCard manages its own history + chart state.
+- Lazy loading: history fetched only on first bag expand (not all bags upfront).
+- Type-safe: ClientBag, ClientDisc interfaces prevent shape mismatches.
+
+**Build:** Zero TypeScript errors, clean build output (400KB gzipped bundle).
+
+**Status:** Implemented, committed, build verified. Bags tab now functional in React app.
+
+
+---
+
+## 2025-01-XX — Phase 5: Courses, Collections, Wishlist, For Sale
+
+**Commit:** 614dc71
+
+**What I built:**
+- **CoursesPage**: Full OSM integration for course search and hole download. Pin courses to bags, download maps, assign discs to holes per course.
+- **CollectionsPage**: Collection CRUD with disc picker modal. Expandable cards showing disc count and description.
+- **WishlistPage**: Priority-based wishlist (Low/Medium/High) with acquired toggle. Separate sections for wanted and acquired items.
+- **ForSalePage**: Disc listings with public/private toggle, QR code for sharing, sold/available status tracking.
+
+**Hooks:**
+- useCoursePins: OSM Overpass API (3 mirrors), hole download/parse, course cache, disc usage stats
+- useCollections: Collection CRUD + collection_discs join table, disc membership checks
+- useWishlist: Wishlist CRUD with priority and acquired fields
+- useForSale: Listing CRUD, sale token management, public link generation
+
+**Technical details:**
+- OSM course search: debounced typeahead with 400ms delay, tries 3 mirrors (overpass-api.de, kumi.systems, openstreetmap.ru)
+- Hole parsing: tries hole then tee then basket tags, sorts by numeric ref
+- CourseId format: osm:TYPE:ID
+- Public sale URLs: https://proispro.com/sale.html?token=TOKEN
+- QR code: https://api.qrserver.com/v1/create-qr-code/?size=160x160
+
+**Build:** Clean (0 TypeScript errors)
+
+
+---
+
+### 2026-05-16 — Analytics Dashboard (Phase 6)
+
+**Session:** 2026-05-16T20:30:00Z  
+**Role:** Frontend Dev (Phase 6 — React Migration Payoff)  
+**Commit:** 7226aac
+
+**Implementation:**
+- Created `AnalyticsPage.tsx` as a self-contained page with 5 analytics sections
+- Used hooks to load data from Supabase: useDiscs(), useBags(), useCoursePins()
+- All computed data wrapped in useMemo for performance:
+  - usageStats: Map of discId to usage stats via computeDiscUsageStats(holeAssignments)
+  - discRoles: Extends each disc with role (core/scramble/untagged), usageCount, courseCount
+  - Role assignment logic: count >= 3 OR courseCount >= 2 → core, count >= 1 → scramble, else untagged
+  - typeData: Pie chart data (putter/midrange/fairway/distance counts with OKLCH colors)
+  - bagData: Bar chart data (bag name → disc count)
+  - sortedUsedDiscs: Discs sorted by usageCount desc (for Most-Used table)
+  - uniqueModels: Count of distinct disc names in inventory
+- **Sections implemented:**
+  1. **Inventory Stats:** 4 stat cards (total discs, unique models, bag setups, courses pinned)
+  2. **Disc Role Breakdown:** Horizontal stacked bar (flexbox) showing core/scramble/untagged ratio + counts with explanations
+  3. **Disc Types:** Donut chart (recharts PieChart with Pie innerRadius=50) using type colors from FlightChart
+  4. **Bag Sizes:** Bar chart (recharts BarChart) showing disc count per bag
+  5. **Most-Used Discs Table:** Sortable table with disc name, brand, type badge, holes assigned, courses, role badge — includes "Show All / Top 10" toggle
+- **Charts:** recharts package (already in package.json)
+  - PieChart with Pie and Cell for type breakdown
+  - BarChart with Bar for bag sizes
+  - ResponsiveContainer wraps both charts (height 200px)
+  - OKLCH colors passed directly to Cell fill (works in modern browsers)
+- **UX patterns:**
+  - Loading state: "Loading analytics..." while hooks load
+  - Empty state: "Add discs and assign them to course holes..." when no discs
+  - Show all toggle: shows top 10 by default, expands to all used discs when toggled
+  - If no hole assignments, shows friendly prompt to visit Courses tab
+- **Badges:**
+  - TypeBadge: circular badge (P/M/F/D) with type colors
+  - RoleBadge: rounded pill (Core/Scramble/Untagged) with appropriate colors
+  - StatCard: Inventory stat display component
+- **Tabs wiring:**
+  - Added 'analytics' to Tab union type in App.tsx and Layout.tsx
+  - Added tab to TABS array in Layout.tsx with emoji label
+  - Added route in App.tsx for analytics tab
+- **CSS:** All inline styles using CSS vars (--clr-bg, --clr-surface, --clr-border, --clr-accent, --clr-text, --clr-muted, --radius) — consistent with existing design system
+- **Zero TypeScript errors:** Build passed with no errors (removed unused total variable warning)
+
+**Architecture Decision:**
+- Self-contained page: loads its own data via hooks (no prop drilling from App.tsx)
+- Pure computed data: no mutations, just reads from 3 hooks
+- recharts integration: OKLCH colors work natively in SVG (no CSS var processing needed)
+- Badge logic matches legacy Alpine.js logic exactly (preserved thresholds)
+
+**Why Phase 6 matters:**
+- This is the PRIMARY reason we migrated to React — Alpine.js couldn't handle complex charts and computed analytics
+- recharts + React hooks enable rich data visualization with minimal code (~350 lines for 5 sections)
+- useMemo prevents expensive recomputation on every render (critical for usage stats map iteration)
+- All analytics recompute reactively when user adds/removes hole assignments in Courses tab
+
+**Status:** Complete ✅ — Phase 6 shipped. Analytics dashboard live in Analytics tab.
+

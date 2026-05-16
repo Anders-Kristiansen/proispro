@@ -1247,7 +1247,6 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   background: var(--clr-surface2);
   color: var(--clr-text);
 }
-}
 
 /* ── PDGA autocomplete ────────────────────────────────────── */
 .pdga-suggestions {
@@ -1665,7 +1664,6 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
 
 /* Sale public share section */
 .sale-public-section { margin-bottom: .5rem; }
-.sale-link-card {
 
 /* ── Disc Usage Badges ──────────────────────────────────────── */
 .disc-usage-badge {
