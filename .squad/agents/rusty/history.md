@@ -520,3 +520,35 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 **Status:** PR #59 opened (draft), issues #56 and #53 closed. 🟢 Good fit task — pure frontend work, no DB schema changes.
 
 **Follow-up:** After Basher implements FR-3b migration (#57 — add JSONB holes column to course_pins), we'll need to sync localStorage cache to Supabase on next pin save. That's a separate issue.
+- **Tech notes:** All vanilla JS + Alpine.js reactivity. No external crop libraries. Canvas 2D API with evenodd fill for cutout, pointer events for modern touch/mouse/pen handling. Blob created via canvas.toBlob() for efficient memory usage.
+
+### 2026-05-16 — Bag Change History UI Panel (Issue #51, PR #62)
+
+**Implemented Moxfield-style bag change history view (FR-2 UI phase):**
+
+- **Three new methods in app.js:**
+  - loadBagHistory(bagId) — fetches last 20 changes from ag_history table, ordered by changed_at DESC
+  - ormatHistoryTime(ts) — hand-rolled relative time formatter (no library): "just now" / "Xm ago" / "Xh ago" / "Xd ago" / locale date
+  - openBagDetail(bag) — replaces inline toggle; loads history on bag expand, clears history on collapse
+- **State:** agHistory: [], showBagHistory: false added to Alpine data init
+- **HTML:** New collapsible section below disc list in bag detail view (.bag-history-section)
+  - Toggle button: ▶ Change history / ▼ Hide history
+  - Empty state: "No changes recorded yet"
+  - History list: +1/-1 badge (green/red), disc name, relative timestamp
+  - Alpine x-transition for smooth expand/collapse (no collapse plugin needed)
+- **CSS:** ~80 new lines in styles.css after .bag-disc-mfr
+  - .bag-history-section — border-top separator, 1rem top margin
+  - .bag-history-entry — flexbox row, hover background transition
+  - .badge-added (green) / .badge-removed (red) — pill badges using existing OKLCH vars (ar(--midrange), ar(--clr-danger))
+  - Mobile-responsive: all text remains readable, no stacking needed
+- **Dependency:** Assumes ag_history table exists (migration #49 already live), _recordBagHistory wired in app.js (PR #59 pending)
+- **Graceful fallback:** If Supabase unavailable or local mode, history array stays empty → shows "No changes recorded yet"
+
+**Architecture notes:**
+- Updated bag card header from inline @click toggle to openBagDetail(bag) method call — pattern consistent with other modals
+- History loaded asynchronously on bag expand; cleared on collapse to avoid stale data
+- No pagination (limit 20) — sufficient for typical usage; can extend later if needed
+- Timestamp formatting matches Moxfield UX: terse for recent changes, expands to full date after 7 days
+
+**Status:** PR #62 draft, branch squad/51-bag-history-ui. Depends on PR #59 (wiring) merging first. 🟢 Good fit task — no review needed.
+
