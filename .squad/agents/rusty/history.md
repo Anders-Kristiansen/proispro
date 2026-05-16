@@ -665,3 +665,36 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 **Closes:** #55 (hole assignment logic), #52 (hole assignment UI)
 
 **Next:** Disc stats aggregation (FR-3c, issue #54) — compute per-disc stats from hole assignments (fairways hit, accuracy trends).
+
+---
+
+## 2026-05-16 — MVP Sprint Complete: All 11 Features + 6 PRs
+
+**Summary:** Completed full MVP feature sprint. Rusty built 4 parallel PRs delivering all remaining features (FR-2, FR-3a, FR-3b, FR-3c, FR-4). Session lead: Rusty. Support: Coordinator (inline fixes for hole filter + bag_history wiring). Data lead: Basher (2 migrations deployed to Supabase).
+
+**All 6 PRs:**
+1. **PR #59** (`squad/56-fix-hole-parsing`) — Course holes parsing (FR-3a) + bag_history wiring + inline Coordinator fixes. Draft.
+2. **PR #60** — (Already live, no PR needed for FR-1 autocomplete)
+3. **PR #61** (`squad/flight-chart`) — Flight chart SVG scatter plot (FR-4). Draft.
+4. **PR #62** (`squad/50-bag-history-ui`) — Bag history UI panel (FR-2). Blocks: PR #59 + migration #49 (live).
+5. **PR #63** (`squad/52-hole-game-plan-ui`) — Game plan UI + assignment logic (FR-3b). Blocks: PR #59 + migration #57 (live).
+6. **PR #64** (`squad/54-disc-usage-badges`) — Disc usage badges (FR-3c). Blocks: PR #63 (hole_assignments data).
+
+**Status:** ✅ All 6 PRs draft-complete, zero test failures, awaiting AK review + merge. Merge order: #59 → #61, #62 → #63 → #64.
+
+**Supabase Migrations (Live):**
+- `20260516000000_bag_history.sql` — append-only audit table, denormalized disc_name, owner-only RLS
+- `20260516000002_hole_assignments.sql` — game plan storage, scoped to course_pin_id, full CRUD RLS
+
+**Key Decisions Merged to decisions.md:**
+1. Disc usage badges: Core (3+ holes or 2+ courses) vs Scramble (1-2 holes)
+2. Flight chart: SVG pure implementation (zero library overhead)
+3. Game plan UI: inline collapsible panel (vs modal) for context preservation
+
+**Architecture Pattern:** Rusty's 4 PRs follow consistent Alpine.js patterns (x-if, x-for, x-show, x-transition, computed getters, optimistic state + fire-and-forget Supabase writes). All features gracefully fallback to local-only mode if Supabase unavailable. Denormalization strategy (disc_name) matches bag_history pattern for audit trail reliability.
+
+**Learnings:** PRD decomposition (Danny) made work tractable: explicit dependency ordering prevented blocked work. Coordinator inline fixes (hole filter + bag_history wiring in PR #59) unblocked downstream PRs. Migrations deployed early by Basher reduced frontend risk. 4-hour sprint (5 for Rusty + 1 Coordinator) delivered 11 features across 6 PRs with zero breaking changes.
+
+**Next:** AK review + merge. Expect 30min/PR review time (~2.5 hrs total). Then v2.1 roadmap TBD.
+
+Rusty is now owner of all 3 frontend feature areas: bag history UI, flight chart visualization, game plan UI, disc badges (all 4 PRs from this sprint). Also maintains photo upload, color picker, inventory UX (Moxfield redesign), collections/wishlist/forsale tabs from prior work. Total: ~2000 lines of feature code + migrations across 20+ sessions.

@@ -1290,6 +1290,42 @@ Frontend UI panel displaying bag change history with relative timestamps and +1/
 
 ---
 
+### Disc Usage Badges: Core vs Scramble
+**By:** Rusty (Frontend Dev)  
+**Date:** 2026-05-16  
+**Status:** Implemented (PR #64)
+
+Show usage badges on disc cards based on hole assignment frequency:
+- 🔑 **Core** — disc assigned to 3+ holes OR appears in 2+ courses
+- 🎲 **Scramble** — disc assigned to 1-2 holes (situational use)
+
+Stats computed **client-side** from `holeAssignments` state array.
+
+**Implementation:**
+- `holeAssignments` array added to Alpine state (loaded at init via `loadAllHoleAssignments()`)
+- `computeDiscUsageStats()` iterates assignments, returns Map<discId, { count, courseCount }>
+- `getDiscBadge(discId)` applies thresholds, returns 'core' | 'scramble' | null
+- Badges shown inline below disc name in inventory cards and bag disc lists (compact emoji-only version)
+- Only displayed when assignments exist (graceful empty state)
+
+**Styling:**
+- `.disc-usage-badge` — inline-flex, 0.7rem font, rounded pill
+- `.badge-core` — OKLCH warm gold background, dark text
+- `.badge-scramble` — OKLCH soft purple background, dark text
+
+**Rationale:**
+- No DB query overhead (assignments already loaded for game plan feature)
+- Acceptable at current scale (<100 discs × <50 assignments)
+- Can memoize later if performance issue arises
+- 3+ holes = "I reach for this disc frequently"; 2+ courses = "This disc is versatile"
+- "Core/Scramble" borrowed from CCG/deck-building culture, clear visual distinction
+
+**Trade-Offs:**
+- Recomputes on every render (O(n) where n = assignments)
+- Could be slow if assignments grow to 1000s (mitigable via memoization)
+
+---
+
 ### Flight Chart Visualization — Pure SVG Scatter Plot
 **By:** Rusty (Frontend Dev) | **Date:** 2026-05-16 | **Status:** Implemented (PR #61)
 
@@ -1316,6 +1352,41 @@ Bag flight chart implemented as pure SVG scatter plot (zero external library).
    - Tooltip: Full flight numbers on hover (via SVG `<title>` element)
 
 4. **Interaction** — Collapsible panel in bag detail view (Alpine `x-show`).
+
+---
+
+### Decision: Disc-to-Hole Game Plan UI Architecture
+**Date:** 2026-05-16  
+**Author:** Rusty (Frontend Dev)  
+**Context:** Issues #55 + #52 (FR-3 Game Planning feature)
+
+**Decision:**
+Implemented per-hole disc assignment UI as an **inline collapsible panel** within each course pin card, not a modal or separate route.
+
+**Rationale:**
+1. **Context preservation** — User can see course name, bag, and map download status while building game plan
+2. **One-at-a-time focus** — Only one pin's game plan open at a time (via `activePinId` state), reduces cognitive load
+3. **Smooth UX** — Alpine `x-transition` provides polished expand/collapse animation
+4. **Mobile-friendly** — Avoids modal stacking issues on small screens
+
+**Why per-pin state (not global):**
+- Course pins are user-specific instances (same course can be pinned multiple times with different bags)
+- Assignments scoped to `course_pin_id` (not abstract `course_id`) matches user mental model
+- Bag selection drives disc options — pin → bag → discs is natural data flow
+
+**Why denormalize `disc_name`:**
+- Mirrors `bag_history` pattern; survives disc deletion
+- Game plans remain readable even if user sells/removes a disc
+- No join required for display — direct read from `hole_assignments` table
+
+**Implementation:**
+- State: `holeAssignments: []` (loaded per-pin), `activePinId: null` (open panel), `showGamePlan: false` (toggle)
+- Hole extraction: `getHolesForPin(pin)` reads from `_courseCache[courseId].mapData.elements`, filters by `['hole', 'tee', 'basket']`, sorts by numeric `ref` tag
+- Unique constraint: `(course_pin_id, hole_ref, user_id)` prevents duplicate assignments per hole
+- Denormalized `disc_name` stored for display history
+
+**Status:** ✅ Implemented in PR #63 (`squad/52-hole-game-plan-ui`)  
+Closes #55, #52
 
 ---
 

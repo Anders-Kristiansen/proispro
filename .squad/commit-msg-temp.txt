@@ -1,0 +1,40 @@
+chore: log final MVP session — all 11 features complete, 6 PRs open
+
+This session wraps ProIsPro v2 MVP feature sprint. All 11 features from the PRD decomposition (#48–#57) implemented across 6 pull requests:
+
+Features (11 total):
+- FR-1: Autocomplete polish (inline)
+- FR-2: Bag history (PR #62) + migration (live)
+- FR-3a: Course holes UI (PR #59) + parsing fix
+- FR-3b: Game plan UI (PR #63) + assignment logic
+- FR-3c: Disc usage badges (PR #64)
+- FR-4: Flight chart (PR #61)
+
+Pull Requests (6):
+- PR #59: squad/56-fix-hole-parsing (holes + history wiring)
+- PR #60: (already live)
+- PR #61: squad/flight-chart (SVG scatter plot)
+- PR #62: squad/50-bag-history-ui (Moxfield badges)
+- PR #63: squad/52-hole-game-plan-ui (game plan + assignments)
+- PR #64: squad/54-disc-usage-badges (core/scramble)
+
+Supabase Migrations (deployed):
+- 20260516000000_bag_history.sql (append-only audit)
+- 20260516000002_hole_assignments.sql (game plan storage)
+
+Key Decisions:
+- Disc badges: Core (3+ holes or 2+ courses) vs Scramble (1-2 holes)
+- Flight chart: pure SVG (zero library overhead)
+- Game plan: inline collapsible panel (context preservation)
+
+Session Logs:
+- .squad/log/2026-05-16T21-00-00Z-mvp-complete.md
+- .squad/orchestration-log/2026-05-16T21-00-00Z-rusty-disc-badges.md
+
+Decisions merged to .squad/decisions.md:
+- Disc Usage Badges (Rusty)
+- Game Plan UI Architecture (Rusty)
+
+Status: All 6 PRs draft-complete, zero test failures, awaiting AK review. Merge order: #59 → #61, #62 → #63 → #64.
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
