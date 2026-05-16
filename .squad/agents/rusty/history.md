@@ -973,3 +973,64 @@ px supabase gen types typescript later for full types)
 
 **Build:** Clean (0 TypeScript errors)
 
+
+---
+
+### 2026-05-16 — Analytics Dashboard (Phase 6)
+
+**Session:** 2026-05-16T20:30:00Z  
+**Role:** Frontend Dev (Phase 6 — React Migration Payoff)  
+**Commit:** 7226aac
+
+**Implementation:**
+- Created `AnalyticsPage.tsx` as a self-contained page with 5 analytics sections
+- Used hooks to load data from Supabase: useDiscs(), useBags(), useCoursePins()
+- All computed data wrapped in useMemo for performance:
+  - usageStats: Map of discId to usage stats via computeDiscUsageStats(holeAssignments)
+  - discRoles: Extends each disc with role (core/scramble/untagged), usageCount, courseCount
+  - Role assignment logic: count >= 3 OR courseCount >= 2 → core, count >= 1 → scramble, else untagged
+  - typeData: Pie chart data (putter/midrange/fairway/distance counts with OKLCH colors)
+  - bagData: Bar chart data (bag name → disc count)
+  - sortedUsedDiscs: Discs sorted by usageCount desc (for Most-Used table)
+  - uniqueModels: Count of distinct disc names in inventory
+- **Sections implemented:**
+  1. **Inventory Stats:** 4 stat cards (total discs, unique models, bag setups, courses pinned)
+  2. **Disc Role Breakdown:** Horizontal stacked bar (flexbox) showing core/scramble/untagged ratio + counts with explanations
+  3. **Disc Types:** Donut chart (recharts PieChart with Pie innerRadius=50) using type colors from FlightChart
+  4. **Bag Sizes:** Bar chart (recharts BarChart) showing disc count per bag
+  5. **Most-Used Discs Table:** Sortable table with disc name, brand, type badge, holes assigned, courses, role badge — includes "Show All / Top 10" toggle
+- **Charts:** recharts package (already in package.json)
+  - PieChart with Pie and Cell for type breakdown
+  - BarChart with Bar for bag sizes
+  - ResponsiveContainer wraps both charts (height 200px)
+  - OKLCH colors passed directly to Cell fill (works in modern browsers)
+- **UX patterns:**
+  - Loading state: "Loading analytics..." while hooks load
+  - Empty state: "Add discs and assign them to course holes..." when no discs
+  - Show all toggle: shows top 10 by default, expands to all used discs when toggled
+  - If no hole assignments, shows friendly prompt to visit Courses tab
+- **Badges:**
+  - TypeBadge: circular badge (P/M/F/D) with type colors
+  - RoleBadge: rounded pill (Core/Scramble/Untagged) with appropriate colors
+  - StatCard: Inventory stat display component
+- **Tabs wiring:**
+  - Added 'analytics' to Tab union type in App.tsx and Layout.tsx
+  - Added tab to TABS array in Layout.tsx with emoji label
+  - Added route in App.tsx for analytics tab
+- **CSS:** All inline styles using CSS vars (--clr-bg, --clr-surface, --clr-border, --clr-accent, --clr-text, --clr-muted, --radius) — consistent with existing design system
+- **Zero TypeScript errors:** Build passed with no errors (removed unused total variable warning)
+
+**Architecture Decision:**
+- Self-contained page: loads its own data via hooks (no prop drilling from App.tsx)
+- Pure computed data: no mutations, just reads from 3 hooks
+- recharts integration: OKLCH colors work natively in SVG (no CSS var processing needed)
+- Badge logic matches legacy Alpine.js logic exactly (preserved thresholds)
+
+**Why Phase 6 matters:**
+- This is the PRIMARY reason we migrated to React — Alpine.js couldn't handle complex charts and computed analytics
+- recharts + React hooks enable rich data visualization with minimal code (~350 lines for 5 sections)
+- useMemo prevents expensive recomputation on every render (critical for usage stats map iteration)
+- All analytics recompute reactively when user adds/removes hole assignments in Courses tab
+
+**Status:** Complete ✅ — Phase 6 shipped. Analytics dashboard live in Analytics tab.
+
