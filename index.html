@@ -557,59 +557,96 @@
           <!-- Course pin cards -->
           <template x-for="pin in coursePins" :key="pin.id">
             <div class="course-pin-card">
-              <div class="course-pin-info">
-                <span class="course-name" x-text="pin.courseName"></span>
-                <span class="course-bag-name" x-text="getBagForPin(pin)?.name || '(bag deleted)'"></span>
-                <span class="course-bag-name" x-show="getDownloadedMapSummary(pin)" x-text="'Downloaded map: ' + getDownloadedMapSummary(pin)"></span>
-                
-                <!-- Hole list section (only when map downloaded) -->
-                <template x-if="getHolesForPin(pin) !== null">
-                  <div class="hole-list-section">
-                    <template x-if="getHolesForPin(pin).length > 0">
-                      <div>
-                        <button type="button" 
-                                class="hole-list-toggle" 
-                                @click="toggleHoleList(pin.id)"
-                                :aria-expanded="expandedHoleLists[pin.id] ? 'true' : 'false'">
-                          <span x-text="(expandedHoleLists[pin.id] ? '▼' : '▶') + ' ' + getHolesForPin(pin).length + ' holes'"></span>
-                        </button>
-                        <div class="hole-list" x-show="expandedHoleLists[pin.id]" x-collapse>
-                          <template x-for="hole in getHolesForPin(pin)" :key="hole.ref">
-                            <button type="button" 
-                                    class="hole-item" 
-                                    @click="openHoleInMaps(hole)"
-                                    :title="'Open Hole ' + hole.ref + ' in Google Maps'">
-                              <span class="hole-number" x-text="'Hole ' + hole.ref"></span>
-                              <span class="hole-nav-icon">🗺</span>
-                            </button>
-                          </template>
+              <div class="course-pin-main">
+                <div class="course-pin-info">
+                  <span class="course-name" x-text="pin.courseName"></span>
+                  <span class="course-bag-name" x-text="getBagForPin(pin)?.name || '(bag deleted)'"></span>
+                  <span class="course-bag-name" x-show="getDownloadedMapSummary(pin)" x-text="'Downloaded map: ' + getDownloadedMapSummary(pin)"></span>
+                  
+                  <!-- Hole list section (only when map downloaded) -->
+                  <template x-if="getHolesForPin(pin) !== null">
+                    <div class="hole-list-section">
+                      <template x-if="getHolesForPin(pin).length > 0">
+                        <div>
+                          <button type="button" 
+                                  class="hole-list-toggle" 
+                                  @click="toggleHoleList(pin.id)"
+                                  :aria-expanded="expandedHoleLists[pin.id] ? 'true' : 'false'">
+                            <span x-text="(expandedHoleLists[pin.id] ? '▼' : '▶') + ' ' + getHolesForPin(pin).length + ' holes'"></span>
+                          </button>
+                          <div class="hole-list" x-show="expandedHoleLists[pin.id]" x-collapse>
+                            <template x-for="hole in getHolesForPin(pin)" :key="hole.ref">
+                              <button type="button" 
+                                      class="hole-item" 
+                                      @click="openHoleInMaps(hole)"
+                                      :title="'Open Hole ' + hole.ref + ' in Google Maps'">
+                                <span class="hole-number" x-text="'Hole ' + hole.ref"></span>
+                                <span class="hole-nav-icon">🗺</span>
+                              </button>
+                            </template>
+                          </div>
                         </div>
-                      </div>
-                    </template>
-                    <template x-if="getHolesForPin(pin).length === 0">
-                      <div class="hole-list-empty">
-                        <span>No hole data from OSM</span>
-                        <span class="hole-list-fallback" x-show="getDownloadedMapSummary(pin)" x-text="'(' + getDownloadedMapSummary(pin) + ')'"></span>
-                      </div>
-                    </template>
-                  </div>
-                </template>
+                      </template>
+                      <template x-if="getHolesForPin(pin).length === 0">
+                        <div class="hole-list-empty">
+                          <span>No hole data from OSM</span>
+                          <span class="hole-list-fallback" x-show="getDownloadedMapSummary(pin)" x-text="'(' + getDownloadedMapSummary(pin) + ')'"></span>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+                <div class="course-pin-actions">
+                  <button class="btn btn-secondary btn-sm" @click="downloadCourseMap(pin)" title="Download hole map data">⬇ Download Map</button>
+                  <a class="btn btn-secondary btn-sm"
+                     :href="getPinMapLinks(pin).google"
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     title="Open in Google Maps">🧭 Google Maps</a>
+                  <a class="btn btn-secondary btn-sm"
+                     x-show="getPinMapLinks(pin).osm"
+                     :href="getPinMapLinks(pin).osm"
+                     target="_blank"
+                     rel="noopener noreferrer"
+                     title="Open in OpenStreetMap">🗺 OSM</a>
+                  <button class="btn btn-primary btn-sm" 
+                          @click="openGamePlan(pin)"
+                          x-show="getHolesForPin(pin) && getHolesForPin(pin).length > 0">
+                    🎯 Game Plan
+                  </button>
+                  <button class="btn btn-secondary btn-sm" @click="openPinModal(pin)" title="Edit">✏️</button>
+                  <button class="btn btn-danger btn-sm" @click="deletePin(pin)" title="Remove">🗑</button>
+                </div>
               </div>
-              <div class="course-pin-actions">
-                <button class="btn btn-secondary btn-sm" @click="downloadCourseMap(pin)" title="Download hole map data">⬇ Download Map</button>
-                <a class="btn btn-secondary btn-sm"
-                   :href="getPinMapLinks(pin).google"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   title="Open in Google Maps">🧭 Google Maps</a>
-                <a class="btn btn-secondary btn-sm"
-                   x-show="getPinMapLinks(pin).osm"
-                   :href="getPinMapLinks(pin).osm"
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   title="Open in OpenStreetMap">🗺 OSM</a>
-                <button class="btn btn-secondary btn-sm" @click="openPinModal(pin)" title="Edit">✏️</button>
-                <button class="btn btn-danger btn-sm" @click="deletePin(pin)" title="Remove">🗑</button>
+
+              <!-- Game Plan panel — inline below card, shown for active pin -->
+              <div class="game-plan-panel" 
+                   x-show="showGamePlan && activePinId === pin.id"
+                   x-transition>
+                <div class="game-plan-header">
+                  <span x-text="'Game plan: ' + pin.courseName"></span>
+                  <button class="btn btn-ghost btn-sm" @click="closeGamePlan()">✕</button>
+                </div>
+                <div class="game-plan-holes">
+                  <template x-for="hole in (getHolesForPin(pin) || [])" :key="hole.ref">
+                    <div class="game-plan-hole">
+                      <span class="hole-ref" x-text="'H' + hole.ref"></span>
+                      <span class="hole-name" x-show="hole.name" x-text="hole.name"></span>
+                      <select class="hole-disc-select"
+                              @change="assignDiscToHole(pin.id, hole.ref, $event.target.value)"
+                              :value="getAssignmentForHole(pin.id, hole.ref)?.disc_id || ''">
+                        <option value="">— pick a disc —</option>
+                        <template x-for="disc in getDiscsForGamePlan(pin)" :key="disc.id">
+                          <option :value="disc.id" x-text="disc.name + (disc.type ? ' (' + disc.type + ')' : '')"></option>
+                        </template>
+                      </select>
+                      <button class="btn btn-ghost btn-xs" 
+                              x-show="getAssignmentForHole(pin.id, hole.ref)"
+                              @click="clearHoleAssignment(pin.id, hole.ref)"
+                              title="Clear assignment">✕</button>
+                    </div>
+                  </template>
+                </div>
               </div>
             </div>
           </template>

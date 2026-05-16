@@ -280,6 +280,11 @@ function discApp() {
     saleToken: null,
     saleIsPublic: true,
 
+    // Hole assignment state
+    holeAssignments: [],
+    activePinId: null,
+    showGamePlan: false,
+
     // Computed
     get filteredSorted() {
       const q = this.search.toLowerCase().trim();
@@ -1857,6 +1862,103 @@ function discApp() {
 
     getBagForPin(pin) {
       return this.bags.find(b => b.id === pin.bagId) || null;
+    },
+
+    // ── Hole Assignment / Game Plan ────────────────────────────────────────
+
+    getHolesForPin(pin) {
+      if (!pin?.courseId) return null;
+      const cached = this._courseCache[pin.courseId];
+      if (!cached?.mapData?.elements) return null;
+      const holes = cached.mapData.elements
+        .filter(el => el.discGolf === 'hole' && el.ref)
+        .sort((a, b) => {
+          const refA = parseInt(a.ref) || 0;
+          const refB = parseInt(b.ref) || 0;
+          return refA - refB;
+        });
+      return holes.length > 0 ? holes : null;
+    },
+
+    async loadHoleAssignments(coursePinId) {
+      const sb = getSupabase();
+      if (!sb || this.user?.id === 'local') { this.holeAssignments = []; return; }
+      try {
+        const { data } = await sb
+          .from('hole_assignments')
+          .select('*')
+          .eq('course_pin_id', coursePinId);
+        this.holeAssignments = data || [];
+      } catch { this.holeAssignments = []; }
+    },
+
+    getAssignmentForHole(coursePinId, holeRef) {
+      return this.holeAssignments.find(
+        a => a.course_pin_id === coursePinId && a.hole_ref === holeRef
+      ) || null;
+    },
+
+    async assignDiscToHole(coursePinId, holeRef, discId) {
+      const sb = getSupabase();
+      const disc = this.discs.find(d => d.id === discId);
+      if (!disc) return;
+      
+      const existing = this.getAssignmentForHole(coursePinId, holeRef);
+      
+      if (sb && this.user?.id !== 'local') {
+        try {
+          if (existing) {
+            await sb.from('hole_assignments')
+              .update({ disc_id: discId, disc_name: disc.name })
+              .eq('id', existing.id);
+            existing.disc_id = discId;
+            existing.disc_name = disc.name;
+          } else {
+            const { data } = await sb.from('hole_assignments')
+              .insert([{
+                course_pin_id: coursePinId,
+                hole_ref: holeRef,
+                disc_id: discId,
+                disc_name: disc.name,
+                user_id: this.user.id,
+              }])
+              .select().single();
+            if (data) this.holeAssignments.push(data);
+          }
+        } catch { showToast('⚠️ Could not save assignment'); }
+      } else {
+        // local mode — update in-memory
+        if (existing) { existing.disc_id = discId; existing.disc_name = disc.name; }
+        else this.holeAssignments.push({ id: uid(), course_pin_id: coursePinId, hole_ref: holeRef, disc_id: discId, disc_name: disc.name });
+      }
+      showToast(`📍 Hole ${holeRef}: ${disc.name}`);
+    },
+
+    async clearHoleAssignment(coursePinId, holeRef) {
+      const sb = getSupabase();
+      const existing = this.getAssignmentForHole(coursePinId, holeRef);
+      if (!existing) return;
+      if (sb && this.user?.id !== 'local') {
+        try { await sb.from('hole_assignments').delete().eq('id', existing.id); } catch {}
+      }
+      this.holeAssignments = this.holeAssignments.filter(a => a.id !== existing.id);
+    },
+
+    openGamePlan(pin) {
+      this.activePinId = pin.id;
+      this.showGamePlan = true;
+      this.loadHoleAssignments(pin.id);
+    },
+
+    closeGamePlan() {
+      this.showGamePlan = false;
+      this.activePinId = null;
+    },
+
+    getDiscsForGamePlan(pin) {
+      // Returns discs from the bag linked to this course pin
+      const bag = this.getBagForPin(pin);
+      return bag ? this.getDiscsForBag(bag) : [];
     },
 
     // ── Course Search (OpenStreetMap Overpass API) ───────────────────────────────────
