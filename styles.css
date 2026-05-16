@@ -1818,12 +1818,10 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
 
 .flight-chart-svg {
   width: 100%;
-  max-width: 500px;
-  aspect-ratio: 1;
+  height: auto;
   display: block;
-  margin: 1rem auto;
-  background: var(--clr-surface2);
-  border-radius: var(--radius);
+  margin: 0.5rem auto;
+  max-width: 420px;
 }
 
 .flight-chart-dot {
@@ -1836,24 +1834,6 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   opacity: 1 !important;
 }
 
-.flight-chart-label-x,
-.flight-chart-label-y {
-  font-size: 0.72rem;
-  color: var(--clr-muted);
-  text-align: center;
-}
-
-.flight-chart-label-x {
-  margin-bottom: 0.5rem;
-}
-
-.flight-chart-label-y {
-  position: absolute;
-  top: 50%;
-  left: 0.3rem;
-  transform: translateY(-50%) rotate(-90deg);
-  transform-origin: center;
-}
 
 .flight-chart-legend {
   display: flex;

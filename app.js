@@ -1752,13 +1752,13 @@ function discApp() {
     },
 
     flightChartX(turn) {
-      // Turn range: -6 to +2 (map to 5%–95% of SVG width)
-      return ((turn + 6) / 8) * 90 + 5;
+      // turn=6 (overstable, left) → x=22; turn=-6 (understable, right) → x=202
+      return 22 + (6 - turn) * 15;
     },
 
     flightChartY(speed) {
-      // Speed range: 1–15 (inverted: high speed = top)
-      return (1 - (speed - 1) / 14) * 90 + 5;
+      // speed=14 (top) → y=30; speed=1 (bottom) → y=270; viewBox 210×280
+      return 270 - (speed - 1) / 13 * 240;
     },
 
     flightChartColor(type) {
