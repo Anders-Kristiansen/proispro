@@ -236,6 +236,7 @@ function discApp() {
     discPickerSearch: '',
     bagHistory: [],
     showBagHistory: false,
+    showFlightChart: false,
     showPinModal: false,
     editingPinId: null,
     pinForm: { courseQuery: '', courseId: '', courseName: '', bagId: '' },
@@ -1721,6 +1722,45 @@ function discApp() {
         await this.loadBagHistory(bag.id);
       }
     },
+
+
+    // ── Flight Chart ──────────────────────────────────────────
+
+    getFlightChartData(bag) {
+      const discs = this.getDiscsForBag(bag);
+      return discs
+        .filter(d => d.speed != null && d.turn != null)
+        .map(d => ({
+          id: d.id,
+          name: d.name,
+          type: d.type || 'unknown',
+          speed: parseFloat(d.speed) || 0,
+          glide: parseFloat(d.glide) || 0,
+          turn: parseFloat(d.turn) || 0,
+          fade: parseFloat(d.fade) || 0,
+        }));
+    },
+
+    flightChartX(turn) {
+      // Turn range: -6 to +2 (map to 5%–95% of SVG width)
+      return ((turn + 6) / 8) * 90 + 5;
+    },
+
+    flightChartY(speed) {
+      // Speed range: 1–15 (inverted: high speed = top)
+      return (1 - (speed - 1) / 14) * 90 + 5;
+    },
+
+    flightChartColor(type) {
+      // Return OKLCH color matching disc type
+      const t = (type || '').toLowerCase();
+      if (t.includes('putter')) return 'oklch(65% 0.15 250)';       // blue
+      if (t.includes('mid')) return 'oklch(65% 0.15 145)';          // green
+      if (t.includes('fairway')) return 'oklch(65% 0.18 55)';       // orange
+      if (t.includes('distance') || t.includes('driver')) return 'oklch(65% 0.2 25)'; // red
+      return 'oklch(60% 0.1 280)';  // purple fallback
+    },
+
 
     // ── Course Pinning ───────────────────────────────────────
 

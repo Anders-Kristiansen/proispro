@@ -1681,3 +1681,92 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
   .wishlist-item { flex-direction: column; }
   .wishlist-item-actions { flex-direction: row; flex-wrap: wrap; align-items: center; }
 }
+
+/* ── Flight Chart ──────────────────────────────────────────────── */
+.flight-chart-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--clr-border);
+}
+
+.flight-chart-container {
+  position: relative;
+  width: 100%;
+  max-width: 550px;
+  margin: 1rem auto 0;
+  padding: 1rem;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+}
+
+.flight-chart-svg {
+  width: 100%;
+  max-width: 500px;
+  aspect-ratio: 1;
+  display: block;
+  margin: 1rem auto;
+  background: var(--clr-surface2);
+  border-radius: var(--radius);
+}
+
+.flight-chart-dot {
+  cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+}
+
+.flight-chart-dot:hover {
+  transform: scale(1.4);
+  opacity: 1 !important;
+}
+
+.flight-chart-label-x,
+.flight-chart-label-y {
+  font-size: 0.72rem;
+  color: var(--clr-muted);
+  text-align: center;
+}
+
+.flight-chart-label-x {
+  margin-bottom: 0.5rem;
+}
+
+.flight-chart-label-y {
+  position: absolute;
+  top: 50%;
+  left: 0.3rem;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: center;
+}
+
+.flight-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  justify-content: center;
+  margin-top: 0.8rem;
+  font-size: 0.8rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+@media (max-width: 768px) {
+  .flight-chart-container {
+    padding: 0.75rem;
+  }
+  .flight-chart-svg {
+    max-width: 100%;
+  }
+}
+

@@ -480,6 +480,60 @@
                     </ul>
                   </div>
                 </div>
+
+                <!-- Flight Chart Toggle -->
+                <div class="flight-chart-section" x-show="getFlightChartData(bag).length > 0">
+                  <button class="btn btn-ghost btn-sm" @click="showFlightChart = !showFlightChart">
+                    <span x-text="showFlightChart ? '▼ Hide flight chart' : '📊 Flight chart'"></span>
+                  </button>
+                  <div x-show="showFlightChart" x-transition>
+                    <div class="flight-chart-container">
+                      <!-- Axis labels -->
+                      <div class="flight-chart-label-x">← Understable (Turn) Overstable →</div>
+                      <div class="flight-chart-label-y">Speed ↑</div>
+                      <svg class="flight-chart-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"
+                           x-ref="flightChart">
+                        <!-- Grid lines -->
+                        <line x1="50" y1="5" x2="50" y2="95" stroke="var(--clr-border)" stroke-width="0.3" stroke-dasharray="1,1"/>
+                        <line x1="5" y1="50" x2="95" y2="50" stroke="var(--clr-border)" stroke-width="0.3" stroke-dasharray="1,1"/>
+                        <!-- Zero turn vertical line -->
+                        <line x1="80" y1="5" x2="80" y2="95" stroke="var(--clr-muted)" stroke-width="0.2" opacity="0.5"/>
+                        <!-- Disc dots -->
+                        <template x-for="d in getFlightChartData(bag)" :key="d.id">
+                          <g>
+                            <circle
+                              :cx="flightChartX(d.turn)"
+                              :cy="flightChartY(d.speed)"
+                              r="2.5"
+                              :fill="flightChartColor(d.type)"
+                              opacity="0.85"
+                              class="flight-chart-dot"
+                            >
+                              <title x-text="`${d.name} | ${d.speed}/${d.glide}/${d.turn}/${d.fade}`"></title>
+                            </circle>
+                            <text
+                              :x="flightChartX(d.turn)"
+                              :y="flightChartY(d.speed) - 3.5"
+                              text-anchor="middle"
+                              font-size="2.5"
+                              fill="var(--clr-text)"
+                              x-text="d.name.length > 8 ? d.name.slice(0,7)+'…' : d.name"
+                            ></text>
+                          </g>
+                        </template>
+                      </svg>
+                      <!-- Legend -->
+                      <div class="flight-chart-legend">
+                        <span class="legend-item"><span class="legend-dot" style="background:oklch(65% 0.15 250)"></span> Putter</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:oklch(65% 0.15 145)"></span> Mid</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:oklch(65% 0.18 55)"></span> Fairway</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:oklch(65% 0.2 25)"></span> Driver</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                  </div>
+                </div>
               </div>
             </div>
           </template>
