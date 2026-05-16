@@ -755,3 +755,45 @@ px supabase gen types typescript later for full types)
 - src/types/database.ts — Database types
 
 
+
+---
+
+## 2026-05-16 22:15 — Auth Context + Login Page + App Shell
+
+**What I did:**
+
+1. **Updated src/lib/supabase.ts** with browser compatibility fixes:
+   - Ported _authStorage polyfill (Edge with Tracking Prevention blocks localStorage for cross-site origins)
+   - Ported _authLock queue (navigator.locks race causes 15-25s login timeouts when concurrent queries fire)
+   - Typed both for TypeScript, passed to createClient auth config
+
+2. **Created src/contexts/AuthContext.tsx**:
+   - AuthProvider with user state, loading state
+   - useAuth() hook exports: user, isLoading, signIn, signOut
+   - OAuth flow: signInWithOAuth with redirectTo, onAuthStateChange for return handling
+
+3. **Created src/pages/LoginPage.tsx**:
+   - Matches old Alpine app visual: logo, "ProIsPro" heading, tagline
+   - Two buttons: Google (cyan accent) + GitHub (surface2 outline)
+   - Uses OKLCH design system variables
+
+4. **Created src/components/Layout.tsx**:
+   - Header: logo, "ProIsPro" brand, user email, sign-out button
+   - Tab nav: 6 tabs (Inventory, Bags, Courses, Collections, Wishlist, For Sale)
+   - Active tab highlighted with accent border + color
+
+5. **Updated src/App.tsx**:
+   - Replaced placeholder with AuthProvider wrapper
+   - Loading screen → LoginPage (if !user) → Layout + content (if user)
+
+6. **Updated src/index.css**:
+   - Import /styles.css at top for CSS variable availability
+   - Added background + color vars to body
+
+7. **Fixed styles.css CSS errors**:
+   - Line 1250: removed extra closing brace
+   - Line 1667: removed unclosed .sale-link-card block
+
+**Result:** Build passes. Auth shell complete. Next: tab content components.
+
+**Commit:** 5b0e36f - feat: add auth context, login page, and app shell layout
