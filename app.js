@@ -237,6 +237,7 @@ function discApp() {
     bagHistory: [],
     showBagHistory: false,
     showFlightChart: false,
+    popoutBagId: null,
     showPinModal: false,
     editingPinId: null,
     pinForm: { courseQuery: '', courseId: '', courseName: '', bagId: '' },
@@ -1739,7 +1740,11 @@ function discApp() {
     getFlightChartData(bag) {
       const discs = this.getDiscsForBag(bag);
       return discs
-        .filter(d => d.speed != null && d.turn != null)
+        .filter(d => {
+          const s = parseFloat(d.speed);
+          const t = parseFloat(d.turn);
+          return !isNaN(s) && s > 0 && !isNaN(t);
+        })
         .map(d => ({
           id: d.id,
           name: d.name,
@@ -1769,6 +1774,54 @@ function discApp() {
       if (t.includes('fairway')) return 'oklch(65% 0.18 55)';       // orange
       if (t.includes('distance') || t.includes('driver')) return 'oklch(65% 0.2 25)'; // red
       return 'oklch(60% 0.1 280)';  // purple fallback
+    },
+
+    buildFlightChartSVG(bag) {
+      if (!bag) return '';
+      const parts = [];
+      // Zone labels
+      parts.push('<text x="67" y="9" text-anchor="middle" font-size="5.5" fill="var(--clr-muted)" font-weight="500">Overstable</text>');
+      parts.push('<text x="112" y="9" text-anchor="middle" font-size="5.5" fill="var(--clr-muted)" font-weight="500">Stable</text>');
+      parts.push('<text x="157" y="9" text-anchor="middle" font-size="5.5" fill="var(--clr-muted)" font-weight="500">Understable</text>');
+      // Turn axis tick numbers (top row)
+      for (const t of [6,5,4,3,2,1,0,-1,-2,-3,-4,-5,-6]) {
+        const x = (22 + (6 - t) * 15).toFixed(0);
+        parts.push(`<text x="${x}" y="20" text-anchor="middle" font-size="3.5" fill="var(--clr-muted)">${t}</text>`);
+      }
+      // Speed axis numbers + horizontal grid lines (s: 1..14)
+      for (let s = 1; s <= 14; s++) {
+        const y = (270 - (s - 1) / 13 * 240).toFixed(1);
+        parts.push(`<text x="18" y="${(parseFloat(y) + 1.5).toFixed(1)}" text-anchor="middle" font-size="3.5" fill="var(--clr-muted)">${s}</text>`);
+        parts.push(`<line x1="22" y1="${y}" x2="202" y2="${y}" stroke="var(--clr-border)" stroke-width="0.25" opacity="0.7"/>`);
+      }
+      // Vertical grid lines (every turn except 0)
+      for (const t of [6,5,4,3,2,1,-1,-2,-3,-4,-5,-6]) {
+        const x = (22 + (6 - t) * 15).toFixed(0);
+        parts.push(`<line x1="${x}" y1="24" x2="${x}" y2="270" stroke="var(--clr-border)" stroke-width="0.25" opacity="0.7"/>`);
+      }
+      // Dashed center line at turn=0
+      parts.push('<line x1="112" y1="24" x2="112" y2="270" stroke="var(--clr-muted)" stroke-width="0.7" stroke-dasharray="2.5,2" opacity="0.85"/>');
+      // Disc dots + labels
+      const data = this.getFlightChartData(bag);
+      for (const d of data) {
+        const cx = (22 + (6 - d.turn) * 15).toFixed(1);
+        const cy = (270 - (d.speed - 1) / 13 * 240).toFixed(1);
+        const ly = (parseFloat(cy) + 9.5).toFixed(1);
+        const fill = this.flightChartColor(d.type);
+        const label = d.name.length > 9 ? d.name.slice(0, 8) + '\u2026' : d.name;
+        const tip = `${d.name} \u00b7 ${d.speed}/${d.glide}/${d.turn}/${d.fade}`;
+        parts.push(`<circle cx="${cx}" cy="${cy}" r="5" fill="${fill}" stroke="white" stroke-width="0.8" opacity="0.9" class="flight-chart-dot"><title>${tip}</title></circle>`);
+        parts.push(`<text x="${cx}" y="${ly}" text-anchor="middle" font-size="3.5" fill="var(--clr-text)">${label}</text>`);
+      }
+      return parts.join('\n');
+    },
+
+    openBagPopout(bag) {
+      this.popoutBagId = bag.id;
+      this.showFlightChart = true;
+    },
+    closeBagPopout() {
+      this.popoutBagId = null;
     },
 
 
