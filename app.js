@@ -1619,9 +1619,11 @@ function discApp() {
       const bag = this.bags.find(b => b.id === bagId);
       if (!bag) return;
       const idx = bag.discIds.indexOf(discId);
+      const action = idx === -1 ? 'added' : 'removed';
       if (idx === -1) bag.discIds.push(discId);
       else bag.discIds.splice(idx, 1);
       await this._syncBagDiscIds(bag);
+      await this._recordBagHistory(bag, discId, action);
     },
 
     async removeDiscFromBag(bagId, discId) {
@@ -1629,7 +1631,24 @@ function discApp() {
       if (!bag) return;
       bag.discIds = bag.discIds.filter(id => id !== discId);
       await this._syncBagDiscIds(bag);
+      await this._recordBagHistory(bag, discId, 'removed');
       showToast('Disc removed from bag');
+    },
+
+    async _recordBagHistory(bag, discId, action) {
+      const sb = getSupabase();
+      if (!sb || this.user?.id === 'local') return;
+      const disc = this.discs.find(d => d.id === discId);
+      if (!disc) return;
+      try {
+        await sb.from('bag_history').insert([{
+          bag_id: bag.id,
+          disc_id: discId,
+          disc_name: disc.name,
+          action,
+          user_id: this.user.id,
+        }]);
+      } catch { /* history is non-critical — don't surface errors */ }
     },
 
     async _syncBagDiscIds(bag) {
@@ -1827,23 +1846,25 @@ function discApp() {
     },
 
     parseHolesFromElements(elements) {
-      // Parse disc_golf=hole nodes with ref tag as hole number
-      const holes = elements
-        .filter(el => el.discGolf === 'hole')
-        .map((el, index) => ({
-          ref: el.ref || String(index + 1),
-          name: el.name || '',
-          lat: el.lat,
-          lon: el.lon,
-        }))
-        .sort((a, b) => {
-          // Natural sort by ref (hole number)
-          const aNum = parseInt(a.ref, 10);
-          const bNum = parseInt(b.ref, 10);
-          if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
-          return a.ref.localeCompare(b.ref);
-        });
-      return holes;
+      // OSM disc_golf tag hierarchy: 'hole' is ideal, but many courses only map
+      // 'tee' or 'basket' nodes. Try each in order and use the first non-empty set.
+      const sortByRef = (arr) => arr.sort((a, b) => {
+        const aNum = parseInt(a.ref, 10);
+        const bNum = parseInt(b.ref, 10);
+        if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+        return a.ref.localeCompare(b.ref);
+      });
+      const toHole = (el, index) => ({
+        ref: el.ref || String(index + 1),
+        name: el.name || '',
+        lat: el.lat,
+        lon: el.lon,
+      });
+      for (const type of ['hole', 'tee', 'basket']) {
+        const candidates = elements.filter(el => el.discGolf === type).map(toHole);
+        if (candidates.length > 0) return sortByRef(candidates);
+      }
+      return [];
     },
 
     getHolesForPin(pin) {
