@@ -234,6 +234,8 @@ function discApp() {
     showDiscPickerModal: false,
     discPickerBagId: null,
     discPickerSearch: '',
+    bagHistory: [],
+    showBagHistory: false,
     showPinModal: false,
     editingPinId: null,
     pinForm: { courseQuery: '', courseId: '', courseName: '', bagId: '' },
@@ -1668,6 +1670,56 @@ function discApp() {
 
     getBagsForDisc(discId) {
       return this.bags.filter(b => b.discIds.includes(discId));
+    },
+
+    // ── Bag History ───────────────────────────────────────────
+
+    async loadBagHistory(bagId) {
+      const sb = getSupabase();
+      if (!sb || this.user?.id === 'local') {
+        this.bagHistory = [];
+        return;
+      }
+      try {
+        const { data } = await sb
+          .from('bag_history')
+          .select('*')
+          .eq('bag_id', bagId)
+          .order('changed_at', { ascending: false })
+          .limit(20);
+        this.bagHistory = data || [];
+      } catch {
+        this.bagHistory = [];
+      }
+    },
+
+    formatHistoryTime(ts) {
+      if (!ts) return '';
+      const now = Date.now();
+      const then = new Date(ts).getTime();
+      const diffMs = now - then;
+      const diffMin = Math.floor(diffMs / 60000);
+      const diffHr = Math.floor(diffMs / 3600000);
+      const diffDay = Math.floor(diffMs / 86400000);
+      
+      if (diffMin < 1) return 'just now';
+      if (diffMin < 60) return `${diffMin}m ago`;
+      if (diffHr < 24) return `${diffHr}h ago`;
+      if (diffDay < 7) return `${diffDay}d ago`;
+      return new Date(ts).toLocaleDateString();
+    },
+
+    async openBagDetail(bag) {
+      // Toggle bag detail open/closed
+      if (this.activeBagId === bag.id) {
+        this.activeBagId = null;
+        this.bagHistory = [];
+        this.showBagHistory = false;
+      } else {
+        this.activeBagId = bag.id;
+        this.showBagHistory = false;
+        await this.loadBagHistory(bag.id);
+      }
     },
 
     // ── Course Pinning ───────────────────────────────────────

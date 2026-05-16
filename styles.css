@@ -889,6 +889,86 @@ input.invalid, select.invalid { border-color: var(--clr-danger); }
 .bag-disc-name { font-weight: 500; color: var(--clr-text); flex: 1 1 auto; }
 .bag-disc-mfr  { color: var(--clr-muted); font-size: .8rem; }
 
+/* ── Bag Change History ───────────────────────────────────── */
+
+.bag-history-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--clr-border);
+}
+
+.bag-history-empty {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--clr-muted);
+  background: var(--clr-surface);
+  border-radius: var(--radius);
+}
+
+.bag-history-list {
+  list-style: none;
+  margin-top: 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bag-history-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--clr-surface);
+  border-radius: calc(var(--radius) * 0.7);
+  font-size: 0.88rem;
+  transition: background 0.15s;
+}
+
+.bag-history-entry:hover {
+  background: var(--clr-surface2);
+}
+
+.bag-history-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 1rem;
+  flex-shrink: 0;
+}
+
+.badge-added {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--midrange);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.badge-removed {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--clr-danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.bag-history-disc {
+  flex: 1;
+  color: var(--clr-text);
+  font-weight: 500;
+}
+
+.bag-history-time {
+  font-size: 0.75rem;
+  color: var(--clr-muted);
+  flex-shrink: 0;
+  text-align: right;
+}
+
+
 /* ── Disc card bag quick-assign ───────────────────────────── */
 .bag-quick-action { position: relative; }
 
