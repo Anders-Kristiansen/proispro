@@ -8,7 +8,55 @@
 
 ## Learnings
 
-<!-- Append learnings below -->
+### 2026-05-16 — MVP Build Sprint: 4 Frontend Features (FR-2, FR-3a, FR-4)
+
+**Session:** 2026-05-16T194500Z-mvp-build-session  
+**Role:** Frontend Dev (4 parallel PRs)
+
+**PR #59: Course Holes Fix + UI (FR-3a)**
+- Fixed hole filter: `['hole', 'tee', 'basket'].includes(el.discGolf)` (OSM tagging flexibility)
+- Added `parseHolesFromElements()` to extract structured hole data from OSM
+- Natural sort by `ref` tag (handles "1", "1A", "18A" formats)
+- Expandable hole list UI in course cards with per-hole Google Maps link
+- State: `expandedHoleLists` object tracks per-pin expansion
+- localStorage-first approach unblocks frontend; Basher's migration (#57) will sync to Supabase later
+- **Status:** Draft, includes Coordinator inline fixes (hole filter + bag_history wiring)
+
+**PR #61: Flight Chart Scatter Plot (FR-4)**
+- Pure SVG implementation (zero external library)
+- X-axis: Turn (-6 to +2), Y-axis: Speed (1-15 inverted for distance drivers at top)
+- Colors: OKLCH disc type badges (putter/mid/fairway/driver)
+- Collapsible via Alpine `x-show`, toggle in bag detail view
+- Responsive SVG with aspect-ratio CSS, viewBox scaling
+- Implementation: 4 new methods (getFlightChartData, flightChartX, flightChartY, flightChartColor), ~60 HTML, ~95 CSS
+- **Status:** Draft
+
+**PR #62: Bag History UI Panel (FR-2)**
+- Added `openBagDetail(bag)` method to replace inline toggle (centralize history load logic)
+- Async fetch from `bag_history` table on expand (limit 20, `changed_at DESC`), clear on collapse
+- Moxfield-style +1/-1 badges: green for add, red for remove
+- Hand-rolled relative time formatter (no library): "just now", "Xm ago", "Xh ago", "Xd ago", or date
+- Graceful fallback: empty "No changes recorded yet" if Supabase unavailable
+- Implementation: ~50 JS, ~25 HTML, ~80 CSS, Alpine `x-transition` for smooth collapse
+- **Dependencies:** Blocked by PR #59 (needs `_recordBagHistory` wiring); depends on migration #49 (bag_history table — ✅ live)
+- **Status:** Draft
+
+**Key Architecture Decisions:**
+1. **Course holes localStorage-first:** Unblocks UI work pending Basher's schema migration. Sync to Supabase comes later.
+2. **SVG over chart library:** Zero bundle size, instant load, full control over OKLCH colors. Simple use case doesn't justify D3/Chart.js overhead.
+3. **Per-bag flight chart:** Organized by course context (different bags for different courses). Global view would be cluttered for 100+ disc inventories.
+4. **Async history load:** Fetch on bag expand (lazy loading) vs all bags on page load (N queries). Avoids performance cliff.
+5. **Hand-rolled relative time:** No library dependency, Moxfield-style UX, one-liner formatter.
+
+**Cross-Cutting Pattern:** All 3 PRs follow existing Alpine.js reactive patterns (x-if, x-for, x-show, x-transition, x-collapse), computed getters, fire-and-forget Supabase writes.
+
+**Coordination:** Inline coordinator task fixed hole filter + wired `_recordBagHistory()` into toggleDiscInBag/removeDiscFromBag, all integrated into PR #59.
+
+**Test Status:** Zero failures across all 3 PRs.
+
+**Next:** Merge #59, #60, #61, #62 after validation. Then implement FR-3b (game plan UI: disc recommendations per hole).
+
+---
 
 ### 2026-05-16 — FR-1/2/3 Issues Created via PRD Decomposition
 

@@ -8,7 +8,36 @@
 
 ## Learnings
 
-## Learnings
+### 2026-05-16: MVP Build Sprint — bag_history + hole_assignments Migrations
+
+**Session:** 2026-05-16T194500Z-mvp-build-session  
+**Role:** Data Wrangler (2 parallel migrations)
+
+**Migration 1: bag_history (20260516000000)**
+- Append-only audit table for disc additions/removals
+- Schema decisions: TEXT IDs (consistent with bags/discs), denormalized `disc_name` (audit survival if disc deleted), no UPDATE/DELETE RLS (immutable audit log)
+- Indexes: `bag_history(bag_id)`, `bag_history(user_id)` (RLS opt), `bag_history(changed_at DESC)` (chronological UI)
+- Idempotent: `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN NULL; END $$` for RLS policies (PG 15/16 compat)
+- ✅ Pushed to Supabase CLI
+
+**Migration 2: hole_assignments (20260516000002)**
+- Schema scoped to `course_pin_id` (preserves bag context — different bags may have different game plans for same course)
+- Full CRUD RLS (not append-only like bag_history) — users change strategy over time
+- Unique constraint: `(course_pin_id, hole_ref, user_id)` — one assignment per hole per course per user
+- Denormalized `disc_name` + nullable `disc_id` (same pattern as bag_history)
+- Also added `holes_data JSONB` column to `course_pins` for OSM hole list caching (read-heavy, rarely updated)
+- ✅ Pushed to Supabase CLI
+
+**Retroactive Migration 3: bags + course_pins (20260516000001)**
+- Tracked existing `bags` and `course_pins` tables from ad-hoc Supabase setup
+- Wrapped with `IF NOT EXISTS` guards for idempotency
+- Fixes reproducibility gap: schema now version-controlled in migrations/
+
+**Key Learning:** Denormalization for audit survival (disc_name even if disc deleted) is a pragmatic tradeoff. For read-heavy, rarely-updated data (holes), JSONB on parent table beats separate table.
+
+**PR Status:** #60 (draft) — hole_assignments + holes_data schema
+
+---
 
 ### 2026-05-16: PRD Decomposition — 10 New Feature Issues
 

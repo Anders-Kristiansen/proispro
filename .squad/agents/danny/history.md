@@ -3,10 +3,44 @@
 ## Core Context
 
 - **Project:** A lightweight personal disc golf inventory page hosted on GitHub Pages, using a separate GitHub repo as a simple JSON file backend.
-- **Role:** Lead
+- **Role:** Lead/Architect
 - **Joined:** 2026-04-13T17:32:22.552Z
 
 ## Learnings
+
+### 2026-05-16: Full Site Audit — Feature Status Matrix
+
+**Session:** 2026-05-16T194500Z-mvp-build-session  
+**Role:** Lead/Architect (Audit phase)
+
+**Comprehensive PRD-aligned audit completed. Result: 4 working features, 2 partial, 3 unbuilt.**
+
+**Working (✅):**
+- FR-1: Disc autocomplete + auto-fill (selectDiscFromCatalog fetches from DiscIt API)
+- Bags: Create/rename/delete/add-remove-discs with Supabase sync
+- Courses: Pinning, map download, bag-to-course assignment
+- Collections, Wishlist, For Sale: Full CRUD + RLS in place
+
+**Partial (⚠️):**
+- FR-2 (Bag change history): Migration exists, `toggleDiscInBag()` doesn't record history, no UI panel (Rusty building this in PR #62)
+- FR-3a (Course fetching + hole data): OSM search works, Download Map works, hole list UI exists but shows "No hole data" — filtering for `disc_golf=hole` misses `tee` and `basket` (Rusty fixing in PR #59 + Coordinator wiring)
+
+**Not Built (🆕):**
+- FR-3b: Disc-to-hole game plan (no code exists)
+- FR-3c: Core vs Scramble badges (no code exists)
+- FR-4: Bag flight chart scatter plot (but Rusty building this in PR #61 with pure SVG)
+
+**Recommended Build Order:**
+1. Merge hole filter fix + bag_history wiring (10–15 min)
+2. Merge bag history UI + flight chart (2–3 hours)
+3. Build game plan feature (3+ days, depends on hole distances)
+4. Add core/scramble tracking (3–5 days)
+
+**Key Finding:** Most failures are wiring, not schema. Backend migrations ready, frontend integration incomplete (Rusty handling 4 PRs in parallel).
+
+**Decisions File:** danny-audit-findings.md in decisions inbox
+
+---
 
 ### 2026-04-21: Security Review (Red Team Audit)
 

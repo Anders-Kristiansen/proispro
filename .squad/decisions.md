@@ -1180,6 +1180,145 @@ Implemented Phases 1–3 of Moxfield-inspired disc inventory features: Collectio
 
 ---
 
+## Data Migrations — Supabase (2026-05-16)
+
+### bag_history Migration — Append-Only Audit Schema
+**By:** Basher (Data Wrangler) | **Date:** 2026-05-16 | **Status:** Implemented & Pushed
+**Migration:** `20260516000000_bag_history.sql`
+
+Audit table for disc additions/removals to bags. Immutable by design (append-only, no UPDATE/DELETE RLS policies).
+
+**Schema Decisions:**
+
+1. **TEXT IDs (not UUID)** — Matches existing `bags.id TEXT` and `discs.id TEXT` types. Foreign key constraints require matching types. Avoids type mismatch errors.
+
+2. **Denormalized `disc_name` column** — Even if user deletes a disc from inventory after recording it in bag history, the history entry still displays the disc name. Denormalization trades write consistency for read reliability (audit trail integrity).
+
+3. **No UPDATE/DELETE RLS policies** — Only SELECT (owner read) and INSERT (owner write). Prevents tampering with audit trail. Trade-off: erroneous entries cannot be corrected by user (acceptable for single-user app; admin can fix via SQL).
+
+**Implementation Details:**
+- Indexes: `bag_history(bag_id)` (fast lookup of changes), `bag_history(user_id)` (RLS optimization), `bag_history(changed_at DESC)` (chronological UI)
+- Idempotent pattern: `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN NULL; END $$` for RLS policies (PG 15/16 compatibility)
+
+**Also included:** Retroactive migration `20260516000001_bags_and_course_pins.sql` to track existing tables that were created ad-hoc in Supabase but never added to `supabase/migrations/`. Wrapped with `IF NOT EXISTS` guards.
+
+---
+
+### hole_assignments Migration — Game Plan Storage
+**By:** Basher (Data Wrangler) | **Date:** 2026-05-16 | **Status:** Implemented & Pushed
+**Migration:** `20260516000002_hole_assignments.sql`
+
+Schema for storing disc-to-hole game plan recommendations. Scoped to `course_pin_id` to preserve bag context.
+
+**Schema Decisions:**
+
+1. **Scoped to `course_pin_id` (not abstract course)** — Different bags may have different game plans for the same course. Avoids forcing one strategy per course.
+
+2. **Full CRUD RLS (not append-only)** — Unlike `bag_history`, assignments allow UPDATE/DELETE because users change strategy over time. Unique constraint: `(course_pin_id, hole_ref, user_id)` ensures one assignment per hole per course per user.
+
+3. **Denormalized `disc_name` + nullable `disc_id`** — Follows bag_history pattern. If user deletes disc from inventory, assignment still shows disc name (history survival).
+
+4. **TEXT for `course_pin_id`** — Matches `course_pins.id TEXT PRIMARY KEY` type. Keeps FK types consistent.
+
+5. **`holes_data JSONB` on `course_pins`** — OSM hole data is read-heavy, rarely updated, and inherently structured. JSONB column avoids separate `holes` table and enables efficient JSON queries if needed later.
+
+**Implications:**
+- Client can query all assignments for a course pin to display game plan UI
+- Stats (Core vs Scramble) computed client-side at 5+ hole threshold
+- No materialized view needed (current single-user scale: on-demand aggregation sufficient)
+- If disc deleted, assignment shows disc name but no longer links to inventory
+
+---
+
+## Frontend Patterns — MVP Build Sprint (2026-05-16)
+
+### Course Holes Parsing + Expandable UI
+**By:** Rusty (Frontend Dev) | **Date:** 2026-05-16 | **Status:** Implemented (PR #59)
+
+Fixed hole data display and implemented structured hole parsing from OSM elements.
+
+**Problem:** `getHolesForPin()` filtered for `disc_golf=hole` only, but OSM data predominantly uses `disc_golf=tee` and `disc_golf=basket`. Result: hole list UI showed "No hole data" even after downloading map.
+
+**Solution:**
+
+1. **Inclusive hole filter** — Changed filter to `['hole', 'tee', 'basket'].includes(el.discGolf)`. OSM tagging convention varies by region/contributor; inclusive approach necessary.
+
+2. **Structured parsing** — New `parseHolesFromElements()` function extracts disc_golf nodes, uses OSM `ref` tag as hole number, natural sort by numeric ref + string fallback.
+
+3. **Expandable UI** — Each course card shows collapsible hole list (only when map downloaded). Toggle button shows ▶/▼ + hole count. Clicking hole item opens Google Maps at that location.
+
+4. **State management** — `expandedHoleLists` object tracks per-pin expansion. `getHolesForPin(pin)` retrieves holes from cache. `toggleHoleList(pinId)` toggles expansion. `openHoleInMaps(hole)` navigates.
+
+5. **Alpine.js patterns** — `x-collapse` for smooth expand/collapse, `x-if` for conditional rendering, `x-for` to iterate holes.
+
+**Architecture Decision: localStorage-first approach** — Holes stored in `_courseCache` (localStorage) rather than Supabase `holes_data` JSONB. Unblocks frontend work pending Basher's migration (#57). Sync to Supabase happens later once schema is deployed.
+
+---
+
+### Bag History UI Panel — Moxfield-Style Change Badges
+**By:** Rusty (Frontend Dev) | **Date:** 2026-05-16 | **Status:** Implemented (PR #62)
+
+Frontend UI panel displaying bag change history with relative timestamps and +1/-1 badges.
+
+**Architecture:**
+
+1. **Bag expand hook** — Replaced inline `@click` toggle with `openBagDetail(bag)` method that:
+   - Toggles bag open/closed
+   - Loads history on expand: `await loadBagHistory(bag.id)`
+   - Clears history on collapse
+
+2. **History load** — Async fetch from `bag_history` table, ordered `changed_at DESC`, limit 20. Graceful fallback if Supabase unavailable: `bagHistory` stays empty.
+
+3. **UI components:**
+   - Toggle button: ▶ Change history / ▼ Hide history
+   - Empty state: Centered muted text "No changes recorded yet"
+   - History list: +1/-1 badge (green for added, red for removed) | Disc name (bold) | Relative timestamp (right-aligned, muted)
+
+4. **Relative time formatting** — Hand-rolled formatter (no library):
+   - < 1 min: "just now"
+   - < 1 hr: "Xm ago"
+   - < 24 hr: "Xh ago"
+   - < 7 days: "Xd ago"
+   - else: `toLocaleDateString()`
+
+5. **CSS design:**
+   - Colors: Green badge `var(--midrange)` (existing OKLCH green), red `var(--clr-danger)`
+   - Flexbox row per entry, hover background transition
+   - Spacing: `gap: 0.75rem` between elements, `0.5rem` between entries
+
+**Implementation:** ~50 JS, ~25 HTML, ~80 CSS. Alpine.js `x-transition` for smooth collapse.
+
+---
+
+### Flight Chart Visualization — Pure SVG Scatter Plot
+**By:** Rusty (Frontend Dev) | **Date:** 2026-05-16 | **Status:** Implemented (PR #61)
+
+Bag flight chart implemented as pure SVG scatter plot (zero external library).
+
+**Rationale for SVG over chart library:**
+- Zero bundle size increase (no Chart.js, D3, etc.)
+- Loads instantly (no additional HTTP request)
+- Full control over styling/interaction (matches existing OKLCH color system)
+- Simple use case (20+ basic dots + labels) doesn't justify library overhead (100KB+ added size)
+- Alpine.js reactive bindings work natively with SVG attributes
+
+**Design decisions:**
+
+1. **Why speed vs turn axes** — Turn determines flight path shape (understable vs overstable), Speed determines throw difficulty/distance. Together they show bag coverage at a glance. Glide/fade less visually distinctive for quick scanning.
+
+2. **Why per-bag (not global)** — Users organize discs by bag for specific courses. Bag-level view shows what they'll actually throw in a round. Global chart would be cluttered for 100+ disc inventories.
+
+3. **Coordinate system:**
+   - X-axis: Turn (-6 to +2, left=understable, right=overstable)
+   - Y-axis: Speed (1-15, inverted so distance drivers at top)
+   - Color: OKLCH colors matching disc type badges (putter/mid/fairway/driver)
+   - Labels: Disc names (truncated to 7 chars if needed)
+   - Tooltip: Full flight numbers on hover (via SVG `<title>` element)
+
+4. **Interaction** — Collapsible panel in bag detail view (Alpine `x-show`).
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
