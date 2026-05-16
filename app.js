@@ -251,6 +251,9 @@ function discApp() {
     aiIdentifying: false,
     aiIdentifyMsg: '',
 
+    // Hole assignments (for disc usage badges)
+    holeAssignments: [],
+
     // Collections state
     _collectionDiscs: [],
     collections: [],
@@ -567,6 +570,7 @@ function discApp() {
             await this.loadDiscs();
             await this.loadBags();
             await this.loadCoursePins();
+            await this.loadAllHoleAssignments();
             await this.loadCollections();
             await this.loadWishlist();
             await this.loadForSaleListings();
@@ -640,6 +644,7 @@ function discApp() {
           await this.loadDiscs();
           await this.loadBags();
           await this.loadCoursePins();
+          await this.loadAllHoleAssignments();
           await this.loadCollections();
           await this.loadWishlist();
           await this.loadForSaleListings();
@@ -2025,6 +2030,53 @@ function discApp() {
         google: this.getGoogleMapsUrl(pin?.courseName || '', lat, lon),
         osm: this.getOpenStreetMapUrl(lat, lon),
       };
+    },
+
+    // ── Hole Assignments (for disc usage badges) ────────────────
+
+    async loadAllHoleAssignments() {
+      const sb = getSupabase();
+      if (!sb || this.user?.id === 'local') { this.holeAssignments = []; return; }
+      try {
+        const { data } = await sb
+          .from('hole_assignments')
+          .select('*');
+        this.holeAssignments = data || [];
+      } catch { this.holeAssignments = []; }
+    },
+
+    // Compute disc usage stats across ALL hole assignments
+    // Returns Map<discId, { count: number, courseCount: number }>
+    computeDiscUsageStats() {
+      const stats = new Map();
+      for (const a of this.holeAssignments) {
+        if (!a.disc_id) continue;
+        if (!stats.has(a.disc_id)) {
+          stats.set(a.disc_id, { count: 0, pins: new Set() });
+        }
+        const s = stats.get(a.disc_id);
+        s.count++;
+        s.pins.add(a.course_pin_id);
+      }
+      // Flatten: convert Set to size
+      const result = new Map();
+      for (const [discId, s] of stats) {
+        result.set(discId, { count: s.count, courseCount: s.pins.size });
+      }
+      return result;
+    },
+
+    // Get badge for a disc based on usage
+    // Returns 'core' | 'scramble' | null
+    getDiscBadge(discId) {
+      const stats = this.computeDiscUsageStats();
+      const s = stats.get(discId);
+      if (!s) return null;
+      // Core: assigned to 3+ holes OR appears in 2+ courses
+      if (s.count >= 3 || s.courseCount >= 2) return 'core';
+      // Scramble: assigned to at least 1 hole but below core threshold
+      if (s.count >= 1) return 'scramble';
+      return null;
     },
 
     getDownloadedMapSummary(pin) {

@@ -216,6 +216,12 @@
                       <div class="card-header">
                         <div>
                           <div class="card-name" x-text="disc.name"></div>
+                          <template x-if="getDiscBadge(disc.id) === 'core'">
+                            <span class="disc-usage-badge badge-core" title="Core disc — frequently used in your game plans">🔑 Core</span>
+                          </template>
+                          <template x-if="getDiscBadge(disc.id) === 'scramble'">
+                            <span class="disc-usage-badge badge-scramble" title="Scramble disc — situational use">🎲 Scramble</span>
+                          </template>
                           <div class="card-manufacturer" x-show="disc.manufacturer" x-text="disc.manufacturer"></div>
                         </div>
                       </div>
@@ -454,6 +460,12 @@
                   <template x-for="disc in getDiscsForBag(bag)" :key="disc.id">
                     <div class="bag-disc-row">
                       <span class="bag-disc-name" x-text="disc.name"></span>
+                      <template x-if="getDiscBadge(disc.id) === 'core'">
+                        <span class="disc-usage-badge badge-core" title="Core disc">🔑</span>
+                      </template>
+                      <template x-if="getDiscBadge(disc.id) === 'scramble'">
+                        <span class="disc-usage-badge badge-scramble" title="Scramble disc">🎲</span>
+                      </template>
                       <span class="bag-disc-mfr" x-show="disc.manufacturer" x-text="disc.manufacturer"></span>
                       <span class="type-badge" :class="'type-' + safeType(disc.type)" x-text="typeLabel(safeType(disc.type))"></span>
                       <button class="btn btn-danger btn-sm" @click="removeDiscFromBag(bag.id, disc.id)" title="Remove from bag">✕</button>
