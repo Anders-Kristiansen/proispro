@@ -797,3 +797,93 @@ px supabase gen types typescript later for full types)
 **Result:** Build passes. Auth shell complete. Next: tab content components.
 
 **Commit:** 5b0e36f - feat: add auth context, login page, and app shell layout
+
+### 2026-05-17 — Inventory Tab Migration to React (Phase 3)
+
+**Session:** 2026-05-17-inventory-react-migration  
+**Role:** Frontend Dev  
+**Branch:** feat/refactor (commit: 8f31801)
+
+**Objective:** Port the core Inventory tab from Alpine.js to React + TypeScript, preserving exact legacy behavior and design while modernizing the architecture.
+
+**Components Built:**
+
+1. **src/utils/disc.ts** (370 LOC)
+   - Type-safe DB <-> Client field mapping (`fromDbDisc`, `toDbDisc`)
+   - Key mappings: `disc_type` <-> `type`, `user_photo_url` <-> `photo_url`, `added_at` <-> `added` timestamp
+   - Pure filter/sort/group logic in `filterAndSort()` — perfect for React `useMemo`
+   - All display helpers: `colorSlug`, `stabilityLabel`, `formatTurn`, `tagColor`, `getBagsForDisc`
+   - Exported types: `ClientDisc`, `ClientBag`, `DiscFilters`, `DiscGroup`, `SortOption`
+
+2. **src/hooks/useDiscs.ts** (90 LOC)
+   - Full CRUD: `loadDiscs`, `saveDisc`, `deleteDisc`, `setDiscQty`
+   - Optimistic quantity updates with rollback on error
+   - Maps Supabase response through `fromDbDisc`/`toDbDisc` converters
+   - State: `discs`, `isLoading`, `error`
+
+3. **src/hooks/useBags.ts** (45 LOC)
+   - Minimal bags hook for disc card "In X bags" display
+   - `toggleDiscInBag()` for bag membership checkboxes
+   - Full Bags tab comes in Phase 4
+
+4. **src/components/DiscCard.tsx** (315 LOC)
+   - Grid card matching legacy design system
+   - Avatar: photo or colored circle (`var(--disc-{color-slug})` or `var(--{type})`)
+   - Flight numbers with colored pills (speed/distance, glide/fairway, turn/midrange, fade/putter)
+   - Stability label derived from turn + fade
+   - Quantity stepper (inline optimistic update)
+   - Bag dropdown menu with checkboxes
+   - Clickable tags (filter toggle)
+   - Badge slot for Phase 6 (core/scramble assignments)
+   - Delete confirmation pattern (click once = confirm toast, click again = delete)
+
+5. **src/components/DiscModal.tsx** (510 LOC)
+   - Add/Edit form with all disc fields
+   - Type + Name validation (required)
+   - Color picker: 12 swatches using `var(--disc-{color-slug})` CSS vars
+   - Condition select: New/Mint, Good, Used, Beat-in
+   - Flight numbers row (Speed, Glide, Turn, Fade)
+   - Tag input with add/remove chips
+   - Quantity stepper
+   - Modal overlay with click-outside-to-close
+
+6. **src/pages/InventoryPage.tsx** (365 LOC)
+   - Main orchestration: `useDiscs` + `useBags` + `useMemo(filterAndSort)`
+   - Toolbar: search, filter chips (All | Putter | Midrange | Fairway | Distance), sort select, group select
+   - Filter state: search, type, brand, bag, condition, weight range, active tag, sort, group
+   - Group headers with collapse toggle (tracks `collapsedGroups` Set)
+   - Grid layout: `repeat(auto-fill, minmax(300px, 1fr))`
+   - Empty state: "🥏 No discs yet — Click + Add Disc to get started"
+   - Count display: "12 discs" or "3 of 12 discs" (filtered)
+   - Delete confirm toast (bottom-center, 3s timeout)
+
+**Architecture Decisions:**
+
+1. **Pure `filterAndSort()` function:** Extracted ALL filter/sort/group logic from Alpine computed into one testable pure function. Perfect for React `useMemo` — no expensive re-renders.
+
+2. **DB field mapping layer:** Supabase schema uses `disc_type`, `user_photo_url`, `added_at`. Client code uses `type`, `photo_url`, `added` (timestamp). Bidirectional converters (`fromDbDisc`/`toDbDisc`) isolate this impedance mismatch.
+
+3. **Client-side types use strings for form fields:** `weight`, `speed`, `glide`, `turn`, `fade` are `string | number` on client (empty string for unset). Simplifies form handling. Convert to `number | null` only when writing to DB.
+
+4. **Optimistic quantity updates:** `setDiscQty` updates local state immediately, reverts on DB error. Matches modern UX patterns (Notion, Linear).
+
+5. **Inline styles with CSS vars:** No Tailwind, no CSS modules. All styling via inline `style` objects referencing the global design system vars (`--clr-*`, `--disc-*`, `--putter`, etc.). Keeps component files self-contained, matches legacy aesthetic exactly.
+
+6. **Delete confirmation toast pattern:** Click Delete → 3s toast "Click Delete again to confirm" → second click deletes. No blocking modal. Less disruptive than confirm().
+
+7. **Bag menu as dropdown:** DiscCard renders a dropdown with checkboxes for each bag. Phase 4 will build the full Bags management UI, but this unblocks basic bag membership for Phase 3.
+
+**Key Metrics:**
+- 7 files changed, 1,716 insertions
+- Build: TypeScript clean, 0 errors
+- Bundle: +383 KB (includes React core — subsequent phases add minimal size)
+
+**Deferred to Phase 5:**
+- Photo upload (Supabase Storage integration)
+- Disc catalog autocomplete (search disc-catalog.js data)
+- Toast notification system (using `alert()` for now)
+
+**Next Steps:**
+- Phase 4: Bags tab (full bag CRUD, assign discs, reorder)
+- Phase 5: Photo upload, catalog search, toast system
+- Phase 6: Core/Scramble assignments (use badge slot in DiscCard)

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { LoginPage } from './pages/LoginPage'
 import { InventoryPage } from './pages/InventoryPage'
+import { BagsPage } from './pages/BagsPage'
 import { Layout } from './components/Layout'
 
 type Tab = 'inventory' | 'bags' | 'courses' | 'collections' | 'wishlist' | 'forsale'
@@ -30,7 +31,8 @@ function AppShell() {
   return (
     <Layout activeTab={activeTab} onTabChange={setActiveTab}>
       {activeTab === 'inventory' && <InventoryPage />}
-      {activeTab !== 'inventory' && (
+      {activeTab === 'bags' && <BagsPage />}
+      {activeTab !== 'inventory' && activeTab !== 'bags' && (
         <div style={{ color: 'var(--clr-muted)', padding: '2rem 0' }}>
           <p>📊 <strong style={{ color: 'var(--clr-text)' }}>{activeTab}</strong> tab — coming soon</p>
           <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>Signed in as {user.email}</p>

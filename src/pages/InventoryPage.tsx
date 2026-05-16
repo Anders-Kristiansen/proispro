@@ -315,7 +315,7 @@ export function InventoryPage() {
                     bags={bags}
                     onEdit={() => handleEditDisc(disc)}
                     onDelete={() => handleDeleteDisc(disc.id)}
-                    onToggleBag={bagId => toggleDiscInBag(bagId, disc.id)}
+                    onToggleBag={bagId => toggleDiscInBag(bagId, disc.id, discs)}
                     onTagClick={handleTagClick}
                     onQtyChange={delta => handleQtyChange(disc, delta)}
                     activeTagFilter={filters.activeTagFilter}
