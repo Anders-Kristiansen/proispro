@@ -55,13 +55,13 @@ export function useDiscs() {
           .insert([{ ...toDbDisc(newDisc), user_id: user.id }])
           .select()
           .single()
-        if (error) throw error
+        if (error) throw new Error(error.message)
         const saved = fromDbDisc(data)
         setDiscs(prev => [saved, ...prev])
         return saved
       }
     } catch (err) {
-      throw err
+      throw err instanceof Error ? err : new Error(String(err))
     }
   }
 

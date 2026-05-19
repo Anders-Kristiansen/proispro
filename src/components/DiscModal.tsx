@@ -226,7 +226,11 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
       } as Omit<ClientDisc, 'id'> & { id?: string })
       onClose()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to save disc')
+      const msg =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ?? JSON.stringify(err)
+      alert('Save failed: ' + msg)
     } finally {
       setIsSaving(false)
     }
