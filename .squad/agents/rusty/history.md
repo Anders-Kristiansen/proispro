@@ -8,6 +8,11 @@
 
 ## Learnings
 
+### 2026-05-19 — Disc modal overflow + swatch alias fixes
+
+- The disc-name autocomplete inside the modal must render with `position: fixed` from the input's viewport rect, otherwise the modal card's `overflowY: auto` clips it.
+- Shared color helpers like `colorSlug()` need matching `--disc-*` aliases in `styles.css` when UI labels use simple names such as Red, Blue, Teal, or Yellow-Green.
+
 ### 2026-05-16 — MVP Build Sprint: 4 Frontend Features (FR-2, FR-3a, FR-4)
 
 **Session:** 2026-05-16T194500Z-mvp-build-session  

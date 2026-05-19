@@ -1390,6 +1390,71 @@ Closes #55, #52
 
 ---
 
+## Decision: Disc Modal Overflow + Swatch Alias Fixes
+**By:** Rusty (Frontend Dev)  
+**Date:** 2026-05-19  
+**Status:** Proposed
+
+- Render the disc-name autocomplete dropdown with `position: fixed` using the input's viewport rect instead of anchoring it absolutely inside the scrolling modal card.
+- Maintain simple `--disc-*` CSS aliases for UI labels that are normalized by `colorSlug()`.
+
+**Why**
+- The modal card uses `overflowY: auto`, so absolutely positioned suggestion menus get clipped.
+- The frontend uses simple color names like `Red`, `Blue`, and `Teal`, while the core palette currently exposes more specific token names such as `--disc-crimson` and `--disc-electric-blue`.
+
+**Implementation notes**
+- Close the suggestion menu on scroll capture to avoid stale viewport coordinates.
+- Keep the existing input wrapper for outside-click detection; only the positioning strategy changes.
+- Add the missing simple-name disc color variables in `styles.css` so swatches resolve without falling back to transparent.
+
+---
+
+## Decision: Rusty — Disc Modal Autocomplete Behavior
+**Status:** Proposed
+
+In `src/components/DiscModal.tsx`, the DiscIt-powered autocomplete should autofill manufacturer, type, and flight numbers only when the modal is in **Add Disc** mode. In **Edit Disc** mode, the same suggestions remain available for name lookup, but selecting one updates only the name so existing bag-specific metadata is not overwritten.
+
+**Why**
+- The modal edits owned discs, so catalog data is helpful as a starting point but should not silently replace user-tuned values.
+- Add mode benefits from fast population of known catalog specs.
+- Edit mode stays safe for discs with manual corrections, wear-based changes, or custom manufacturer/type fields.
+
+**Implementation notes**
+- Catalog source: DiscIt API with shared in-memory cache + 24h `localStorage` cache.
+- UI pattern: custom combobox with click-outside close and keyboard navigation.
+
+---
+
+## Decision: React + Vite + TypeScript Scaffold
+**Date:** 2026-05-16  
+**Submitted by:** Rusty (Frontend Dev)  
+**Context:** Anders requested migration from Alpine.js (CDN, no build) to React + Vite + TypeScript
+
+Scaffolded the React migration foundation with the following structure:
+
+### Package Structure
+```json
+{
+  "name": "proispro",
+  "version": "2.0.0",
+  "type": "module"
+}
+```
+
+### Dependencies Added
+- **React ecosystem:** `react@18.3.1`, `react-dom@18.3.1`, `react-router-dom@6.28.0`
+- **Supabase:** `@supabase/supabase-js@2.48.0`
+- **Charts:** `recharts@2.15.0`
+- **Build tools:** `vite@6.0.7`, `typescript@5.7.2`, `@vitejs/plugin-react@4.3.4`
+- **Type definitions:** `@types/react`, `@types/react-dom`, `@types/node`
+
+### Build Verification
+- ✅ `npm install` — 124 packages, 0 vulnerabilities
+- ✅ `npm run build` — Clean TypeScript + Vite build (1.02s)
+- ✅ Output: `dist/` with bundled assets (160KB JS gzipped to 52KB)
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
