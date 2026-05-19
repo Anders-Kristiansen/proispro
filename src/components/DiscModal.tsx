@@ -62,7 +62,9 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
   const { catalog, isLoading: isCatalogLoading } = useDiscCatalog()
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [activeSuggestion, setActiveSuggestion] = useState(-1)
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const nameFieldRef = useRef<HTMLDivElement | null>(null)
+  const nameInputRef = useRef<HTMLInputElement | null>(null)
 
   const suggestions = useMemo(() => {
     const query = form.name.trim().toLowerCase()
@@ -73,7 +75,20 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
       .slice(0, NAME_SUGGESTION_LIMIT)
   }, [catalog, form.name])
 
-  const shouldShowSuggestionMenu = showSuggestions && (isCatalogLoading || suggestions.length > 0)
+  const shouldShowSuggestionMenu = showSuggestions && dropdownPos !== null && (isCatalogLoading || suggestions.length > 0)
+
+  const updateDropdownPos = () => {
+    if (nameInputRef.current) {
+      const rect = nameInputRef.current.getBoundingClientRect()
+      setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    }
+  }
+
+  const closeSuggestions = () => {
+    setShowSuggestions(false)
+    setActiveSuggestion(-1)
+    setDropdownPos(null)
+  }
 
   useEffect(() => {
     if (disc) {
@@ -103,8 +118,7 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
   useEffect(() => {
     const handleDocumentClick = (event: MouseEvent) => {
       if (nameFieldRef.current && !nameFieldRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false)
-        setActiveSuggestion(-1)
+        closeSuggestions()
       }
     }
 
@@ -113,6 +127,17 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
       document.removeEventListener('click', handleDocumentClick)
     }
   }, [])
+
+  useEffect(() => {
+    if (!showSuggestions) return
+
+    const close = () => {
+      closeSuggestions()
+    }
+
+    window.addEventListener('scroll', close, true)
+    return () => window.removeEventListener('scroll', close, true)
+  }, [showSuggestions])
 
   const selectSuggestion = (selectedDisc: CatalogDisc) => {
     if (disc) {
@@ -130,20 +155,36 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
       }))
     }
 
-    setShowSuggestions(false)
-    setActiveSuggestion(-1)
+    closeSuggestions()
   }
 
   const handleNameChange = (value: string) => {
+    const shouldOpen = value.trim().length > 0
+
     setForm(prev => ({ ...prev, name: value }))
-    setShowSuggestions(value.trim().length > 0)
     setActiveSuggestion(-1)
+
+    if (shouldOpen) {
+      updateDropdownPos()
+      setShowSuggestions(true)
+      return
+    }
+
+    closeSuggestions()
+  }
+
+  const handleNameFocus = () => {
+    if (form.name.trim().length > 0) {
+      updateDropdownPos()
+      setShowSuggestions(true)
+    }
   }
 
   const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       if (suggestions.length === 0) return
       e.preventDefault()
+      updateDropdownPos()
       setShowSuggestions(true)
       setActiveSuggestion(prev => (prev < suggestions.length - 1 ? prev + 1 : 0))
       return
@@ -152,6 +193,7 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
     if (e.key === 'ArrowUp') {
       if (suggestions.length === 0) return
       e.preventDefault()
+      updateDropdownPos()
       setShowSuggestions(true)
       setActiveSuggestion(prev => (prev > 0 ? prev - 1 : suggestions.length - 1))
       return
@@ -164,8 +206,7 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
     }
 
     if (e.key === 'Escape') {
-      setShowSuggestions(false)
-      setActiveSuggestion(-1)
+      closeSuggestions()
     }
   }
 
@@ -235,15 +276,16 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Name */}
-          <div ref={nameFieldRef} style={{ position: 'relative' }}>
+          <div ref={nameFieldRef}>
             <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.3rem', color: 'var(--clr-text)' }}>
               Disc Name <span style={{ color: 'var(--clr-danger)' }}>*</span>
             </label>
             <input
+              ref={nameInputRef}
               type="text"
               value={form.name}
               onChange={e => handleNameChange(e.target.value)}
-              onFocus={() => setShowSuggestions(form.name.trim().length > 0)}
+              onFocus={handleNameFocus}
               onKeyDown={handleNameKeyDown}
               autoComplete="off"
               role="combobox"
@@ -269,11 +311,11 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
                 id={NAME_SUGGESTIONS_ID}
                 role="listbox"
                 style={{
-                  position: 'absolute',
-                  top: 'calc(100% + 0.25rem)',
-                  left: 0,
-                  width: '100%',
-                  zIndex: 100,
+                  position: 'fixed',
+                  top: dropdownPos?.top ?? 0,
+                  left: dropdownPos?.left ?? 0,
+                  width: dropdownPos?.width ?? 0,
+                  zIndex: 1100,
                   maxHeight: '240px',
                   overflowY: 'auto',
                   background: 'var(--clr-surface)',

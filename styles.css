@@ -61,6 +61,17 @@
   --disc-iris:          oklch(0.74 0.22 278);  /* ≈ #9578ff — Iris          */
   --disc-hot-plum:      oklch(0.72 0.26 308);  /* ≈ #cc44cc — Hot Plum      */
   --disc-hot-pink:      oklch(0.76 0.24 340);  /* ≈ #f462a4 — Hot Pink      */
+  --disc-red:           oklch(0.62 0.26  25);  /* vivid red                 */
+  --disc-orange:        oklch(0.72 0.22  48);  /* tangerine-ish             */
+  --disc-yellow:        oklch(0.85 0.18  98);  /* bright yellow             */
+  --disc-green:         oklch(0.72 0.22 145);  /* green                     */
+  --disc-blue:          oklch(0.65 0.20 230);  /* blue                      */
+  --disc-purple:        oklch(0.68 0.22 280);  /* purple                    */
+  --disc-pink:          oklch(0.76 0.24 340);  /* hot pink                  */
+  --disc-white:         oklch(0.96 0.01 260);  /* near white                */
+  --disc-black:         oklch(0.28 0.02 260);  /* near black                */
+  --disc-yellow-green:  oklch(0.80 0.22 128);  /* yellow-green              */
+  --disc-teal:          oklch(0.72 0.18 196);  /* teal                      */
 
   /*
    * Type badge colors — perceptually uniform
