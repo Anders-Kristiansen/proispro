@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CatalogDisc, useDiscCatalog } from '../hooks/useDiscCatalog'
 import { ClientDisc, colorSlug } from '../utils/disc'
 
 interface DiscModalProps {
@@ -36,6 +37,9 @@ const COLOR_SWATCHES = [
   'Crimson',
 ]
 
+const NAME_SUGGESTION_LIMIT = 8
+const NAME_SUGGESTIONS_ID = 'disc-name-suggestions'
+
 export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
   const [form, setForm] = useState({
     name: '',
@@ -55,6 +59,21 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
   })
   const [tagInput, setTagInput] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const { catalog, isLoading: isCatalogLoading } = useDiscCatalog()
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [activeSuggestion, setActiveSuggestion] = useState(-1)
+  const nameFieldRef = useRef<HTMLDivElement | null>(null)
+
+  const suggestions = useMemo(() => {
+    const query = form.name.trim().toLowerCase()
+    if (!query) return []
+
+    return catalog
+      .filter(item => item.name.toLowerCase().includes(query))
+      .slice(0, NAME_SUGGESTION_LIMIT)
+  }, [catalog, form.name])
+
+  const shouldShowSuggestionMenu = showSuggestions && (isCatalogLoading || suggestions.length > 0)
 
   useEffect(() => {
     if (disc) {
@@ -76,6 +95,79 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
       })
     }
   }, [disc])
+
+  useEffect(() => {
+    setActiveSuggestion(-1)
+  }, [form.name, suggestions.length])
+
+  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (nameFieldRef.current && !nameFieldRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false)
+        setActiveSuggestion(-1)
+      }
+    }
+
+    document.addEventListener('click', handleDocumentClick)
+    return () => {
+      document.removeEventListener('click', handleDocumentClick)
+    }
+  }, [])
+
+  const selectSuggestion = (selectedDisc: CatalogDisc) => {
+    if (disc) {
+      setForm(prev => ({ ...prev, name: selectedDisc.name }))
+    } else {
+      setForm(prev => ({
+        ...prev,
+        name: selectedDisc.name,
+        manufacturer: selectedDisc.brand,
+        type: selectedDisc.type,
+        speed: selectedDisc.speed,
+        glide: selectedDisc.glide,
+        turn: selectedDisc.turn,
+        fade: selectedDisc.fade,
+      }))
+    }
+
+    setShowSuggestions(false)
+    setActiveSuggestion(-1)
+  }
+
+  const handleNameChange = (value: string) => {
+    setForm(prev => ({ ...prev, name: value }))
+    setShowSuggestions(value.trim().length > 0)
+    setActiveSuggestion(-1)
+  }
+
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      if (suggestions.length === 0) return
+      e.preventDefault()
+      setShowSuggestions(true)
+      setActiveSuggestion(prev => (prev < suggestions.length - 1 ? prev + 1 : 0))
+      return
+    }
+
+    if (e.key === 'ArrowUp') {
+      if (suggestions.length === 0) return
+      e.preventDefault()
+      setShowSuggestions(true)
+      setActiveSuggestion(prev => (prev > 0 ? prev - 1 : suggestions.length - 1))
+      return
+    }
+
+    if (e.key === 'Enter' && showSuggestions && activeSuggestion >= 0 && suggestions[activeSuggestion]) {
+      e.preventDefault()
+      selectSuggestion(suggestions[activeSuggestion])
+      return
+    }
+
+    if (e.key === 'Escape') {
+      setShowSuggestions(false)
+      setActiveSuggestion(-1)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -143,14 +235,24 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Name */}
-          <div>
+          <div ref={nameFieldRef} style={{ position: 'relative' }}>
             <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.3rem', color: 'var(--clr-text)' }}>
               Disc Name <span style={{ color: 'var(--clr-danger)' }}>*</span>
             </label>
             <input
               type="text"
               value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
+              onChange={e => handleNameChange(e.target.value)}
+              onFocus={() => setShowSuggestions(form.name.trim().length > 0)}
+              onKeyDown={handleNameKeyDown}
+              autoComplete="off"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={shouldShowSuggestionMenu}
+              aria-controls={NAME_SUGGESTIONS_ID}
+              aria-activedescendant={
+                activeSuggestion >= 0 ? `${NAME_SUGGESTIONS_ID}-${activeSuggestion}` : undefined
+              }
               required
               style={{
                 width: '100%',
@@ -162,6 +264,63 @@ export function DiscModal({ disc, onSave, onClose }: DiscModalProps) {
                 fontSize: '0.9rem',
               }}
             />
+            {shouldShowSuggestionMenu && (
+              <div
+                id={NAME_SUGGESTIONS_ID}
+                role="listbox"
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 0.25rem)',
+                  left: 0,
+                  width: '100%',
+                  zIndex: 100,
+                  maxHeight: '240px',
+                  overflowY: 'auto',
+                  background: 'var(--clr-surface)',
+                  border: '1px solid var(--clr-border)',
+                  borderRadius: '6px',
+                  boxShadow: '0 12px 24px rgba(0, 0, 0, 0.22)',
+                }}
+              >
+                {isCatalogLoading ? (
+                  <div
+                    style={{
+                      padding: '0.65rem 0.75rem',
+                      color: 'var(--clr-muted)',
+                      fontSize: '0.85rem',
+                    }}
+                  >
+                    Loading catalog…
+                  </div>
+                ) : (
+                  suggestions.map((suggestion, index) => {
+                    const isActive = index === activeSuggestion
+                    return (
+                      <div
+                        key={suggestion.id || `${suggestion.brand}-${suggestion.name}-${index}`}
+                        id={`${NAME_SUGGESTIONS_ID}-${index}`}
+                        role="option"
+                        aria-selected={isActive}
+                        onMouseEnter={() => setActiveSuggestion(index)}
+                        onMouseDown={e => {
+                          e.preventDefault()
+                          selectSuggestion(suggestion)
+                        }}
+                        style={{
+                          padding: '0.65rem 0.75rem',
+                          background: isActive ? 'var(--clr-surface2)' : 'var(--clr-surface)',
+                          borderLeft: isActive ? '2px solid var(--clr-accent)' : '2px solid transparent',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div style={{ fontWeight: 600, color: 'var(--clr-text)' }}>{suggestion.name}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--clr-muted)' }}>{suggestion.brand}</div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
           </div>
 
           {/* Manufacturer */}

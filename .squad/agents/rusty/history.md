@@ -1034,3 +1034,9 @@ px supabase gen types typescript later for full types)
 
 **Status:** Complete ✅ — Phase 6 shipped. Analytics dashboard live in Analytics tab.
 
+### 2026-05-19 — Disc modal catalog autocomplete
+
+- Added `useDiscCatalog()` as a React hook with shared in-memory state plus 24-hour `localStorage` caching (`proispro_disc_catalog`) so multiple modal mounts reuse the DiscIt catalog without repeat fetches.
+- Built the Disc Name field as a custom combobox in `DiscModal.tsx`: name-only filtering, 8-result cap, keyboard navigation (↑/↓/Enter/Escape), click-outside dismissal, and muted loading state.
+- Kept autofill explicit and safe: selecting a suggestion in Add Disc fills manufacturer, type, and flight numbers; editing keeps autocomplete suggestions but does not overwrite existing stats.
+
