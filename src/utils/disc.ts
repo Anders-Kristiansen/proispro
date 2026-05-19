@@ -60,7 +60,7 @@ export interface DbDiscInsert {
   id: string
   name: string
   manufacturer: string | null
-  disc_type: string | null
+  type: string | null
   plastic: string | null
   weight: number | null
   color: string | null
@@ -86,7 +86,7 @@ export function fromDbDisc(d: Record<string, unknown>): ClientDisc {
     id: String(d.id || ''),
     name: String(d.name || ''),
     manufacturer: String(d.manufacturer || ''),
-    type: String(d.disc_type || ''), // disc_type → type
+    type: String(d.type || ''), // type from DB
     plastic: String(d.plastic || ''),
     weight: d.weight != null ? String(d.weight) : '',
     color: String(d.color || ''),
@@ -109,7 +109,7 @@ export function toDbDisc(disc: ClientDisc): DbDiscInsert {
     id: disc.id,
     name: disc.name,
     manufacturer: disc.manufacturer || null,
-    disc_type: disc.type || null, // type → disc_type
+    type: disc.type || null,
     plastic: disc.plastic || null,
     weight: disc.weight !== '' && disc.weight != null ? parseFloat(disc.weight) : null,
     color: disc.color || null,
