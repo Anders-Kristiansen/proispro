@@ -16,3 +16,4 @@ node_modules/
 dist/
 dist-ssr/
 *.local
+.squad/.cache/
